@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>执行测试脚本 - UI自动化测试平台</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .control-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .status.executing {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.completed {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .steps-container {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        .step-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+        }
+        .step-item:last-child {
+            border-bottom: none;
+        }
+        .step-status {
+            font-weight: bold;
+        }
+        .step-status.success {
+            color: #28a745;
+        }
+        .step-status.error {
+            color: #dc3545;
+        }
+        .step-details {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>执行测试脚本</h1>
+        
+        <div class="control-panel">
+            <div class="form-group">
+                <label for="scriptSelect">选择测试脚本</label>
+                <select id="scriptSelect">
+                    <option value="">请选择一个脚本</option>
+                </select>
+            </div>
+            
+            <div style="text-align: center;">
+                <button id="executeScriptBtn" class="btn btn-success">执行脚本</button>
+                <button id="refreshScriptsBtn" class="btn">刷新脚本列表</button>
+                <a href="/" class="btn btn-secondary">返回首页</a>
+            </div>
+            
+            <div id="statusMessage" class="status hidden">
+                准备就绪
+            </div>
+        </div>
+        
+        <div id="executionResults" class="steps-container hidden">
+            <h3>执行结果</h3>
+            <div id="resultsList"></div>
+        </div>
+        
+        <div class="navigation">
+            <p>上一步: <a href="/record_script" class="btn">录制脚本</a> | 返回: <a href="/" class="btn">首页</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // 加载脚本列表
+        async function loadScripts() {
+            try {
+                const response = await fetch('/api/scripts');
+                const data = await response.json();
+                
+                const scriptSelect = document.getElementById('scriptSelect');
+                scriptSelect.innerHTML = '<option value="">请选择一个脚本</option>';
+                
+                if (data.scripts && data.scripts.length > 0) {
+                    for (const script of data.scripts) {
+                        const option = document.createElement('option');
+                        option.value = script.id;
+                        option.textContent = `${script.name} (${script.steps.length} 步骤)`;
+                        scriptSelect.appendChild(option);
+                    }
+                }
+            } catch (error) {
+                console.error('加载脚本列表失败:', error);
+            }
+        }
+        
+        function setupEventListeners() {
+            const refreshBtn = document.getElementById('refreshScriptsBtn');
+            const executeBtn = document.getElementById('executeScriptBtn');
+            
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', loadScripts);
+            }
+            
+            if (executeBtn) {
+                executeBtn.addEventListener('click', async function() {
+                    const scriptSelect = document.getElementById('scriptSelect');
+                    if (!scriptSelect) return;
+                    
+                    const scriptId = scriptSelect.value;
+                    if (!scriptId) {
+                        alert('请选择一个脚本');
+                        return;
+                    }
+                    
+                    try {
+                        const statusEl = document.getElementById('statusMessage');
+                        if (statusEl) {
+                            statusEl.textContent = '正在执行脚本...';
+                            statusEl.className = 'status executing';
+                            statusEl.classList.remove('hidden');
+                        }
+                        
+                        const executionResultsEl = document.getElementById('executionResults');
+                        if (executionResultsEl) {
+                            executionResultsEl.classList.remove('hidden');
+                        }
+                        
+                        // 执行脚本
+                        const response = await fetch('/api/execute_script', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                script_id: parseInt(scriptId)
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (statusEl) {
+                            if (data.success) {
+                                statusEl.textContent = `脚本执行完成，${data.results.filter(r => r.status === 'success').length} 个步骤成功，${data.results.filter(r => r.status === 'error').length} 个步骤失败`;
+                                statusEl.className = 'status completed';
+                                
+                                renderResults(data.results);
+                            } else {
+                                statusEl.textContent = '脚本执行失败: ' + data.error;
+                                statusEl.className = 'status error';
+                            }
+                        }
+                    } catch (error) {
+                        const statusEl = document.getElementById('statusMessage');
+                        if (statusEl) {
+                            statusEl.textContent = '执行脚本时发生错误: ' + error.message;
+                            statusEl.className = 'status error';
+                        }
+                    }
+                });
+            }
+        }
+        
+        function renderResults(results) {
+            const resultsList = document.getElementById('resultsList');
+            resultsList.innerHTML = '';
+            
+            results.forEach((result, index) => {
+                const resultEl = document.createElement('div');
+                resultEl.className = 'step-item';
+                
+                const step = result.step;
+                let stepDesc = '';
+                switch(step.action) {
+                    case 'navigate':
+                        stepDesc = `导航到: ${step.url}`;
+                        break;
+                    case 'click':
+                        stepDesc = `点击元素: ${step.selector}`;
+                        break;
+                    case 'fill':
+                        stepDesc = `填充输入框 "${step.selector}" 为 "${step.text}"`;
+                        break;
+                    case 'scroll':
+                        // 处理新的滚动格式
+                        if (step.scrollDirection) {
+                            const directionText = step.scrollDirection.y === 'down' ? '向下' : 
+                                                 step.scrollDirection.y === 'up' ? '向上' : 
+                                                 step.scrollDirection.x === 'right' ? '向右' : 
+                                                 step.scrollDirection.x === 'left' ? '向左' : '';
+                            const distance = step.scrollDistance.y || step.scrollDistance.x || 0;
+                            stepDesc = `滚动页面 ${directionText} ${distance}px`;
+                        } else {
+                            // 兼容旧格式
+                            stepDesc = `滚动页面 ${step.direction}`;
+                            if (step.direction === 'down' || step.direction === 'up') {
+                                stepDesc += ` ${step.pixels}px`;
+                            }
+                        }
+                        break;
+                    case 'hover':
+                        stepDesc = `悬停在元素: ${step.selector}`;
+                        break;
+                    case 'double_click':
+                        stepDesc = `双击元素: ${step.selector}`;
+                        break;
+                    case 'right_click':
+                        stepDesc = `右键点击元素: ${step.selector}`;
+                        break;
+                    case 'wait':
+                        stepDesc = `等待 ${step.time} 毫秒`;
+                        break;
+                    case 'wait_for_selector':
+                        stepDesc = `等待元素出现: ${step.selector} (超时: ${step.timeout}ms)`;
+                        break;
+                    case 'wait_for_element_visible':
+                        stepDesc = `等待元素可见: ${step.selector} (超时: ${step.timeout}ms)`;
+                        break;
+                    case 'screenshot':
+                        stepDesc = `获取页面截图`;
+                        break;
+                    default:
+                        stepDesc = `${step.action}: ${JSON.stringify(step)}`;
+                }
+                
+                const statusClass = result.status === 'success' ? 'success' : 'error';
+                const statusText = result.status === 'success' ? '成功' : '失败';
+                
+                resultEl.innerHTML = `
+                    <div>
+                        <span class="step-index">${index + 1}.</span>
+                        <span class="step-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="step-details">${stepDesc}</div>
+                    ${result.error ? `<div class="step-error" style="color: #dc3545;">错误: ${result.error}</div>` : ''}
+                `;
+                
+                resultsList.appendChild(resultEl);
+            });
+        }
+        
+        // 页面加载时获取脚本列表和设置事件监听器
+        window.onload = function() {
+            loadScripts();
+            setupEventListeners();
+        };
+    </script>
+</body>
+</html>

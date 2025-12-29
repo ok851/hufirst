@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建测试脚本 - UI自动化测试平台</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .script-list {
+            margin-top: 30px;
+        }
+        .script-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .no-cases-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>创建测试脚本</h1>
+        
+        <div id="noCasesMessage" class="no-cases-message" style="display: none;">
+            <p>您还没有创建任何测试用例。请先创建一个测试用例，然后才能创建测试脚本。</p>
+            <a href="/create_case" class="btn">创建测试用例</a>
+        </div>
+        
+        <div id="createForm" style="display: none;">
+            <form id="scriptForm">
+                <div class="form-group">
+                    <label for="testCaseSelect">关联的测试用例</label>
+                    <select id="testCaseSelect" required>
+                        <option value="">请选择一个测试用例</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="scriptName">脚本名称</label>
+                    <input type="text" id="scriptName" name="scriptName" placeholder="请输入脚本名称" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="scriptDescription">脚本描述</label>
+                    <textarea id="scriptDescription" name="scriptDescription" placeholder="请输入脚本描述..."></textarea>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button type="submit" class="btn">创建脚本</button>
+                    <a href="/create_case" class="btn btn-secondary">返回测试用例</a>
+                    <a href="/record_script" class="btn btn-secondary">录制脚本</a>
+                </div>
+            </form>
+        </div>
+        
+        <div id="existingScripts" class="script-list">
+            <h2>已保存的测试脚本</h2>
+            <div id="scriptsList"></div>
+        </div>
+        
+        <div class="navigation">
+            <p>下一步: <a href="/record_script" class="btn">录制测试脚本</a> | <a href="/playback_script" class="btn">执行脚本</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // 检查是否存在测试用例
+        async function checkTestCases() {
+            try {
+                const response = await fetch('/api/has_test_cases');
+                const data = await response.json();
+                
+                if (data.success && !data.has_cases) {
+                    // 没有测试用例，显示提示信息
+                    document.getElementById('noCasesMessage').style.display = 'block';
+                    document.getElementById('createForm').style.display = 'none';
+                } else {
+                    // 有测试用例，显示表单
+                    document.getElementById('noCasesMessage').style.display = 'none';
+                    document.getElementById('createForm').style.display = 'block';
+                    await loadTestCases();
+                }
+            } catch (error) {
+                console.error('检查测试用例失败:', error);
+                alert('检查测试用例失败: ' + error.message);
+            }
+        }
+        
+        // 加载测试用例列表
+        async function loadTestCases() {
+            try {
+                const response = await fetch('/api/test_cases');
+                const data = await response.json();
+                
+                const testCaseSelect = document.getElementById('testCaseSelect');
+                testCaseSelect.innerHTML = '<option value="">请选择一个测试用例</option>';
+                
+                if (data.cases && data.cases.length > 0) {
+                    data.cases.forEach(testCase => {
+                        const option = document.createElement('option');
+                        option.value = testCase.id;
+                        option.textContent = testCase.name;
+                        testCaseSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载测试用例失败:', error);
+                alert('加载测试用例失败: ' + error.message);
+            }
+        }
+        
+        // 加载已保存的测试脚本
+        async function loadTestScripts() {
+            try {
+                const response = await fetch('/api/test_cases');
+                const data = await response.json();
+                
+                const scriptsList = document.getElementById('scriptsList');
+                scriptsList.innerHTML = '';
+                
+                if (data.cases && data.cases.length > 0) {
+                    let hasScripts = false;
+                    
+                    for (const testCase of data.cases) {
+                        const scriptsResponse = await fetch(`/api/case/${testCase.id}/scripts`);
+                        const scriptsData = await scriptsResponse.json();
+                        
+                        if (scriptsData.scripts && scriptsData.scripts.length > 0) {
+                            hasScripts = true;
+                            
+                            scriptsData.scripts.forEach(script => {
+                                const scriptDiv = document.createElement('div');
+                                scriptDiv.className = 'script-item';
+                                scriptDiv.innerHTML = `
+                                    <div style="font-weight: bold; color: #333;">${script.name}</div>
+                                    <div>关联用例: ${testCase.name}</div>
+                                    <div>ID: ${script.id}</div>
+                                    <div>创建时间: ${script.created_at}</div>
+                                    <div style="margin-top: 10px;">
+                                        <button onclick="editScript(${script.id}, '${script.name.replace(/'/g, '&#39;')}', '${script.case_id}')" class="btn">编辑</button>
+                                        <button onclick="deleteScript(${script.id})" class="btn btn-secondary" style="margin-left: 5px;">删除</button>
+                                    </div>
+                                `;
+                                scriptsList.appendChild(scriptDiv);
+                            });
+                        }
+                    }
+                    
+                    if (!hasScripts) {
+                        scriptsList.innerHTML = '<p>暂无测试脚本，请先创建一个测试脚本</p>';
+                    }
+                } else {
+                    scriptsList.innerHTML = '<p>暂无测试用例，因此也没有测试脚本</p>';
+                }
+            } catch (error) {
+                console.error('加载测试脚本失败:', error);
+                document.getElementById('scriptsList').innerHTML = '<p>加载测试脚本失败</p>';
+            }
+        }
+        
+        // 创建测试脚本
+        function setupFormSubmit() {
+            const scriptForm = document.getElementById('scriptForm');
+            if (scriptForm) {
+                scriptForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const testCaseId = document.getElementById('testCaseSelect').value;
+                    const scriptName = document.getElementById('scriptName').value;
+                    const scriptDescription = document.getElementById('scriptDescription').value;
+                    
+                    if (!testCaseId) {
+                        alert('请选择一个测试用例');
+                        return;
+                    }
+                    
+                    if (!scriptName) {
+                        alert('请输入脚本名称');
+                        return;
+                    }
+                    
+                    // 向后端发送请求创建测试脚本
+                    fetch('/api/create_script', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            case_id: parseInt(testCaseId),
+                            name: scriptName,
+                            description: scriptDescription
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('测试脚本创建成功！脚本ID: ' + data.script_id);
+                            // 重置表单
+                            scriptForm.reset();
+                            // 重新加载脚本列表
+                            loadTestScripts();
+                        } else {
+                            alert('创建失败: ' + (data.error || '未知错误'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('创建测试脚本时发生错误: ' + error.message);
+                    });
+                });
+            }
+        }
+        
+        // 编辑脚本
+        async function editScript(scriptId, name, caseId) {
+            const newName = prompt('请输入新的脚本名称:', name);
+            if (newName === null) return; // 用户取消
+            
+            if (!newName.trim()) {
+                alert('脚本名称不能为空');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/script/${scriptId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: newName,
+                        case_id: parseInt(caseId)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('脚本更新成功！');
+                    loadTestScripts(); // 重新加载脚本列表
+                } else {
+                    alert('更新失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('更新脚本时发生错误: ' + error.message);
+            }
+        }
+        
+        // 删除脚本
+        async function deleteScript(scriptId) {
+            if (confirm('确定要删除这个测试脚本吗？')) {
+                try {
+                    const response = await fetch(`/api/script/${scriptId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('测试脚本删除成功！');
+                        loadTestScripts(); // 重新加载脚本列表
+                    } else {
+                        alert('删除失败: ' + (data.error || '未知错误'));
+                    }
+                } catch (error) {
+                    alert('删除测试脚本时发生错误: ' + error.message);
+                }
+            }
+        }
+        
+        // 页面加载完成后检查测试用例并加载脚本列表
+        document.addEventListener('DOMContentLoaded', function() {
+            checkTestCases();
+            loadTestScripts();
+            setupFormSubmit();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试脚本列表 - UI自动化测试平台</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .script-item {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .script-actions {
+            margin-top: 10px;
+        }
+        .step-count {
+            font-weight: bold;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>测试脚本列表</h1>
+        
+        <div id="scriptsList">
+            <p>正在加载测试脚本...</p>
+        </div>
+        
+        <div class="navigation">
+            <a href="/" class="btn btn-secondary">返回首页</a>
+            <a href="/list_cases" class="btn">查看测试用例</a>
+        </div>
+    </div>
+
+    <script>
+        // 加载测试脚本列表
+        async function loadTestScripts() {
+            try {
+                const response = await fetch('/api/scripts');
+                const data = await response.json();
+                
+                const scriptsList = document.getElementById('scriptsList');
+                
+                if (data.scripts && data.scripts.length > 0) {
+                    scriptsList.innerHTML = '';
+                    
+                    // 使用for...of循环处理异步操作
+                    for (const script of data.scripts) {
+                        const scriptDiv = document.createElement('div');
+                        scriptDiv.className = 'script-item';
+                        
+                        // 获取测试用例信息
+                        let caseName = '未知用例';
+                        if (script.case_id) {
+                            try {
+                                const caseInfo = await getTestCaseInfo(script.case_id);
+                                if (caseInfo) {
+                                    caseName = caseInfo.name;
+                                }
+                            } catch (error) {
+                                console.error('获取测试用例信息失败:', error);
+                            }
+                        }
+
+                        
+                        scriptDiv.innerHTML = `
+                            <div style="font-weight: bold; color: #333; font-size: 18px;">${script.name}</div>
+                            <div>ID: ${script.id}</div>
+                            <div>关联测试用例: ${caseName}</div>
+                            <div>步骤数量: <span class="step-count">${script.steps.length}</span></div>
+                            <div>创建时间: ${script.created_at}</div>
+                            <div class="script-actions">
+                                <button onclick="viewScriptSteps(${script.id})" class="btn">查看步骤</button>
+                                <button onclick="playbackScript(${script.id})" class="btn btn-success" style="margin-left: 5px;">执行脚本</button>
+                                <button onclick="deleteScript(${script.id})" class="btn btn-danger" style="margin-left: 5px;">删除</button>
+                            </div>
+                        `;
+                        
+                        scriptsList.appendChild(scriptDiv);
+                    }
+                } else {
+                    scriptsList.innerHTML = '<p>暂无测试脚本，请先创建并录制一个脚本</p>';
+                }
+            } catch (error) {
+                console.error('加载测试脚本失败:', error);
+                document.getElementById('scriptsList').innerHTML = '<p>加载测试脚本失败</p>';
+            }
+        }
+        
+        // 获取测试用例信息
+        async function getTestCaseInfo(caseId) {
+            try {
+                const response = await fetch(`/api/test_case/${caseId}`);
+                const data = await response.json();
+                return data.test_case;
+            } catch (error) {
+                console.error('获取测试用例信息失败:', error);
+                return null;
+            }
+        }
+        
+        // 页面加载完成后加载测试脚本
+        document.addEventListener('DOMContentLoaded', loadTestScripts);
+        
+        // 查看脚本步骤
+        async function viewScriptSteps(scriptId) {
+            try {
+                const response = await fetch(`/api/script/${scriptId}`);
+                const data = await response.json();
+                
+                if (data.script) {
+                    const script = data.script;
+                    
+                    // 创建查看步骤的模态框
+                    const modalHtml = `
+                        <div id="viewStepsModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                            <div style="background: white; padding: 20px; border-radius: 8px; width: 800px; max-width: 90%; max-height: 80vh; overflow-y: auto;">
+                                <h3>脚本步骤详情 - ${script.name}</h3>
+                                <div style="margin-bottom: 20px;">
+                                    <strong>脚本ID:</strong> ${script.id}<br>
+                                    <strong>关联测试用例ID:</strong> ${script.case_id}<br>
+                                    <strong>创建时间:</strong> ${script.created_at}<br>
+                                    <strong>步骤数量:</strong> ${script.steps.length}
+                                </div>
+                                <h4>步骤列表:</h4>
+                                <div id="stepsList" style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; background-color: #f5f5f5;">
+                                    ${script.steps.map((step, index) => `
+                                        <div style="padding: 10px; border-bottom: 1px solid #ddd;">
+                                            <strong>步骤 ${index + 1}:</strong> ${getStepDescription(step)}<br>
+                                            <small>${JSON.stringify(step)}</small>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <div style="text-align: center; margin-top: 20px;">
+                                    <button id="closeStepsModal" class="btn btn-secondary">关闭</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    document.getElementById('closeStepsModal').addEventListener('click', function() {
+                        document.getElementById('viewStepsModal').remove();
+                    });
+                } else {
+                    alert('获取脚本信息失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('查看脚本步骤时发生错误: ' + error.message);
+            }
+        }
+        
+        // 获取步骤描述
+        function getStepDescription(step) {
+            switch(step.action) {
+                case 'navigate':
+                    return `导航到: ${step.url}`;
+                case 'click':
+                    return `点击元素: ${step.selector}`;
+                case 'fill':
+                    return `填充输入框 "${step.selector}" 为 "${step.text}"`;
+                case 'scroll':
+                    // 处理自动滚动和手动滚动两种格式
+                    if (step.scrollDirection) {
+                        // 自动滚动格式
+                        const directionText = step.scrollDirection.y === 'down' ? '向下' : 
+                                             step.scrollDirection.y === 'up' ? '向上' : 
+                                             step.scrollDirection.x === 'right' ? '向右' : 
+                                             step.scrollDirection.x === 'left' ? '向左' : '';
+                        const distance = step.scrollDistance.y || step.scrollDistance.x || 0;
+                        return `滚动页面 ${directionText} ${distance}px`;
+                    } else {
+                        // 手动滚动格式
+                        return `滚动页面 ${step.direction || ''} ${step.pixels || ''}px`;
+                    }
+                case 'hover':
+                    return `悬停在元素: ${step.selector}`;
+                case 'double_click':
+                    return `双击元素: ${step.selector}`;
+                case 'right_click':
+                    return `右键点击元素: ${step.selector}`;
+                case 'submit':
+                    return `提交表单: ${step.selector}`;
+                default:
+                    return `执行操作: ${step.action}`;
+            }
+        }
+        
+        // 执行脚本
+        async function playbackScript(scriptId) {
+            try {
+                // 存储当前脚本ID到sessionStorage，以便在播放页面使用
+                sessionStorage.setItem('currentScriptId', scriptId);
+                
+                // 跳转到播放页面
+                window.location.href = '/playback_script';
+            } catch (error) {
+                alert('跳转执行页面时发生错误: ' + error.message);
+            }
+        }
+        
+        // 删除测试脚本
+        async function deleteScript(scriptId) {
+            if (confirm('确定要删除这个测试脚本吗？')) {
+                try {
+                    const response = await fetch(`/api/script/${scriptId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('测试脚本删除成功！');
+                        loadTestScripts(); // 重新加载测试脚本列表
+                    } else {
+                        alert('删除失败: ' + (data.error || '未知错误'));
+                    }
+                } catch (error) {
+                    alert('删除测试脚本时发生错误: ' + error.message);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
