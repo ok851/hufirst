@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 import json
 import time
 from logger import uat_logger
+import ctypes  # 用于调用Windows API获取真实屏幕尺寸
 
 class PlaywrightAutomation:
     def __init__(self):
@@ -22,25 +23,70 @@ class PlaywrightAutomation:
         try:
             if self.browser is None:
                 uat_logger.info(f"启动浏览器，headless={headless}")
+                
+                # 1. 使用Windows API直接获取真实的屏幕尺寸（不依赖浏览器）
                 self.playwright = await async_playwright().start()
-                self.browser = await self.playwright.chromium.launch(headless=headless)
-                # 设置初始窗口大小为1920x1080
-                self.context = await self.browser.new_context(viewport={'width': 1920, 'height': 1080})
+                
+                # 调用Windows API获取真实屏幕尺寸
+                user32 = ctypes.windll.user32
+                # 获取主显示器的屏幕尺寸
+                screen_width = user32.GetSystemMetrics(0)  # SM_CXSCREEN
+                screen_height = user32.GetSystemMetrics(1)  # SM_CYSCREEN
+                
+                # 获取可用工作区尺寸（减去任务栏等）
+                avail_width = user32.GetSystemMetrics(78)  # SM_CXAVAILABLE
+                avail_height = user32.GetSystemMetrics(79)  # SM_CYAVAILABLE
+                
+                screen_size = {"width": screen_width, "height": screen_height}
+                avail_screen_size = {"width": avail_width, "height": avail_height}
+                
+                uat_logger.info(f"Windows API获取的屏幕尺寸: {screen_size['width']}x{screen_size['height']}")
+                uat_logger.info(f"Windows API获取的可用工作区尺寸: {avail_screen_size['width']}x{avail_screen_size['height']}")
+                
+                # 2. 使用获取到的可用工作区尺寸启动真正的浏览器实例
+                # 使用可用工作区尺寸可以避免与任务栏等系统UI冲突
+                args = [
+                    '--start-maximized',  # 真正的浏览器最大化
+                    '--no-default-browser-check',
+                    '--no-first-run'
+                ]
+                
+                self.browser = await self.playwright.chromium.launch(
+                    headless=headless,
+                    args=args
+                )
+                
+                # 创建上下文时不强制设置viewport大小，让浏览器自动适应窗口尺寸
+                # 这样可以确保页面渲染和滚动行为与普通浏览器一致
+                self.context = await self.browser.new_context(
+                    ignore_https_errors=True,
+                    no_viewport=True  # 让浏览器自动管理视口大小
+                )
+                
+                # 创建新页面
                 self.page = await self.context.new_page()
                 
-                # 最大化窗口 - 使用Playwright的API
-                await self.page.evaluate("""
-                    () => {
-                        // 先尝试使用现代浏览器的全屏API
-                        if (document.documentElement.requestFullscreen) {
-                            document.documentElement.requestFullscreen();
-                        }
-                        // 然后设置窗口大小为屏幕最大可用尺寸
-                        window.moveTo(0, 0);
-                        window.resizeTo(screen.availWidth, screen.availHeight);
-                        return { width: screen.availWidth, height: screen.availHeight };
-                    }
-                """)
+                # 使用Windows API获取真实屏幕尺寸
+                user32 = ctypes.windll.user32
+                screen_width = user32.GetSystemMetrics(0)  # SM_CXSCREEN
+                screen_height = user32.GetSystemMetrics(1)  # SM_CYSCREEN
+                
+                # 设置浏览器窗口大小为真实屏幕尺寸
+                uat_logger.info(f"将浏览器窗口设置为真实屏幕尺寸: {screen_width}x{screen_height}")
+                await self.page.evaluate(f"window.resizeTo({screen_width}, {screen_height})")
+                await self.page.evaluate("window.moveTo(0, 0)")
+                
+                # 直接获取浏览器窗口的实际尺寸
+                viewport_size = await self.page.evaluate("() => ({ width: window.innerWidth, height: window.innerHeight })")
+                outer_size = await self.page.evaluate("() => ({ width: window.outerWidth, height: window.outerHeight })")
+                screen_size = await self.page.evaluate("() => ({ width: screen.width, height: screen.height })")
+                avail_screen_size = await self.page.evaluate("() => ({ width: screen.availWidth, height: screen.availHeight })")
+                
+                uat_logger.info(f"屏幕总尺寸: {screen_size['width']}x{screen_size['height']}")
+                uat_logger.info(f"屏幕可用尺寸: {avail_screen_size['width']}x{avail_screen_size['height']}")
+                uat_logger.info(f"浏览器窗口内尺寸: {viewport_size['width']}x{viewport_size['height']}")
+                uat_logger.info(f"浏览器窗口外尺寸: {outer_size['width']}x{outer_size['height']}")
+                uat_logger.info(f"浏览器已设置为全屏模式，右上角最大化按钮应不可见")
                 
                 uat_logger.info("浏览器已启动并最大化，设置事件监听器")
                 
@@ -59,133 +105,217 @@ class PlaywrightAutomation:
         """设置页面事件监听器用于录制操作"""
         if self.page:
             # 定义事件监听器JavaScript代码
-            event_listeners_js = """
-                // 初始化事件数组
-                window.automationEvents = window.automationEvents || [];
-                window.automationConfig = {
-                    scrollTimeout: null,
-                    lastScrollPosition: { x: 0, y: 0 },
-                    scrollThreshold: 50, // 只有滚动超过50px才记录
-                    inputDebounce: {},
-                    debounceDelay: 500
-                };
+            event_listeners_js = r"""
+                // 检查是否已经添加了事件监听器，避免重复添加
+                if (!window.eventListenersAdded) {
+                    // 初始化事件数组
+                    window.automationEvents = window.automationEvents || [];
+                    window.automationConfig = {
+                        scrollTimeout: null,
+                        lastScrollPosition: { x: 0, y: 0 },
+                        scrollThreshold: 50, // 只有滚动超过50px才记录
+                        inputDebounce: {},
+                        debounceDelay: 500
+                    };
                 
                 // 生成更精确的CSS选择器
-                function generateSelector(element) {
+                // 递归辅助函数：生成元素的完整路径选择器
+                function generateFullPath(element, maxDepth = 4, currentDepth = 0) {
+                    if (!element || element.tagName === 'HTML' || currentDepth >= maxDepth) {
+                        return [];
+                    }
+                    
+                    let elementSelector = '';
+                    const tagName = element.tagName.toLowerCase();
+                    
+                    // 优先使用ID
                     if (element.id) {
-                        return `#${element.id}`;
+                        return [`#${element.id}`];
                     }
                     
-                    let path = element.tagName.toLowerCase();
-                    
-                    // 优先使用数据属性（最稳定的选择器）
-                    if (element.dataset.testid) {
-                        path += `[data-testid="${element.dataset.testid}"]`;
-                        return path; // 数据属性已经足够唯一，直接返回
-                    } else if (element.dataset.cy) {
-                        path += `[data-cy="${element.dataset.cy}"]`;
-                        return path;
-                    } else if (element.dataset.id) {
-                        path += `[data-id="${element.dataset.id}"]`;
-                        return path;
-                    } else if (element.dataset.name) {
-                        path += `[data-name="${element.dataset.name}"]`;
-                        return path;
-                    }
-                    
-                    // 添加类名（选择有意义的类名，避免随机生成的类名）
-                    if (element.className) {
-                        const classes = element.className.split(' ')
-                            .filter(c => c.length > 0)
-                            .filter(c => !c.match(/^el-|^ant-|^v-|^Mui/)) // 过滤掉框架自动生成的类名
-                            .filter(c => !c.match(/^[a-f0-9]{8}$/i)); // 过滤掉可能是哈希值的类名
-                        
-                        if (classes.length > 0) {
-                            // 选择最有意义的前3个类名
-                            const meaningfulClasses = classes.slice(0, 3);
-                            path += '.' + meaningfulClasses.join('.');
-                        } else {
-                            // 如果没有有意义的类名，使用原始类名
-                            const allClasses = element.className.split(' ').filter(c => c.length > 0);
-                            if (allClasses.length > 0) {
-                                path += '.' + allClasses.join('.');
-                            }
+                    // 优先使用稳定属性 - 扩展更多自动化测试常用属性
+                    const stableAttrs = [
+                        'data-testid', 'data-cy', 'data-test', 'data-qa', 
+                        'data-automation', 'data-selector', 'data-key', 
+                        'data-id', 'data-name', 'data-component', 
+                        'data-module', 'data-section', 'data-field',
+                        'data-action', 'data-target', 'data-type',
+                        'name', 'title', 'role', 'aria-label', 
+                        'aria-labelledby', 'aria-describedby', 'aria-controls'
+                    ];
+                    let hasStableAttr = false;
+                    for (const attr of stableAttrs) {
+                        const value = element.getAttribute(attr);
+                        if (value && value.length > 0 && !value.includes(' ')) {
+                            elementSelector = `${tagName}[${attr}="${value}"]`;
+                            hasStableAttr = true;
+                            break;
                         }
                     }
                     
-                    // 为表单元素添加类型和名称属性
-                    if (path === 'input' || path.startsWith('input.')) {
-                        if (element.type) {
-                            path += `[type="${element.type}"]`;
-                        }
-                        if (element.name && element.name.length > 0) {
-                            path += `[name="${element.name}"]`;
-                        } else if (element.placeholder && element.placeholder.length > 0) {
-                            path += `[placeholder="${element.placeholder}"]`;
-                        }
-                    }
-                    
-                    // 特别处理复选框和单选框，使用更稳定的选择器
-                    if (element.type === 'checkbox' || element.type === 'radio') {
-                        // 检查父元素是否有稳定的标识
-                        let parent = element.parentElement;
-                        if (parent) {
-                            // 如果父元素是label，直接返回label的选择器
-                            if (parent.tagName === 'LABEL') {
-                                return generateSelector(parent);
-                            }
-                            // 对于Element UI的checkbox组件，父元素可能是span
-                            else if (parent.tagName === 'SPAN') {
-                                // 检查span是否有checkbox或radio相关的类名
-                                if (parent.className && (parent.className.includes('checkbox') || parent.className.includes('radio'))) {
-                                    // 直接返回span的选择器，这是实际可点击的元素
-                                    return generateSelector(parent);
-                                }
-                                // 检查span的父元素是否是label
-                                let grandParent = parent.parentElement;
-                                if (grandParent && grandParent.tagName === 'LABEL') {
-                                    return generateSelector(grandParent);
-                                }
-                                // 检查span的父元素是否也包含checkbox/radio类名
-                                if (grandParent && grandParent.tagName === 'SPAN' && grandParent.className && (grandParent.className.includes('checkbox') || grandParent.className.includes('radio'))) {
-                                    return generateSelector(grandParent);
-                                }
-                            }
-                        }
-                        // 如果没有找到合适的父元素，仍然返回当前元素的选择器，但添加类型标识
-                        path += `[type="${element.type}"]`;
-                    }
-                    
-                    // 只有在绝对必要时才使用nth-of-type（作为最后手段）
-                    // 先检查选择器是否已经足够唯一
-                    const elementsWithSameSelector = document.querySelectorAll(path);
-                    if (elementsWithSameSelector.length > 1) {
-                        // 找到父元素
-                        let parent = element.parentElement;
-                        if (parent && parent.tagName !== 'BODY' && parent.tagName !== 'HTML') {
-                            // 生成父元素的选择器
-                            const parentSelector = generateSelector(parent);
-                            // 组合父元素选择器和当前元素选择器
-                            path = `${parentSelector} > ${path}`;
+                    if (!hasStableAttr) {
+                        elementSelector = tagName;
+                        // 处理类名，过滤掉动态类名
+                        if (element.className) {
+                            const allClasses = element.className.split(' ').filter(c => c.length > 2); // 过滤掉太短的类名
+                            const dynamicClassPatterns = [
+                                /^is-\w+$/, /^has-\w+$/, /^\w+-\w+-(leave|enter|active|done)$/, 
+                                /^el-\w+(-\w+)*$/, /^ant-\w+(-\w+)*$/, /^t-[a-zA-Z0-9]{8}$/, 
+                                /^weui-\w+(-\w+)*$/, /^layui-\w+(-\w+)*$/, /^v-\w+$/, 
+                                /^ng-\w+$/, /^vue-\w+$/, /^react-\w+$/, /^svelte-\w+$/, 
+                                /^css-\w+$/, /^scss-\w+$/, /^style-\w+$/, /^component-\w+$/, 
+                                /^theme-\w+$/, /^mode-\w+$/, /^state-\w+$/, /^variant-\w+$/, 
+                                /^hover-\w+$/, /^focus-\w+$/, /^active-\w+$/, /^disabled-\w+$/, 
+                                /^selected-\w+$/, /^checked-\w+$/, /^expanded-\w+$/, /^collapsed-\w+$/, /^open-\w+$/, /^closed-\w+$/, 
+                                /^loading-\w+$/, /^error-\w+$/, /^success-\w+$/, /^warning-\w+$/, /^info-\w+$/, 
+                                /^\d+-\w+$/, /^\w+-\d+$/, /^[a-f0-9]{6,}$/, /^\w+-[a-f0-9]{6,16}$/, 
+                                /^\w+-[0-9a-z]{8,}$/, /^[a-z]{3,6}-[0-9a-z]{5,10}$/, 
+                                /^v?\d+\.\d+\.\d+$/, /^[0-9]+$/, 
+                                /^flex$/, /^grid$/, /^block$/, /^inline$/, /^hidden$/, /^visible$/, 
+                                /^absolute$/, /^relative$/, /^fixed$/, /^sticky$/, 
+                                /^left-\d+$/, /^right-\d+$/, /^top-\d+$/, /^bottom-\d+$/, 
+                                /^w-\d+$/, /^h-\d+$/, /^max-w-\d+$/, /^max-h-\d+$/, 
+                                /^p-\d+$/, /^m-\d+$/, /^mt-\d+$/, /^mr-\d+$/, /^mb-\d+$/, /^ml-\d+$/, 
+                                /^pt-\d+$/, /^pr-\d+$/, /^pb-\d+$/, /^pl-\d+$/, 
+                                /^text-\w+$/, /^bg-\w+$/, /^border-\w+$/, /^rounded-\w+$/, 
+                                /^lang-\w+$/, /^i18n-\w+$/, /^ltr$/, /^rtl$/, 
+                                /^mobile-\w+$/, /^tablet-\w+$/, /^desktop-\w+$/, /^xl-\w+$/, /^sm-\w+$/, /^md-\w+$/, /^lg-\w+$/
+                            ];
                             
-                            // 再次检查唯一性
-                            const elementsWithCombinedSelector = document.querySelectorAll(path);
-                            if (elementsWithCombinedSelector.length > 1) {
-                                // 作为最后手段，使用nth-of-type
-                                const siblings = Array.from(parent.children).filter(child => {
-                                    // 检查子元素是否匹配当前元素的基本选择器
-                                    const childPath = child.tagName.toLowerCase() + (child.className ? '.' + child.className.split(' ').filter(c => c.length > 0).join('.') : '');
-                                    return childPath === path.split('>').pop().trim();
-                                });
-                                const index = siblings.indexOf(element);
-                                if (index > -1) {
-                                    path += `:nth-of-type(${index + 1})`;
-                                }
+                            const stableClasses = allClasses.filter(c => {
+                                // 过滤掉动态类名
+                                const isDynamic = dynamicClassPatterns.some(p => p.test(c));
+                                // 过滤掉只有数字或特殊字符的类名
+                                const isInvalid = /^[0-9_\-]+$/.test(c);
+                                return !isDynamic && !isInvalid;
+                            });
+                            if (stableClasses.length) {
+                                elementSelector += '.' + stableClasses.slice(0, 3).join('.');
                             }
                         }
                     }
                     
-                    return path;
+                    // 元素类型特定属性处理
+                    if (tagName === 'input') {
+                        // 对于表单输入元素，添加更多识别属性
+                        const type = element.type;
+                        elementSelector += `[type="${type}"]`;
+                        
+                        // 添加name或placeholder属性
+                        if (element.name && element.name.length > 0) {
+                            elementSelector += `[name="${element.name}"]`;
+                        } else if (element.placeholder && element.placeholder.length > 0) {
+                            elementSelector += `[placeholder="${element.placeholder}"]`;
+                        }
+                    } else if (tagName === 'textarea' || tagName === 'select') {
+                        // 对于其他表单元素
+                        if (element.name && element.name.length > 0) {
+                            elementSelector += `[name="${element.name}"]`;
+                        } else if (element.placeholder && element.placeholder.length > 0) {
+                            elementSelector += `[placeholder="${element.placeholder}"]`;
+                        } else if (element.title && element.title.length > 0) {
+                            elementSelector += `[title="${element.title}"]`;
+                        }
+                    } else if (tagName === 'img') {
+                        // 对于图片，使用更精确的定位
+                        if (element.alt && element.alt.length > 0) {
+                            elementSelector += `[alt="${element.alt}"]`;
+                        } else if (element.src && element.src.length > 0) {
+                            // 对于图片，使用部分src路径
+                            const srcParts = element.src.split('/');
+                            const filename = srcParts[srcParts.length - 1];
+                            elementSelector += `[src*="${filename}"]`;
+                        }
+                    } else if (tagName === 'a') {
+                        // 对于链接，使用href属性
+                        if (element.href && element.href.length > 0) {
+                            const url = element.href;
+                            // 只使用相对路径或域名后的路径
+                            const path = url.replace(/^https?:\/\//, '').split('/').slice(1).join('/');
+                            if (path.length > 0) {
+                                elementSelector += `[href*="${path}"]`;
+                            }
+                        }
+                    } else if (tagName === 'button') {
+                        // 对于按钮，添加更多识别属性
+                        if (element.textContent && element.textContent.trim().length > 0) {
+                            // 只在没有其他更好的属性时使用文本内容
+                            const text = element.textContent.trim();
+                            if (text.length < 20 && !elementSelector.includes(':has-text(')) {
+                                elementSelector += `:has-text("${text}")`;
+                            }
+                        } else if (element.title && element.title.length > 0 && !elementSelector.includes('[title=')) {
+                            elementSelector += `[title="${element.title}"]`;
+                        }
+                    }
+                    
+                    // 添加更多稳定属性作为补充
+                    const additionalAttrs = ['data-name', 'role', 'aria-label', 'aria-labelledby'];
+                    for (const attr of additionalAttrs) {
+                        const value = element.getAttribute(attr);
+                        if (value && value.length > 0 && !value.includes(' ') && !elementSelector.includes(`[${attr}=`)) {
+                            elementSelector += `[${attr}="${value}"]`;
+                        }
+                    }
+                    
+                    // 添加更多稳定属性
+                    if (element.title && element.title.length > 0 && !elementSelector.includes('[title=')) {
+                        elementSelector += `[title="${element.title}"]`;
+                    }
+                    
+                    const parentPath = generateFullPath(element.parentElement, maxDepth, currentDepth + 1);
+                    return [...parentPath, elementSelector];
+                }
+                
+                // 生成完整的CSS选择器
+                function generateSelector(element) {
+                    if (!element) return '';
+                    
+                    // 生成完整路径
+                    let path = generateFullPath(element);
+                    
+                    // 如果路径为空，直接返回标签名
+                    if (path.length === 0) {
+                        return element.tagName.toLowerCase();
+                    }
+                    
+                    // 将路径数组转换为完整的CSS选择器
+                    let fullSelector = path.join(' > ');
+                    
+                    // 检查选择器的唯一性
+                    try {
+                        const matches = document.querySelectorAll(fullSelector);
+                        if (matches.length > 1) {
+                            // 如果选择器不唯一，添加nth-of-type作为兜底
+                            let uniquePath = [...path];
+                            let index = 1;
+                            let parent = element.parentElement;
+                            
+                            // 查找当前元素在父元素中的位置
+                            if (parent) {
+                                const siblings = Array.from(parent.children).filter(child => child.tagName === element.tagName);
+                                index = siblings.indexOf(element) + 1;
+                                
+                                // 如果有多个同类型的兄弟元素，添加nth-of-type
+                                if (siblings.length > 1) {
+                                    const lastSelector = uniquePath.pop();
+                                    const tagName = element.tagName.toLowerCase();
+                                    // 确保我们只给基础标签添加nth-of-type
+                                    if (lastSelector.startsWith(tagName + '[') || lastSelector === tagName) {
+                                        uniquePath.push(`${lastSelector}:nth-of-type(${index})`);
+                                    } else {
+                                        uniquePath.push(lastSelector);
+                                    }
+                                    fullSelector = uniquePath.join(' > ');
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // 如果查询失败，使用原始选择器
+                        console.error('选择器验证失败:', e);
+                    }
+                    
+                    return fullSelector;
                 }
                 
                 // 点击事件监听 - 使用冒泡阶段避免重复事件
@@ -195,31 +325,67 @@ class PlaywrightAutomation:
                         let actualTarget = target;
                         
                         // 处理复合组件（如复选框/单选框）：统一使用最外层可交互元素作为目标
-                        if (target.tagName === 'INPUT' && (target.type === 'checkbox' || target.type === 'radio')) {
-                            // 如果直接点击了input元素，找到它的父元素
-                            let parent = target.parentElement;
-                            while (parent && parent.tagName !== 'BODY' && parent.tagName !== 'HTML') {
-                                // 查找包含checkbox/radio类名的父元素
-                                if (parent.className && (parent.className.includes('checkbox') || parent.className.includes('radio'))) {
-                                    actualTarget = parent;
-                                    break;
+                        function findCompositeComponentRoot(element, componentTypes) {
+                            let current = element;
+                            while (current && current.tagName !== 'BODY' && current.tagName !== 'HTML') {
+                                // 检查当前元素是否包含组件类型关键字
+                                const hasComponentType = componentTypes.some(type => 
+                                    current.className && current.className.includes(type)
+                                );
+                                
+                                // 检查当前元素是否是label标签
+                                const isLabel = current.tagName === 'LABEL';
+                                
+                                // 检查当前元素是否包含目标input类型
+                                const hasTargetInput = componentTypes.some(type => 
+                                    current.querySelector(`input[type="${type}"]`)
+                                );
+                                
+                                if (hasComponentType || isLabel || hasTargetInput) {
+                                    return current;
                                 }
-                                // 如果父元素是label，使用label作为目标
-                                if (parent.tagName === 'LABEL') {
-                                    actualTarget = parent;
-                                    break;
-                                }
-                                parent = parent.parentElement;
+                                
+                                current = current.parentElement;
                             }
-                            // 如果没找到合适的父元素，仍然使用input作为目标
+                            return null;
                         }
-                        // 如果点击的是span，检查是否包含checkbox/radio
-                        else if (target.tagName === 'SPAN') {
+                        
+                        // 处理input类型的复合组件
+                        if (target.tagName === 'INPUT') {
+                            if (target.type === 'checkbox' || target.type === 'radio') {
+                                // 查找复合组件的根元素
+                                const rootElement = findCompositeComponentRoot(target, [target.type]);
+                                if (rootElement) {
+                                    actualTarget = rootElement;
+                                }
+                            }
+                        }
+                        // 处理非input类型的复合组件点击
+                        else {
+                            // 检查是否点击了复选框或单选框的关联元素
                             const checkbox = target.querySelector('input[type="checkbox"]');
                             const radio = target.querySelector('input[type="radio"]');
+                            
                             if (checkbox || radio) {
-                                // 对于包含checkbox/radio的span，使用span作为实际目标
+                                // 当前元素包含input，使用当前元素作为目标
                                 actualTarget = target;
+                            } else {
+                                // 检查父元素是否包含checkbox或radio
+                                const hasCheckbox = target.closest('[class*="checkbox"]');
+                                const hasRadio = target.closest('[class*="radio"]');
+                                
+                                if (hasCheckbox || hasRadio) {
+                                    // 使用closest方法找到最近的包含checkbox或radio类名的元素
+                                    actualTarget = hasCheckbox || hasRadio;
+                                } else {
+                                    // 查找包含checkbox或radio input的父元素
+                                    const parentCheckbox = target.closest(':has(input[type="checkbox"])');
+                                    const parentRadio = target.closest(':has(input[type="radio"])');
+                                    
+                                    if (parentCheckbox || parentRadio) {
+                                        actualTarget = parentCheckbox || parentRadio;
+                                    }
+                                }
                             }
                         }
                         
@@ -490,6 +656,10 @@ class PlaywrightAutomation:
                 }
                 
                 console.log('自动化事件监听器已设置完成');
+                
+                // 设置标志，表示已添加事件监听器
+                window.eventListenersAdded = true;
+            }
             """;
             
             # 1. 添加初始化脚本，确保新页面加载时自动设置监听器
@@ -512,13 +682,9 @@ class PlaywrightAutomation:
                 not (hasattr(self.page, 'closed') and self.page.closed)):
                 
                 try:
-                    # 不等待页面完全加载，立即设置事件监听器以捕获加载过程中的用户操作
-                    # 移除页面加载状态等待，允许在页面加载过程中进行录制
-                    
-                    # 重置事件监听器状态，确保可以重新添加
-                    await self.page.evaluate("window.eventListenersAdded = false;")
-                    
                     # 调用统一的事件监听器设置方法
+                    # _setup_event_listeners 方法内部会检查 window.eventListenersAdded 标志
+                    # 避免重复添加事件监听器
                     await self._setup_event_listeners()
                     uat_logger.info("页面导航完成，已重新设置事件监听器")
                 except Exception as inner_e:
@@ -673,9 +839,48 @@ class PlaywrightAutomation:
         
         # 再次检查确保page对象存在
         if self.page is not None:
-            # 导航到URL，只等待DOM加载完成，不等待网络请求完成
-            # 这样可以在页面加载过程中就开始录制用户操作
-            await self.page.goto(url, wait_until='domcontentloaded')
+            # 导航到URL，对于录制时使用domcontentloaded以提高响应速度
+            # 但在回放时，我们需要确保页面完全加载
+            if self.recording:
+                await self.page.goto(url, wait_until='domcontentloaded')
+            else:
+                # 回放时等待更完整的页面加载状态
+                await self.page.goto(url, wait_until='load')
+                # 额外等待网络请求完成（对于复杂的单页应用）
+                try:
+                    await self.page.wait_for_load_state('networkidle', timeout=25000)
+                except Exception as e:
+                    uat_logger.debug(f"网络idle状态超时(可能是正常的长连接): {str(e)}")
+                # 增加JavaScript渲染等待时间，确保动态内容完全显示
+                await self.page.wait_for_timeout(1000)
+                
+                # 等待页面渲染稳定（无更多DOM变化）
+                await self.page.evaluate("""
+                    () => new Promise(resolve => {
+                        let lastScrollHeight = document.body.scrollHeight;
+                        let checkCount = 0;
+                        const checkInterval = 100;
+                        const maxChecks = 10;
+                        
+                        const checkStability = () => {
+                            const currentScrollHeight = document.body.scrollHeight;
+                            if (currentScrollHeight === lastScrollHeight) {
+                                checkCount++;
+                                if (checkCount >= maxChecks) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkStability, checkInterval);
+                                }
+                            } else {
+                                lastScrollHeight = currentScrollHeight;
+                                checkCount = 0;
+                                setTimeout(checkStability, checkInterval);
+                            }
+                        };
+                        
+                        setTimeout(checkStability, checkInterval);
+                    })
+                """)
         else:
             uat_logger.error("页面对象为None，无法导航")
             raise Exception("无法创建页面对象")
@@ -709,17 +914,61 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         if self.page is not None:
+            element_clicked = False
             try:
                 # 等待元素可见且可交互（进一步减少超时时间到2秒，提高执行速度）
                 await self.page.wait_for_selector(selector, state='visible', timeout=2000)
                 # 使用更健壮的点击方式，尝试不同的点击位置
                 await self.page.click(selector, force=True, timeout=2000)
                 uat_logger.info(f"成功点击元素: {selector}")
+                element_clicked = True
             except Exception as e:
                 uat_logger.warning(f"常规点击失败: {str(e)}, 尝试使用JavaScript点击")
-                # 尝试使用JavaScript点击
-                await self.page.evaluate(f"document.querySelector('{selector}')?.click();")
-                uat_logger.info(f"使用JavaScript成功点击元素: {selector}")
+                
+                # 尝试使用JavaScript点击，先检查元素是否存在
+                element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                if element_exists:
+                    # 尝试使用JavaScript点击
+                    await self.page.evaluate("(selector) => document.querySelector(selector).click();", selector)
+                    uat_logger.info(f"使用JavaScript成功点击元素: {selector}")
+                    element_clicked = True
+                else:
+                    uat_logger.error(f"元素不存在，无法使用JavaScript点击: {selector}")
+                    
+            if not element_clicked:
+                # 如果两种点击方式都失败，抛出异常
+                raise Exception(f"无法点击元素: {selector}")
+            
+            # 单选框点击后状态验证
+            try:
+                # 检查是否是单选框相关选择器
+                is_radio_selector = False
+                if 'radio' in selector.lower() or 'type="radio"' in selector:
+                    is_radio_selector = True
+                
+                # 如果是单选框选择器，验证点击后状态
+                if is_radio_selector:
+                    # 等待元素状态更新
+                    await self.page.wait_for_timeout(100)
+                    
+                    # 检查单选框是否被选中
+                    evaluate_script = '''() => {
+                        const element = document.querySelector('%s');
+                        if (element && element.tagName === 'INPUT' && element.type === 'radio') {
+                            return element.checked;
+                        }
+                        // 处理复合组件，找到内部的input元素
+                        const inputElement = element?.querySelector('input[type="radio"]');
+                        return inputElement ? inputElement.checked : false;
+                    }''' % selector
+                    is_checked = await self.page.evaluate(evaluate_script)
+                    
+                    if is_checked:
+                        uat_logger.info(f"✅ 单选框点击验证通过: {selector} 已选中")
+                    else:
+                        uat_logger.warning(f"⚠️ 单选框点击验证警告: {selector} 未选中")
+            except Exception as e:
+                uat_logger.warning(f"验证单选框状态时出错: {str(e)}")
         
         # 如果正在录制，记录点击步骤
         if self.recording:
@@ -736,42 +985,14 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
-            # 快速检查元素是否存在，不等待完全可见
-            element_exists = await self.page.evaluate(f"document.querySelector('{selector}') !== null")
-            if not element_exists:
-                uat_logger.warning(f"元素不存在，跳过填充: {selector}")
-                return
+            # 直接使用Playwright的fill方法，它会自动处理元素查找、可见性和可交互性
+            await self.page.fill(selector, text, timeout=3000)
+            uat_logger.info(f"成功填充元素: {selector}, 文本: {text}")
             
-            # 检查元素是否为可输入元素
-            is_input = await self.page.evaluate("""
-                (selector) => {
-                    const element = document.querySelector(selector);
-                    if (!element) return false;
-                    const tagName = element.tagName.toLowerCase();
-                    const inputTypes = ['input', 'textarea', 'select'];
-                    const isEditable = element.contentEditable === 'true';
-                    
-                    // 特别排除checkbox和radio类型的input
-                    if (tagName === 'input' && (element.type === 'checkbox' || element.type === 'radio')) {
-                        return false;
-                    }
-                    
-                    return inputTypes.includes(tagName) || isEditable;
-                }
-            """, selector)
-            
-            if is_input:
-                # 对可输入元素执行填充，使用更短的超时时间
-                await self.page.fill(selector, text, timeout=2000)
-                uat_logger.info(f"成功填充元素: {selector}, 文本: {text}")
-            else:
-                # 对非输入元素，记录警告并跳过
-                uat_logger.warning(f"跳过填充非输入元素: {selector}")
-                return  # 直接返回，避免继续执行
         except Exception as e:
             uat_logger.error(f"填充元素时出错: {selector}, 错误: {str(e)}")
-            # 不再抛出异常，继续执行下一个步骤
-            return
+            # 重新抛出异常，让调用者知道操作失败
+            raise
         
         # 如果正在录制，记录填充步骤
         if self.recording:
@@ -1222,57 +1443,161 @@ class PlaywrightAutomation:
         if self.page is None:
             await self.start_browser(headless=False)
         else:
-            # 确保窗口最大化
+            # 确保窗口最大化 - 使用与start_browser相同的Windows API策略
             try:
-                await self.page.evaluate("""
-                    () => {
-                        // 先尝试使用现代浏览器的全屏API
-                        if (document.documentElement.requestFullscreen) {
-                            document.documentElement.requestFullscreen();
-                        }
-                        // 然后设置窗口大小为屏幕最大可用尺寸
-                        window.moveTo(0, 0);
-                        window.resizeTo(screen.availWidth, screen.availHeight);
-                        return { width: screen.availWidth, height: screen.availHeight };
-                    }
-                """)
-                uat_logger.info("脚本执行时已最大化窗口")
+                # 调用Windows API获取真实屏幕尺寸
+                user32 = ctypes.windll.user32
+                avail_width = user32.GetSystemMetrics(78)  # SM_CXAVAILABLE
+                avail_height = user32.GetSystemMetrics(79)  # SM_CYAVAILABLE
+                
+                uat_logger.info(f"脚本执行时获取的可用工作区尺寸: {avail_width}x{avail_height}")
+                
+                # 获取当前窗口大小信息用于验证
+                viewport_size = await self.page.evaluate("() => ({ width: window.innerWidth, height: window.innerHeight })")
+                uat_logger.info(f"脚本执行时窗口大小: {viewport_size['width']}x{viewport_size['height']}")
             except Exception as e:
-                uat_logger.warning(f"尝试最大化窗口时出错: {str(e)}")
+                uat_logger.warning(f"获取窗口大小信息时出错: {str(e)}")
         
         # 步骤去重逻辑
         if not steps:
             return []
             
-        deduplicated_steps = [steps[0]]
-        for step in steps[1:]:
-            last_step = deduplicated_steps[-1]
+        # 第一阶段：合并所有相同选择器的填充步骤（无论是否连续）
+        # 创建一个字典存储每个选择器的最新填充值
+        fill_values = {}
+        all_steps = []
+        
+        # 遍历所有步骤，收集填充值和非填充步骤
+        for step in steps:
+            if step['action'] == 'fill':
+                selector = step.get('selector')
+                if selector:
+                    # 更新该选择器的最新填充值
+                    fill_values[selector] = step
+                    all_steps.append(step)  # 保留原始填充步骤用于执行顺序
+            else:
+                all_steps.append(step)
+        
+        # 第二阶段：合并连续的重复步骤和处理填充步骤
+        deduplicated_steps = []
+        last_step = None
+        
+        # 跟踪已处理的填充选择器
+        processed_fills = set()
+        
+        # 跟踪所有已处理的点击步骤（用于处理非连续的重复点击）
+        processed_clicks = {}
+        
+        for step in all_steps:
+            # 过滤悬停动作，不记录和执行
+            if step['action'] == 'hover':
+                uat_logger.info(f"跳过悬停步骤: {step.get('selector')}")
+                continue
             
-            # 检查是否与上一步骤完全相同
+            if step['action'] == 'fill':
+                selector = step.get('selector')
+                if selector:
+                    # 如果该选择器已经处理过，跳过
+                    if selector in processed_fills:
+                        continue
+                    
+                    # 获取最新的填充值
+                    if selector in fill_values:
+                        latest_fill = fill_values[selector]
+                        uat_logger.info(f"使用最新填充值: {selector} -> {latest_fill.get('text')}")
+                        deduplicated_steps.append(latest_fill)
+                        processed_fills.add(selector)
+                    continue
+            
+            # 处理点击步骤 - 特殊处理单选框/复选框的重复点击
+            if step['action'] == 'click':
+                selector = step.get('selector')
+                if selector:
+                    # 检测是否为单选框或复选框相关选择器
+                    # 更准确的检测方式：基于选择器和元素信息
+                    is_radio = False
+                    is_checkbox = False
+                    
+                    # 首先检查选择器中是否包含明确的单选框/复选框标识
+                    selector_lower = selector.lower()
+                    if 'radio' in selector_lower:
+                        is_radio = True
+                    elif 'checkbox' in selector_lower:
+                        # 注意：有些单选框可能使用checkbox的样式或类名
+                        # 对于这种情况，我们也将其视为单选框处理
+                        # 因为用户通常不希望单选框被取消选择
+                        is_radio = True
+                        # is_checkbox = True
+                    
+                    # 移除动态类名，生成稳定的选择器用于比较
+                    import re
+                    stable_selector = selector
+                    # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                    stable_selector = re.sub(r'\.(is-\w+)', '', stable_selector)
+                    # 移除所有以el-开头的动态类（Element UI临时类名）
+                    stable_selector = re.sub(r'\.(el-\w+-\w+)', '', stable_selector)
+                    # 移除所有以has-开头的动态类
+                    stable_selector = re.sub(r'\.(has-\w+)', '', stable_selector)
+                    # 移除连续的空格和重复的>符号
+                    stable_selector = re.sub(r'\s+', ' ', stable_selector)
+                    stable_selector = re.sub(r'\s*>\s*', ' > ', stable_selector)
+                    stable_selector = stable_selector.strip()
+                    
+                    # 特殊处理：如果选择器只剩下基础元素类型（如span、div），则保留原始选择器的前两个类名
+                    if '.' not in stable_selector and selector.count('.') >= 2:
+                        # 保留原始选择器的基础元素和前两个类名
+                        parts = selector.split(' ')
+                        new_parts = []
+                        for part in parts:
+                            if '.' in part:
+                                # 提取元素类型和前两个类名
+                                element_class_parts = part.split('.')
+                                if len(element_class_parts) > 2:
+                                    new_parts.append('.'.join(element_class_parts[:3]))
+                                else:
+                                    new_parts.append(part)
+                            else:
+                                new_parts.append(part)
+                        stable_selector = ' '.join(new_parts)
+                    
+                    # 对于单选框：同一选择器的非连续重复点击应该被过滤
+                    # 因为单选框点击一次就足够，重复点击会导致状态切换
+                    if is_radio:
+                        if stable_selector in processed_clicks:
+                            uat_logger.info(f"跳过非连续的重复点击步骤（单选框）: {selector}")
+                            continue
+                        # 记录已处理的单选框点击
+                        processed_clicks[stable_selector] = True
+                    
+                    # 对于复选框：可以多次点击切换状态，所以不应该过滤重复点击
+                    # 对于普通元素：也不应该过滤重复点击，因为用户可能需要多次点击
+                    elif not is_checkbox:
+                        # 记录已处理的点击，但不用于过滤，仅作参考
+                        processed_clicks[stable_selector] = True
+            
+            # 处理其他类型的步骤
+            if not last_step:
+                deduplicated_steps.append(step)
+                last_step = step
+                continue
+            
+            # 跳过连续的重复步骤
             if last_step['action'] == step['action']:
                 if step['action'] == 'navigate':
-                    # 检查URL是否相同
                     if last_step.get('url') == step.get('url'):
                         uat_logger.info(f"跳过重复导航步骤: {step.get('url')}")
                         continue
                 elif step['action'] == 'click' or step['action'] == 'hover':
-                    # 检查选择器是否相同
                     if last_step.get('selector') == step.get('selector'):
                         uat_logger.info(f"跳过重复{step['action']}步骤: {step.get('selector')}")
                         continue
-                elif step['action'] == 'fill':
-                    # 检查选择器和文本是否相同
-                    if last_step.get('selector') == step.get('selector') and last_step.get('text') == step.get('text'):
-                        uat_logger.info(f"跳过重复填充步骤: {step.get('selector')}")
-                        continue
                 elif step['action'] == 'scroll':
-                    # 检查滚动位置是否相同
                     if last_step.get('scrollPosition') == step.get('scrollPosition'):
                         uat_logger.info(f"跳过重复滚动步骤")
                         continue
             
-            # 如果步骤不重复，添加到去重后的列表
             deduplicated_steps.append(step)
+            last_step = step
         
         results = []
         for step in deduplicated_steps:
@@ -1281,11 +1606,142 @@ class PlaywrightAutomation:
                 if action == "navigate":
                     url = step.get("url")
                     await self.navigate_to(url)
-                    # 移除导航后的固定等待，依赖页面加载状态
+                    # 确保页面完全加载完成
+                    if self.page:
+                        uat_logger.info("导航后等待页面完全加载")
+                        await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
+                        await self.page.wait_for_load_state('load', timeout=30000)
                 elif action == "click":
                     selector = step.get("selector")
-                    await self.click_element(selector)
-                    # 移除点击后的固定等待，依赖元素状态检查
+                    
+                    # 尝试点击元素，如果失败则尝试处理动态选择器
+                    try:
+                        await self.click_element(selector)
+                    except Exception as e:
+                        # 如果点击失败，检查是否是动态选择器导致的
+                        uat_logger.warning(f"点击失败: {str(e)}")
+                        # 尝试使用更宽松的选择器（移除动态class）
+                        if '.' in selector:
+                            # 对于CSS选择器，尝试移除动态类名（如is-loading、is-focus等）
+                            import re
+                            # 保留基础元素类型和非动态类
+                            # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                            base_selector = re.sub(r'\.(is-\w+)', '', selector)
+                            # 移除所有以el-开头的动态类（Element UI临时类名）
+                            base_selector = re.sub(r'\.(el-\w+-\w+)', '', base_selector)
+                            # 移除所有以has-开头的动态类
+                            base_selector = re.sub(r'\.(has-\w+)', '', base_selector)
+                            # 移除连续的空格和重复的>符号
+                            base_selector = re.sub(r'\s+', ' ', base_selector)
+                            base_selector = re.sub(r'\s*>\s*', ' > ', base_selector)
+                            base_selector = base_selector.strip()
+                            
+                            if base_selector != selector:
+                                uat_logger.info(f"尝试使用更宽松的选择器: {base_selector}")
+                                # 等待基础选择器的元素可见
+                                await self.page.wait_for_selector(base_selector, state='visible', timeout=5000)
+                                await self.page.click(base_selector, force=True, timeout=5000)
+                                uat_logger.info(f"使用宽松选择器成功点击元素: {base_selector}")
+                            else:
+                                # 如果无法简化选择器，重新抛出异常
+                                raise
+                    
+                    # 检查是否是可能导致页面刷新的点击操作（如提交按钮）
+                    if self.page:
+                        try:
+                            # 等待可能的页面导航完成
+                            # 使用wait_for_event监听framenavigated事件，如果在1秒内发生则等待页面加载
+                            async def wait_for_navigation():
+                                try:
+                                    # 1. 首先记录当前URL，用于后续比较是否真正发生导航
+                                    current_url = self.page.url
+                                    
+                                    # 2. 使用较短时间等待导航事件，减少无导航时的延迟
+                                    navigation_occurred = False
+                                    
+                                    try:
+                                        # 等待可能的导航事件，减少超时时间到1秒
+                                        await self.page.wait_for_event('framenavigated', timeout=1000)
+                                        
+                                        # 3. 检查URL是否真正发生变化，避免将iframe导航或局部更新误认为页面导航
+                                        if self.page.url != current_url:
+                                            uat_logger.info(f"检测到页面导航: {current_url} -> {self.page.url}")
+                                            navigation_occurred = True
+                                        else:
+                                            uat_logger.info("URL未变化，忽略局部导航事件")
+                                            navigation_occurred = False
+                                    except Exception:
+                                        # 没有检测到导航，使用简化的等待策略
+                                        uat_logger.info("未检测到页面导航，使用简化等待策略")
+                                        navigation_occurred = False
+                                    
+                                    # 4. 只有在真正发生导航时，才执行完整的页面加载等待
+                                    if navigation_occurred:
+                                        uat_logger.info("等待DOM内容加载完成")
+                                        await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
+                                        
+                                        uat_logger.info("等待页面可见内容加载")
+                                        await self.page.wait_for_load_state('load', timeout=30000)
+                                        
+                                        # 5. 针对复杂页面，增加额外的等待策略
+                                        try:
+                                            # 等待网络请求基本完成（允许少量长连接）
+                                            uat_logger.info("等待网络请求基本完成")
+                                            await self.page.wait_for_load_state('networkidle', timeout=25000)
+                                        except Exception as e:
+                                            uat_logger.debug(f"网络idle状态超时(可能是正常的长连接): {str(e)}")
+                                        
+                                        # 6. 增加JavaScript渲染等待时间，确保动态内容完全显示
+                                        uat_logger.info("等待JavaScript渲染完成")
+                                        await self.page.wait_for_timeout(1000)
+                                        
+                                        # 7. 等待页面渲染稳定（无更多DOM变化）
+                                        uat_logger.info("等待页面渲染稳定")
+                                        await self.page.evaluate("""
+                                            () => new Promise(resolve => {
+                                                let lastScrollHeight = document.body.scrollHeight;
+                                                let checkCount = 0;
+                                                const checkInterval = 100;
+                                                const maxChecks = 10;
+                                                
+                                                const checkStability = () => {
+                                                    const currentScrollHeight = document.body.scrollHeight;
+                                                    if (currentScrollHeight === lastScrollHeight) {
+                                                        checkCount++;
+                                                        if (checkCount >= maxChecks) {
+                                                            resolve();
+                                                        } else {
+                                                            setTimeout(checkStability, checkInterval);
+                                                        }
+                                                    } else {
+                                                        lastScrollHeight = currentScrollHeight;
+                                                        checkCount = 0;
+                                                        setTimeout(checkStability, checkInterval);
+                                                    }
+                                                };
+                                                
+                                                setTimeout(checkStability, checkInterval);
+                                            })
+                                        """)
+                                        
+                                        uat_logger.info("页面加载处理完成")
+                                    else:
+                                        # 对于没有导航的点击，根据点击类型调整等待时间
+                                        if 'input' in selector or 'textarea' in selector or 'form' in selector:
+                                            # 如果是表单元素，等待更长时间确保数据保存
+                                            uat_logger.info("表单元素操作，等待数据保存完成")
+                                            await self.page.wait_for_timeout(800)
+                                        else:
+                                            # 其他元素点击，使用较短等待时间
+                                            await self.page.wait_for_timeout(300)
+                                except Exception as e:
+                                    uat_logger.warning(f"等待页面加载时发生异常: {str(e)}")
+                                    # 即使发生异常，也继续执行，避免整个回放失败
+                                    pass
+                            
+                            await wait_for_navigation()
+                        except Exception as e:
+                            uat_logger.warning(f"等待页面导航时出错: {str(e)}")
                 elif action == "fill":
                     selector = step.get("selector")
                     text = step.get("text")
@@ -1576,6 +2032,414 @@ class PlaywrightAutomation:
                 await self.playwright.stop()
             except Exception:
                 pass  # 忽略错误
+    
+    async def enable_element_selection(self):
+        """启用元素选择模式，显示悬浮窗让用户选择页面元素"""
+        if self.page is None:
+            await self.start_browser()
+        
+        try:
+            # 注入元素选择悬浮窗
+            await self.page.evaluate("""
+                (() => {
+                    // 检查是否已经存在选择器悬浮窗
+                    if (document.getElementById('automation-selector-overlay')) {
+                        return; // 已经存在，直接返回
+                    }
+                    
+                    // 创建悬浮窗样式
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        #automation-selector-overlay {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            z-index: 999999;
+                            pointer-events: none;
+                        }
+                        
+                        #automation-selector-highlight {
+                            position: absolute;
+                            border: 2px solid #ff0000;
+                            background-color: rgba(255, 0, 0, 0.2);
+                            pointer-events: none;
+                            z-index: 999998;
+                            transition: all 0.1s ease;
+                        }
+                        
+                        #automation-selector-float {
+                            position: fixed;
+                            top: 20px;
+                            right: 20px;
+                            background: white;
+                            border: 1px solid #ccc;
+                            border-radius: 8px;
+                            padding: 15px;
+                            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+                            z-index: 1000000;
+                            pointer-events: auto;
+                            font-family: Arial, sans-serif;
+                            max-width: 300px;
+                        }
+                        
+                        #automation-selector-float h3 {
+                            margin-top: 0;
+                            font-size: 16px;
+                            color: #333;
+                        }
+                        
+                        #automation-selector-float p {
+                            margin: 10px 0;
+                            font-size: 14px;
+                            color: #666;
+                        }
+                        
+                        #automation-selector-float .selector-preview {
+                            background: #f5f5f5;
+                            padding: 8px;
+                            border-radius: 4px;
+                            font-family: monospace;
+                            font-size: 12px;
+                            margin: 10px 0;
+                            word-break: break-all;
+                        }
+                        
+                        #automation-selector-float .btn {
+                            padding: 8px 12px;
+                            margin: 5px 5px 0 0;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: background-color 0.2s;
+                        }
+                        
+                        #automation-selector-float .btn-primary {
+                            background: #007bff;
+                            color: white;
+                        }
+                        
+                        #automation-selector-float .btn-primary:hover {
+                            background: #0056b3;
+                        }
+                        
+                        #automation-selector-float .btn-secondary {
+                            background: #6c757d;
+                            color: white;
+                        }
+                        
+                        #automation-selector-float .btn-secondary:hover {
+                            background: #545b62;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                    
+                    // 创建高亮元素
+                    const highlight = document.createElement('div');
+                    highlight.id = 'automation-selector-highlight';
+                    document.body.appendChild(highlight);
+                    
+                    // 创建悬浮窗
+                    const floatWindow = document.createElement('div');
+                    floatWindow.id = 'automation-selector-float';
+                    floatWindow.innerHTML = `
+                        <h3>元素选择工具</h3>
+                        <p>将鼠标悬停在页面元素上，点击即可选择该元素</p>
+                        <div class="selector-preview">选择器将显示在这里</div>
+                        <button class="btn btn-primary" id="select-element-btn">选择该元素</button>
+                        <button class="btn btn-secondary" id="cancel-selection-btn">取消选择</button>
+                    `;
+                    document.body.appendChild(floatWindow);
+                    
+                    // 全局变量
+                    window.automationSelection = {
+                        selectedElement: null,
+                        highlight: highlight,
+                        floatWindow: floatWindow,
+                        isSelecting: true
+                    };
+                    
+                    // 生成更精确的CSS选择器函数
+                    function generateSelector(element, maxDepth = 4, currentDepth = 0) {
+                        if (!element || element.tagName === 'HTML' || currentDepth >= maxDepth) {
+                            return '';
+                        }
+                        
+                        let elementSelector = '';
+                        const tagName = element.tagName.toLowerCase();
+                        
+                        // 优先使用ID
+                        if (element.id) {
+                            return `#${element.id}`;
+                        }
+                        
+                        // 优先使用稳定属性
+                        const stableAttrs = ['data-testid', 'data-cy', 'data-test', 'data-qa', 'data-automation', 'data-selector', 'data-key', 'data-id', 'data-name', 'name', 'title', 'role'];
+                        let hasStableAttr = false;
+                        for (const attr of stableAttrs) {
+                            const value = element.getAttribute(attr);
+                            if (value && value.length > 0 && !value.includes(' ')) {
+                                elementSelector = `${tagName}[${attr}="${value}"]`;
+                                hasStableAttr = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!hasStableAttr) {
+                            elementSelector = tagName;
+                            // 处理类名，过滤掉动态类名
+                            if (element.className) {
+                                const allClasses = element.className.split(' ').filter(c => c.length > 0);
+                                const dynamicClassPatterns = [
+                                    /^is-\w+$/, /^has-\w+$/, /^\w+-\w+-(leave|enter|active)$/, 
+                                    /^el-\w+(-\w+)*$/, /^ant-\w+(-\w+)*$/, /^t-[a-zA-Z0-9]{8}$/, 
+                                    /^weui-\w+(-\w+)*$/, /^layui-\w+(-\w+)*$/, /^\w+-[a-f0-9]{6,16}$/, 
+                                    /^ng-\w+$/, /^vue-\w+$/, /^react-\w+$/, /^svelte-\w+$/, 
+                                    /^css-\w+$/, /^scss-\w+$/, /^style-\w+$/, /^component-\w+$/, 
+                                    /^theme-\w+$/, /^mode-\w+$/, /^state-\w+$/, /^variant-\w+$/, 
+                                    /^hover-\w+$/, /^focus-\w+$/, /^active-\w+$/, /^disabled-\w+$/, 
+                                    /^selected-\w+$/, /^checked-\w+$/, /^expanded-\w+$/, /^collapsed-\w+$/,
+                                    /^\d+-\w+$/, /^\w+-\d+$/,
+                                    /^[a-f0-9]{6,}$/
+                                ];
+                                
+                                const stableClasses = allClasses.filter(c => {
+                                    // 过滤掉动态类名
+                                    const isDynamic = dynamicClassPatterns.some(p => p.test(c));
+                                    // 过滤掉只有数字或特殊字符的类名
+                                    const isInvalid = /^[0-9_\-]+$/.test(c);
+                                    return !isDynamic && !isInvalid;
+                                });
+                                if (stableClasses.length) {
+                                    elementSelector += '.' + stableClasses.slice(0, 3).join('.');
+                                }
+                            }
+                        }
+                        
+                        // 元素类型特定属性处理
+                        if (tagName === 'input') {
+                            // 对于表单输入元素，添加更多识别属性
+                            const type = element.type;
+                            elementSelector += `[type="${type}"]`;
+                            
+                            // 添加name或placeholder属性
+                            if (element.name && element.name.length > 0) {
+                                elementSelector += `[name="${element.name}"]`;
+                            } else if (element.placeholder && element.placeholder.length > 0) {
+                                elementSelector += `[placeholder="${element.placeholder}"]`;
+                            }
+                        } else if (tagName === 'textarea' || tagName === 'select') {
+                            // 对于其他表单元素
+                            if (element.name && element.name.length > 0) {
+                                elementSelector += `[name="${element.name}"]`;
+                            } else if (element.placeholder && element.placeholder.length > 0) {
+                                elementSelector += `[placeholder="${element.placeholder}"]`;
+                            } else if (element.title && element.title.length > 0) {
+                                elementSelector += `[title="${element.title}"]`;
+                            }
+                        } else if (tagName === 'img') {
+                            // 对于图片，使用更精确的定位
+                            if (element.alt && element.alt.length > 0) {
+                                elementSelector += `[alt="${element.alt}"]`;
+                            } else if (element.src && element.src.length > 0) {
+                                // 只使用src的文件名部分
+                                const filename = element.src.split('/').pop();
+                                elementSelector += `[src*="${filename}"]`;
+                            }
+                        } else if (tagName === 'a') {
+                            // 对于链接，使用href或text
+                            if (element.href && element.href.length > 0) {
+                                // 只使用href的路径部分
+                                const url = new URL(element.href);
+                                elementSelector += `[href*="${url.pathname}"]`;
+                            } else if (element.textContent && element.textContent.trim().length > 0) {
+                                elementSelector += `:contains("${element.textContent.trim().substring(0, 20)}")`;
+                            }
+                        }
+                        
+                        // 如果选择器还是太简单，添加父元素选择器
+                        if (elementSelector === tagName || elementSelector.startsWith(tagName + '.')) {
+                            const parentSelector = generateSelector(element.parentElement, maxDepth, currentDepth + 1);
+                            if (parentSelector) {
+                                return `${parentSelector} > ${elementSelector}`;
+                            }
+                        }
+                        
+                        return elementSelector;
+                    }
+
+                    // 元素选择逻辑
+                    document.addEventListener('mouseover', function(e) {
+                        if (!window.automationSelection.isSelecting) return;
+                        
+                        const target = e.target;
+                        const rect = target.getBoundingClientRect();
+                        
+                        // 更新高亮框位置和大小
+                        window.automationSelection.highlight.style.left = `${rect.left}px`;
+                        window.automationSelection.highlight.style.top = `${rect.top}px`;
+                        window.automationSelection.highlight.style.width = `${rect.width}px`;
+                        window.automationSelection.highlight.style.height = `${rect.height}px`;
+                        
+                        // 更新选中元素
+                        window.automationSelection.selectedElement = target;
+                        
+                        // 生成选择器并显示
+                        const selector = generateSelector(target);
+                        const selectorPreview = floatWindow.querySelector('.selector-preview');
+                        selectorPreview.textContent = selector;
+                    });
+                    
+                    // 点击元素选择
+                    document.addEventListener('click', function(e) {
+                        if (!window.automationSelection.isSelecting) return;
+                        
+                        const target = e.target;
+                        if (target === floatWindow || floatWindow.contains(target)) {
+                            return; // 点击的是悬浮窗内部，不处理
+                        }
+                        
+                        // 阻止默认事件和冒泡，防止页面跳转等行为
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        window.automationSelection.selectedElement = target;
+                        const selector = generateSelector(target);
+                        const selectorPreview = floatWindow.querySelector('.selector-preview');
+                        selectorPreview.textContent = selector;
+                    });
+                    
+                    // 选择按钮事件
+                    document.getElementById('select-element-btn').addEventListener('click', function() {
+                        if (window.automationSelection.selectedElement) {
+                            const element = window.automationSelection.selectedElement;
+                            const selector = generateSelector(element);
+                            
+                            // 触发自定义事件，通知外部代码
+                            const event = new CustomEvent('elementSelected', {
+                                detail: {
+                                    selector: selector,
+                                    elementInfo: {
+                                        tagName: element.tagName,
+                                        id: element.id || '',
+                                        className: element.className || '',
+                                        textContent: element.textContent ? element.textContent.substring(0, 100) : '',
+                                        attributes: {
+                                            type: element.type || '',
+                                            name: element.name || '',
+                                            value: element.value || '',
+                                            href: element.href || '',
+                                            src: element.src || '',
+                                            alt: element.alt || '',
+                                            title: element.title || ''
+                                        }
+                                    }
+                                }
+                            });
+                            window.dispatchEvent(event);
+                            
+                            // 选择完成后禁用选择模式
+                            window.automationSelection.isSelecting = false;
+                            window.automationSelection.highlight.style.display = 'none';
+                            window.automationSelection.floatWindow.style.display = 'none';
+                        }
+                    });
+                    
+                    // 确保generateSelector函数在全局可用，用于get_selected_element方法
+                    window.generateSelector = generateSelector;
+                    
+                    // 取消按钮事件
+                    document.getElementById('cancel-selection-btn').addEventListener('click', function() {
+                        disableElementSelection();
+                    });
+                    
+                    // 禁用元素选择的函数
+                    window.disableElementSelection = function() {
+                        // 移除事件监听器（简化处理，实际生产环境中应保存监听器引用以便移除）
+                        window.automationSelection.isSelecting = false;
+                        
+                        // 隐藏高亮和悬浮窗
+                        window.automationSelection.highlight.style.display = 'none';
+                        window.automationSelection.floatWindow.style.display = 'none';
+                    };
+                })
+            """)
+            
+            uat_logger.info("元素选择模式已启用")
+            return True
+        except Exception as e:
+            uat_logger.error(f"启用元素选择模式时出错: {str(e)}")
+            raise Exception(f"启用元素选择模式失败: {str(e)}")
+    
+    async def disable_element_selection(self):
+        """禁用元素选择模式"""
+        if self.page is None:
+            return False
+        
+        try:
+            await self.page.evaluate("""
+                (() => {
+                    if (typeof disableElementSelection === 'function') {
+                        disableElementSelection();
+                    }
+                })
+            """)
+            
+            uat_logger.info("元素选择模式已禁用")
+            return True
+        except Exception as e:
+            uat_logger.error(f"禁用元素选择模式时出错: {str(e)}")
+            return False
+    
+    async def get_selected_element(self):
+        """获取用户选择的元素信息"""
+        if self.page is None:
+            return None
+        
+        try:
+            # 等待元素选择事件
+            element_info = await self.page.evaluate("""
+                (() => {
+                    return new Promise((resolve) => {
+                        // 检查是否已经有选中的元素
+                        if (window.automationSelection && window.automationSelection.selectedElement) {
+                            const element = window.automationSelection.selectedElement;
+                            const selector = generateSelector(element);
+                            resolve({
+                                selector: selector,
+                                elementInfo: {
+                                    tagName: element.tagName,
+                                    id: element.id || '',
+                                    className: element.className || '',
+                                    textContent: element.textContent ? element.textContent.substring(0, 100) : '',
+                                    attributes: {
+                                        type: element.type || '',
+                                        name: element.name || '',
+                                        value: element.value || '',
+                                        href: element.href || '',
+                                        src: element.src || '',
+                                        alt: element.alt || '',
+                                        title: element.title || ''
+                                    }
+                                }
+                            });
+                        } else {
+                            // 监听元素选择事件
+                            window.addEventListener('elementSelected', function handler(e) {
+                                window.removeEventListener('elementSelected', handler);
+                                resolve(e.detail);
+                            });
+                        }
+                    });
+                })
+            """)
+            
+            return element_info
+        except Exception as e:
+            uat_logger.error(f"获取选中元素信息时出错: {str(e)}")
+            raise Exception(f"获取选中元素信息失败: {str(e)}")
 
 # 全局实例
 automation = PlaywrightAutomation()
@@ -1811,7 +2675,27 @@ def sync_wait_for_element_visible(selector: str, timeout: int = 30000):
         return await automation.wait_for_element_visible(selector, timeout)
     return worker.execute(run)
 
+def sync_start_recording():
+    async def run():
+        return await automation.start_recording()
+    return worker.execute(run)
+
 def sync_stop_recording():
     async def run():
         return await automation.stop_recording()
+    return worker.execute(run)
+
+def sync_enable_element_selection():
+    async def run():
+        return await automation.enable_element_selection()
+    return worker.execute(run)
+
+def sync_disable_element_selection():
+    async def run():
+        return await automation.disable_element_selection()
+    return worker.execute(run)
+
+def sync_get_selected_element():
+    async def run():
+        return await automation.get_selected_element()
     return worker.execute(run)
