@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试用例管理 - UI自动化测试平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header .project-info {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .toolbar {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #138496;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .case-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .case-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .case-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            word-wrap: break-word;
+        }
+        
+        .case-info {
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .case-info strong {
+            color: #333;
+        }
+        
+        .case-stats {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 10px 0;
+            border-top: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .stat-label {
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .case-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            color: #333;
+            font-size: 22px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        
+        .checkbox-group label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>测试用例管理</h1>
+            <div class="project-info" id="projectInfo">正在加载项目信息...</div>
+        </div>
+        
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button onclick="showCreateCaseModal()" class="btn btn-primary">+ 创建用例</button>
+                <button onclick="executeSelectedCases()" class="btn btn-success">▶ 执行选中的用例</button>
+            </div>
+            <div class="toolbar-right">
+                <button onclick="selectAllCases()" class="btn btn-secondary btn-sm">全选</button>
+                <button onclick="deselectAllCases()" class="btn btn-secondary btn-sm">取消全选</button>
+                <button onclick="backToProjects()" class="btn btn-secondary">← 返回项目列表</button>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div id="casesList">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载测试用例...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="createCaseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建测试用例</h3>
+            </div>
+            <div class="form-group">
+                <label for="caseName">用例名称 *</label>
+                <input type="text" id="caseName" placeholder="请输入测试用例名称">
+            </div>
+            <div class="form-group">
+                <label for="caseUrl">目标URL</label>
+                <input type="text" id="caseUrl" placeholder="https://example.com">
+            </div>
+            <div class="form-group">
+                <label for="caseDescription">用例描述</label>
+                <textarea id="caseDescription" placeholder="请输入测试用例描述"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeCreateCaseModal()" class="btn btn-secondary">取消</button>
+                <button onclick="createTestCase()" class="btn btn-primary">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="editCaseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑测试用例</h3>
+            </div>
+            <div class="form-group">
+                <label for="editCaseName">用例名称 *</label>
+                <input type="text" id="editCaseName">
+            </div>
+            <div class="form-group">
+                <label for="editCaseUrl">目标URL</label>
+                <input type="text" id="editCaseUrl">
+            </div>
+            <div class="form-group">
+                <label for="editCaseDescription">用例描述</label>
+                <textarea id="editCaseDescription"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeEditCaseModal()" class="btn btn-secondary">取消</button>
+                <button onclick="updateTestCase()" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 运行结果模态框 -->
+    <div id="runResultModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>测试用例执行结果</h3>
+            </div>
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                <div id="runResultContent">
+                    <!-- 执行结果将动态填充这里 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeRunResultModal()" class="btn btn-primary">关闭</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentProjectId = null;
+        let currentProjectName = '';
+        let currentEditingCaseId = null;
+        let selectedCaseIds = new Set();
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 显示运行结果模态框
+        function showRunResultModal(content) {
+            document.getElementById('runResultContent').innerHTML = content;
+            document.getElementById('runResultModal').classList.add('active');
+        }
+
+        // 关闭运行结果模态框
+        function closeRunResultModal() {
+            document.getElementById('runResultModal').classList.remove('active');
+        }
+        
+        function loadProjectInfo() {
+            currentProjectId = sessionStorage.getItem('currentProjectId');
+            currentProjectName = sessionStorage.getItem('currentProjectName') || '未知项目';
+            
+            if (!currentProjectId) {
+                alert('未找到项目信息，请先选择项目');
+                window.location.href = '/list_projects';
+                return;
+            }
+            
+            document.getElementById('projectInfo').textContent = `项目: ${escapeHtml(currentProjectName)}`;
+        }
+        
+        async function loadTestCases() {
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}/cases`);
+                const data = await response.json();
+                
+                const casesList = document.getElementById('casesList');
+                
+                if (data.cases && data.cases.length > 0) {
+                    casesList.innerHTML = '<div class="case-grid" id="caseGrid"></div>';
+                    const caseGrid = document.getElementById('caseGrid');
+                    
+                    data.cases.forEach(testCase => {
+                        const caseCard = document.createElement('div');
+                        caseCard.className = 'case-card';
+                        caseCard.id = `case-${testCase.id}`;
+                        
+                        caseCard.innerHTML = `
+                            <div class="case-name">${escapeHtml(testCase.name)}</div>
+                            <div class="case-info"><strong>ID:</strong> ${testCase.id}</div>
+                            <div class="case-info"><strong>描述:</strong> ${escapeHtml(testCase.description || '无描述')}</div>
+                            <div class="case-info"><strong>目标URL:</strong> ${escapeHtml(testCase.url || '无URL')}</div>
+                            <div class="case-info"><strong>创建时间:</strong> ${testCase.created_at}</div>
+                            <div class="case-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">测试步骤:</span>
+                                    <span class="stat-value">${testCase.step_count || 0}</span>
+                                </div>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="select-${testCase.id}" onchange="toggleCaseSelection(${testCase.id})">
+                                <label for="select-${testCase.id}">选择此用例</label>
+                            </div>
+                            <div class="case-actions">
+                                <button onclick="viewCaseSteps(${testCase.id})" class="btn btn-info btn-sm">查看步骤</button>
+                                <button onclick="showEditCaseModal(${testCase.id}, '${escapeHtml(testCase.name)}', '${escapeHtml(testCase.url || '')}', '${escapeHtml(testCase.description || '')}')" class="btn btn-sm">编辑</button>
+                                <button onclick="deleteTestCase(${testCase.id})" class="btn btn-danger btn-sm">删除</button>
+                            </div>
+                        `;
+                        
+                        caseGrid.appendChild(caseCard);
+                    });
+                } else {
+                    casesList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <div class="empty-state-text">该项目下暂无测试用例</div>
+                            <button onclick="showCreateCaseModal()" class="btn btn-primary">创建第一个测试用例</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载测试用例失败:', error);
+                document.getElementById('casesList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div class="empty-state-text">加载测试用例失败</div>
+                        <button onclick="loadTestCases()" class="btn btn-primary">重新加载</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function showCreateCaseModal() {
+            document.getElementById('createCaseModal').classList.add('active');
+            document.getElementById('caseName').value = '';
+            document.getElementById('caseUrl').value = '';
+            document.getElementById('caseDescription').value = '';
+        }
+        
+        function closeCreateCaseModal() {
+            document.getElementById('createCaseModal').classList.remove('active');
+        }
+        
+        async function createTestCase() {
+            const name = document.getElementById('caseName').value.trim();
+            const url = document.getElementById('caseUrl').value.trim();
+            const description = document.getElementById('caseDescription').value.trim();
+            
+            if (!name) {
+                alert('请输入测试用例名称');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/cases', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        name: name,
+                        url: url,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('测试用例创建成功！');
+                    closeCreateCaseModal();
+                    loadTestCases();
+                } else {
+                    alert('创建失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('创建测试用例时发生错误: ' + error.message);
+            }
+        }
+        
+        function showEditCaseModal(caseId, name, url, description) {
+            currentEditingCaseId = caseId;
+            document.getElementById('editCaseModal').classList.add('active');
+            document.getElementById('editCaseName').value = name;
+            document.getElementById('editCaseUrl').value = url;
+            document.getElementById('editCaseDescription').value = description;
+        }
+        
+        function closeEditCaseModal() {
+            document.getElementById('editCaseModal').classList.remove('active');
+            currentEditingCaseId = null;
+        }
+        
+        async function updateTestCase() {
+            const name = document.getElementById('editCaseName').value.trim();
+            const url = document.getElementById('editCaseUrl').value.trim();
+            const description = document.getElementById('editCaseDescription').value.trim();
+            
+            if (!name) {
+                alert('请输入测试用例名称');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/cases/${currentEditingCaseId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        url: url,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('测试用例更新成功！');
+                    closeEditCaseModal();
+                    loadTestCases();
+                } else {
+                    alert('更新失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('更新测试用例时发生错误: ' + error.message);
+            }
+        }
+        
+        async function deleteTestCase(caseId) {
+            if (confirm('确定要删除这个测试用例吗？此操作将同时删除相关的所有测试步骤。')) {
+                try {
+                const response = await fetch(`/api/cases/${caseId}`, {
+                    method: 'DELETE'
+                });
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // 处理非JSON响应
+                    const text = await response.text();
+                    alert(`删除失败：服务器返回无效响应: ${text.substring(0, 100)}`);
+                    return;
+                }
+                
+                if (data.success) {
+                    alert('测试用例删除成功！');
+                    selectedCaseIds.delete(caseId);
+                    loadTestCases();
+                } else {
+                    alert('删除失败: ' + (data.error || '未知错误'));
+                }
+                } catch (error) {
+                    alert('删除测试用例时发生错误: ' + error.message);
+                }
+            }
+        }
+        
+        function viewCaseSteps(caseId) {
+            sessionStorage.setItem('currentCaseId', caseId);
+            window.location.href = '/list_steps';
+        }
+        
+        function toggleCaseSelection(caseId) {
+            const checkbox = document.getElementById(`select-${caseId}`);
+            if (checkbox.checked) {
+                selectedCaseIds.add(caseId);
+            } else {
+                selectedCaseIds.delete(caseId);
+            }
+        }
+        
+        function selectAllCases() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="select-"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+                const caseId = parseInt(checkbox.id.replace('select-', ''));
+                selectedCaseIds.add(caseId);
+            });
+        }
+        
+        function deselectAllCases() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="select-"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            selectedCaseIds.clear();
+        }
+        
+        async function executeSelectedCases() {
+            if (selectedCaseIds.size === 0) {
+                alert('请先选择要执行的测试用例');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/execute_multiple_cases', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        case_ids: Array.from(selectedCaseIds)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const results = data.results;
+                    let content = `
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="margin-bottom: 10px; color: #333;">执行摘要</h4>
+                            <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+                                <div><strong>总用例数:</strong> ${results.total_cases}</div>
+                                <div style="color: #28a745;"><strong>成功:</strong> ${results.successful_cases}</div>
+                                <div style="color: #dc3545;"><strong>失败:</strong> ${results.failed_cases}</div>
+                            </div>
+                        </div>
+                        <div style="border-top: 1px solid #e9ecef; padding-top: 15px;">
+                            <h4 style="margin-bottom: 10px; color: #333;">详细结果</h4>
+                    `;
+                    
+                    results.case_results.forEach((result, index) => {
+                        const statusClass = result.success ? 'color: #28a745;' : 'color: #dc3545;';
+                        content += `
+                            <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #e9ecef; border-radius: 4px;">
+                                <div style="font-weight: 600; margin-bottom: 5px;">用例 ${index + 1}: ${result.case_name}</div>
+                                <div style="${statusClass} margin-bottom: 5px;">状态: ${result.success ? '成功' : '失败'}</div>
+                                ${result.error ? `<div style="color: #dc3545; font-size: 12px; background: #f8d7da; padding: 8px; border-radius: 3px; margin-top: 5px;">
+                                    <strong>错误:</strong> ${escapeHtml(result.error)}
+                                </div>` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    content += `</div>`;
+                    
+                    showRunResultModal(content);
+                } else {
+                    alert('执行失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('执行测试用例时发生错误: ' + error.message);
+            }
+        }
+        
+        function backToProjects() {
+            window.location.href = '/list_projects';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProjectInfo();
+            loadTestCases();
+        });
+    </script>
+</body>
+</html>

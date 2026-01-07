@@ -106,23 +106,6 @@ class UATLogger:
         message = f"浏览器事件: {event_type} | 数据: {json.dumps(filtered_data, ensure_ascii=False)}"
         self.debug(message)
     
-    def log_script_execution(self, script_id: int, step_count: int, results: list):
-        """记录脚本执行"""
-        success_count = sum(1 for r in results if r.get('status') == 'success')
-        error_count = len(results) - success_count
-        
-        message = f"脚本执行: ID={script_id} | 总步骤={step_count} | 成功={success_count} | 失败={error_count}"
-        
-        if error_count > 0:
-            # 记录失败的步骤
-            error_steps = [r for r in results if r.get('status') == 'error']
-            for step in error_steps:
-                step_data = step.get('step', {})
-                error_msg = step.get('error', '未知错误')
-                message += f"\n  失败步骤: {step_data.get('action', 'unknown')} - {error_msg}"
-        
-        self.info(message)
-    
     def log_recording_session(self, start_time: datetime, end_time: datetime, step_count: int, url: str):
         """记录录制会话"""
         duration = end_time - start_time

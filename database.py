@@ -13,18 +13,46 @@ class Database:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 创建测试用例表
+        # 创建项目表
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS test_cases (
+            CREATE TABLE IF NOT EXISTS projects (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 description TEXT,
-                target_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # 创建测试脚本表
+        # 创建测试用例表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS test_cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER,
+                name TEXT NOT NULL,
+                url TEXT,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects (id)
+            )
+        ''')
+        
+        # 创建测试步骤表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS test_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER,
+                action TEXT NOT NULL,
+                selector_type TEXT,
+                selector_value TEXT,
+                input_value TEXT,
+                description TEXT,
+                step_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (case_id) REFERENCES test_cases (id)
+            )
+        ''')
+        
+        # 创建测试脚本表（保留用于兼容性）
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS test_scripts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,17 +64,63 @@ class Database:
             )
         ''')
         
+        # 添加新字段到test_cases表（如果不存在）
+        try:
+            cursor.execute("ALTER TABLE test_cases ADD COLUMN precondition TEXT")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE test_cases ADD COLUMN expected_result TEXT")
+        except sqlite3.OperationalError:
+            pass
+        
+        # 添加新字段到test_steps表（如果不存在）
+        try:
+            cursor.execute("ALTER TABLE test_steps ADD COLUMN page_name TEXT")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE test_steps ADD COLUMN swipe_x TEXT")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE test_steps ADD COLUMN swipe_y TEXT")
+        except sqlite3.OperationalError:
+            pass
+        
+        try:
+            cursor.execute("ALTER TABLE test_steps ADD COLUMN url TEXT")
+        except sqlite3.OperationalError:
+            pass
+        
+        # 创建运行历史记录表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS run_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id INTEGER,
+                status TEXT NOT NULL,
+                duration REAL,
+                error TEXT,
+                extracted_text TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (case_id) REFERENCES test_cases (id)
+            )
+        ''')
+        
         conn.commit()
         conn.close()
     
-    def create_test_case(self, name: str, description: str = "", target_url: str = "") -> int:
+    def create_test_case(self, name: str, description: str = "", url: str = "") -> int:
         """创建测试用例"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute(
-            "INSERT INTO test_cases (name, description, target_url) VALUES (?, ?, ?)",
-            (name, description, target_url)
+            "INSERT INTO test_cases (name, description, url) VALUES (?, ?, ?)",
+            (name, description, url)
         )
         case_id = cursor.lastrowid
         
@@ -69,7 +143,11 @@ class Database:
                 'name': row[1],
                 'description': row[2],
                 'target_url': row[3],
-                'created_at': row[4]
+                'created_at': row[4],
+                'project_id': row[5] if len(row) > 5 else None,
+                'url': row[6] if len(row) > 6 else '',
+                'precondition': row[7] if len(row) > 7 else '',
+                'expected_result': row[8] if len(row) > 8 else ''
             }
         
         conn.close()
@@ -85,76 +163,23 @@ class Database:
         
         cases = []
         for row in rows:
-            cases.append({
+            case = {
                 'id': row[0],
                 'name': row[1],
                 'description': row[2],
                 'target_url': row[3],
-                'created_at': row[4]
-            })
+                'created_at': row[4],
+                'project_id': row[5] if len(row) > 5 else None,
+                'url': row[6] if len(row) > 6 else '',
+                'precondition': row[7] if len(row) > 7 else '',
+                'expected_result': row[8] if len(row) > 8 else ''
+            }
+            cases.append(case)
         
         conn.close()
         return cases
     
-    def create_test_script(self, case_id: int, name: str, steps: List[Dict[str, Any]] = None) -> int:
-        """创建测试脚本"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        steps_json = json.dumps(steps or [], ensure_ascii=False)
-        cursor.execute(
-            "INSERT INTO test_scripts (case_id, name, steps) VALUES (?, ?, ?)",
-            (case_id, name, steps_json)
-        )
-        script_id = cursor.lastrowid
-        
-        conn.commit()
-        conn.close()
-        
-        return script_id
-    
-    def get_test_script(self, script_id: int) -> Dict[str, Any]:
-        """获取测试脚本"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM test_scripts WHERE id = ?", (script_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            return {
-                'id': row[0],
-                'case_id': row[1],
-                'name': row[2],
-                'steps': json.loads(row[3]) if row[3] else [],
-                'created_at': row[4]
-            }
-        
-        conn.close()
-        return None
-    
-    def get_scripts_by_case(self, case_id: int) -> List[Dict[str, Any]]:
-        """根据用例ID获取所有脚本"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM test_scripts WHERE case_id = ? ORDER BY created_at DESC", (case_id,))
-        rows = cursor.fetchall()
-        
-        scripts = []
-        for row in rows:
-            scripts.append({
-                'id': row[0],
-                'case_id': row[1],
-                'name': row[2],
-                'steps': json.loads(row[3]) if row[3] else [],
-                'created_at': row[4]
-            })
-        
-        conn.close()
-        return scripts
-    
-    def update_test_case(self, case_id: int, name: str = None, description: str = None, target_url: str = None) -> bool:
+    def update_test_case(self, case_id: int, name: str = None, description: str = None, url: str = None) -> bool:
         """更新测试用例"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -171,9 +196,9 @@ class Database:
             updates.append("description = ?")
             params.append(description)
         
-        if target_url is not None:
-            updates.append("target_url = ?")
-            params.append(target_url)
+        if url is not None:
+            updates.append("url = ?")
+            params.append(url)
         
         if not updates:
             conn.close()
@@ -191,12 +216,9 @@ class Database:
         return success
     
     def delete_test_case(self, case_id: int) -> bool:
-        """删除测试用例及其相关脚本"""
+        """删除测试用例"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
-        # 删除与该用例相关的所有脚本
-        cursor.execute("DELETE FROM test_scripts WHERE case_id = ?", (case_id,))
         
         # 删除测试用例
         cursor.execute("DELETE FROM test_cases WHERE id = ?", (case_id,))
@@ -208,29 +230,68 @@ class Database:
         
         return success
     
-    def update_test_script_steps(self, script_id: int, steps: List[Dict[str, Any]]) -> bool:
-        """更新测试脚本步骤"""
+    # ==================== 项目管理方法 ====================
+    
+    def create_project(self, name: str, description: str = "") -> int:
+        """创建项目"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        steps_json = json.dumps(steps, ensure_ascii=False)
         cursor.execute(
-            "UPDATE test_scripts SET steps = ? WHERE id = ?",
-            (steps_json, script_id)
+            "INSERT INTO projects (name, description) VALUES (?, ?)",
+            (name, description)
         )
+        project_id = cursor.lastrowid
         
-        success = cursor.rowcount > 0
         conn.commit()
         conn.close()
         
-        return success
+        return project_id
     
-    def update_test_script(self, script_id: int, name: str = None, case_id: int = None) -> bool:
-        """更新测试脚本"""
+    def get_project(self, project_id: int) -> Dict[str, Any]:
+        """获取项目"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 构建更新语句和参数
+        cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            return {
+                'id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'created_at': row[3]
+            }
+        
+        conn.close()
+        return None
+    
+    def get_all_projects(self) -> List[Dict[str, Any]]:
+        """获取所有项目"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM projects ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        
+        projects = []
+        for row in rows:
+            projects.append({
+                'id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'created_at': row[3]
+            })
+        
+        conn.close()
+        return projects
+    
+    def update_project(self, project_id: int, name: str = None, description: str = None) -> bool:
+        """更新项目"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
         updates = []
         params = []
         
@@ -238,16 +299,16 @@ class Database:
             updates.append("name = ?")
             params.append(name)
         
-        if case_id is not None:
-            updates.append("case_id = ?")
-            params.append(case_id)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
         
         if not updates:
             conn.close()
             return False
         
-        query = f"UPDATE test_scripts SET {', '.join(updates)} WHERE id = ?"
-        params.append(script_id)
+        query = f"UPDATE projects SET {', '.join(updates)} WHERE id = ?"
+        params.append(project_id)
         
         cursor.execute(query, params)
         success = cursor.rowcount > 0
@@ -257,13 +318,24 @@ class Database:
         
         return success
     
-    def delete_test_script(self, script_id: int) -> bool:
-        """删除测试脚本"""
+    def delete_project(self, project_id: int) -> bool:
+        """删除项目及其相关测试用例和步骤"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 删除测试脚本
-        cursor.execute("DELETE FROM test_scripts WHERE id = ?", (script_id,))
+        # 获取该项目下的所有测试用例
+        cursor.execute("SELECT id FROM test_cases WHERE project_id = ?", (project_id,))
+        case_ids = [row[0] for row in cursor.fetchall()]
+        
+        # 删除所有测试用例的步骤
+        for case_id in case_ids:
+            cursor.execute("DELETE FROM test_steps WHERE case_id = ?", (case_id,))
+        
+        # 删除所有测试用例
+        cursor.execute("DELETE FROM test_cases WHERE project_id = ?", (project_id,))
+        
+        # 删除项目
+        cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         
         success = cursor.rowcount > 0
         
@@ -272,23 +344,406 @@ class Database:
         
         return success
     
-    def get_all_test_scripts(self) -> List[Dict[str, Any]]:
-        """获取所有测试脚本"""
+    def get_project_cases(self, project_id: int) -> List[Dict[str, Any]]:
+        """获取项目下的所有测试用例"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT * FROM test_scripts ORDER BY created_at DESC")
+        cursor.execute("""
+            SELECT tc.*, COUNT(ts.id) as step_count
+            FROM test_cases tc
+            LEFT JOIN test_steps ts ON tc.id = ts.case_id
+            WHERE tc.project_id = ?
+            GROUP BY tc.id
+            ORDER BY tc.created_at DESC
+        """, (project_id,))
         rows = cursor.fetchall()
         
-        scripts = []
+        cases = []
         for row in rows:
-            scripts.append({
+            cases.append({
                 'id': row[0],
-                'case_id': row[1],
-                'name': row[2],
-                'steps': json.loads(row[3]) if row[3] else [],
-                'created_at': row[4]
+                'name': row[1],
+                'description': row[2],
+                'target_url': row[3],
+                'created_at': row[4],
+                'project_id': row[5] if len(row) > 5 else None,
+                'url': row[6] if len(row) > 6 else '',
+                'precondition': row[7] if len(row) > 7 else '',
+                'expected_result': row[8] if len(row) > 8 else '',
+                'step_count': row[9] if len(row) > 9 else 0
             })
         
         conn.close()
-        return scripts
+        return cases
+    
+    # ==================== 测试用例管理方法（新版本） ====================
+    
+    def create_test_case_v2(self, project_id: int, name: str, url: str = "", description: str = "", precondition: str = "", expected_result: str = "") -> int:
+        """创建测试用例（新版本，关联到项目）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "INSERT INTO test_cases (project_id, name, url, description, precondition, expected_result) VALUES (?, ?, ?, ?, ?, ?)",
+            (project_id, name, url, description, precondition, expected_result)
+        )
+        case_id = cursor.lastrowid
+        
+        conn.commit()
+        conn.close()
+        
+        return case_id
+    
+    def get_test_case_v2(self, case_id: int) -> Dict[str, Any]:
+        """获取测试用例（新版本）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM test_cases WHERE id = ?", (case_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            return {
+                'id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'target_url': row[3],
+                'created_at': row[4],
+                'project_id': row[5] if len(row) > 5 else None,
+                'url': row[6] if len(row) > 6 else '',
+                'precondition': row[7] if len(row) > 7 else '',
+                'expected_result': row[8] if len(row) > 8 else ''
+            }
+        
+        conn.close()
+        return None
+    
+    def update_test_case_v2(self, case_id: int, name: str = None, url: str = None, description: str = None, precondition: str = None, expected_result: str = None) -> bool:
+        """更新测试用例（新版本）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        updates = []
+        params = []
+        
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        
+        if url is not None:
+            updates.append("url = ?")
+            params.append(url)
+        
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        
+        if precondition is not None:
+            updates.append("precondition = ?")
+            params.append(precondition)
+        
+        if expected_result is not None:
+            updates.append("expected_result = ?")
+            params.append(expected_result)
+        
+        if not updates:
+            conn.close()
+            return False
+        
+        query = f"UPDATE test_cases SET {', '.join(updates)} WHERE id = ?"
+        params.append(case_id)
+        
+        cursor.execute(query, params)
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def delete_test_case_v2(self, case_id: int) -> bool:
+        """删除测试用例及其相关步骤（新版本）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # 删除该用例的所有步骤
+            cursor.execute("DELETE FROM test_steps WHERE case_id = ?", (case_id,))
+            
+            # 删除测试用例
+            cursor.execute("DELETE FROM test_cases WHERE id = ?", (case_id,))
+            
+            # 检查是否有行被删除
+            steps_deleted = cursor.rowcount > 0
+            
+            # 提交事务
+            conn.commit()
+            
+            # 验证测试用例是否真的被删除
+            cursor.execute("SELECT id FROM test_cases WHERE id = ?", (case_id,))
+            case_exists = cursor.fetchone() is not None
+            
+            return not case_exists
+        except Exception as e:
+            print(f"删除测试用例失败: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
+    # ==================== 测试步骤管理方法 ====================
+    
+    def create_test_step(self, case_id: int, action: str, selector_type: str = "", 
+                         selector_value: str = "", input_value: str = "", 
+                         description: str = "", step_order: int = 0, page_name: str = "",
+                         swipe_x: str = "", swipe_y: str = "", url: str = "") -> int:
+        """创建测试步骤"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            """INSERT INTO test_steps 
+               (case_id, action, selector_type, selector_value, input_value, description, step_order, page_name, swipe_x, swipe_y, url) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (case_id, action, selector_type, selector_value, input_value, description, step_order, page_name, swipe_x, swipe_y, url)
+        )
+        step_id = cursor.lastrowid
+        
+        conn.commit()
+        conn.close()
+        
+        return step_id
+    
+    def get_test_step(self, step_id: int) -> Dict[str, Any]:
+        """获取测试步骤"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM test_steps WHERE id = ?", (step_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            return {
+                'id': row[0],
+                'case_id': row[1],
+                'action': row[2],
+                'selector_type': row[3],
+                'selector_value': row[4],
+                'input_value': row[5],
+                'description': row[6],
+                'step_order': row[7],
+                'created_at': row[8],
+                'page_name': row[9] if len(row) > 9 else ''
+            }
+        
+        conn.close()
+        return None
+    
+    def get_case_steps(self, case_id: int) -> List[Dict[str, Any]]:
+        """获取测试用例的所有步骤"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM test_steps WHERE case_id = ? ORDER BY step_order ASC", (case_id,))
+        rows = cursor.fetchall()
+        
+        steps = []
+        for row in rows:
+            steps.append({
+                'id': row[0],
+                'case_id': row[1],
+                'action': row[2],
+                'selector_type': row[3],
+                'selector_value': row[4],
+                'input_value': row[5],
+                'description': row[6],
+                'step_order': row[7],
+                'created_at': row[8],
+                'page_name': row[9] if len(row) > 9 else '',
+                'swipe_x': row[10] if len(row) > 10 else '',
+                'swipe_y': row[11] if len(row) > 11 else '',
+                'url': row[12] if len(row) > 12 else ''
+            })
+        
+        conn.close()
+        return steps
+    
+    def update_test_step(self, step_id: int, action: str = None, selector_type: str = None,
+                        selector_value: str = None, input_value: str = None,
+                        description: str = None, step_order: int = None) -> bool:
+        """更新测试步骤"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        updates = []
+        params = []
+        
+        if action is not None:
+            updates.append("action = ?")
+            params.append(action)
+        
+        if selector_type is not None:
+            updates.append("selector_type = ?")
+            params.append(selector_type)
+        
+        if selector_value is not None:
+            updates.append("selector_value = ?")
+            params.append(selector_value)
+        
+        if input_value is not None:
+            updates.append("input_value = ?")
+            params.append(input_value)
+        
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        
+        if step_order is not None:
+            updates.append("step_order = ?")
+            params.append(step_order)
+        
+        if not updates:
+            conn.close()
+            return False
+        
+        query = f"UPDATE test_steps SET {', '.join(updates)} WHERE id = ?"
+        params.append(step_id)
+        
+        cursor.execute(query, params)
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def delete_test_step(self, step_id: int) -> bool:
+        """删除测试步骤"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM test_steps WHERE id = ?", (step_id,))
+        
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    # ==================== 运行历史记录管理方法 ====================
+    
+    def create_run_history(self, case_id: int, status: str, duration: float, error: str = "", extracted_text: str = "") -> int:
+        """创建运行历史记录"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "INSERT INTO run_history (case_id, status, duration, error, extracted_text) VALUES (?, ?, ?, ?, ?)",
+            (case_id, status, duration, error, extracted_text)
+        )
+        history_id = cursor.lastrowid
+        
+        conn.commit()
+        conn.close()
+        
+        return history_id
+    
+    def get_all_run_history(self) -> List[Dict[str, Any]]:
+        """获取所有运行历史记录"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT rh.*, tc.name as case_name 
+            FROM run_history rh 
+            LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+            ORDER BY rh.created_at DESC
+        """)
+        rows = cursor.fetchall()
+        
+        history = []
+        for row in rows:
+            history.append({
+                'id': row[0],
+                'case_id': row[1],
+                'status': row[2],
+                'duration': row[3],
+                'error': row[4],
+                'extracted_text': row[5],
+                'created_at': row[6],
+                'case_name': row[7]
+            })
+        
+        conn.close()
+        return history
+    
+    def get_case_run_history(self, case_id: int) -> List[Dict[str, Any]]:
+        """获取指定测试用例的运行历史记录"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM run_history 
+            WHERE case_id = ? 
+            ORDER BY created_at DESC
+        """, (case_id,))
+        rows = cursor.fetchall()
+        
+        history = []
+        for row in rows:
+            history.append({
+                'id': row[0],
+                'case_id': row[1],
+                'status': row[2],
+                'duration': row[3],
+                'error': row[4],
+                'extracted_text': row[5],
+                'created_at': row[6]
+            })
+        
+        conn.close()
+        return history
+    
+    def delete_run_history(self, history_id: int) -> bool:
+        """删除运行历史记录"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM run_history WHERE id = ?", (history_id,))
+        
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def delete_case_run_history(self, case_id: int) -> bool:
+        """删除指定测试用例的所有运行历史记录"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM run_history WHERE case_id = ?", (case_id,))
+        
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def delete_case_steps(self, case_id: int) -> bool:
+        """删除测试用例的所有步骤"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM test_steps WHERE case_id = ?", (case_id,))
+        
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success

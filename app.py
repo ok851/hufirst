@@ -3,11 +3,33 @@ from flask_cors import CORS
 import os
 import time
 from database import Database
-from playwright_automation import automation, sync_start_browser, sync_navigate_to, sync_scroll_page, sync_get_page_text, sync_extract_element_text, sync_get_page_title, sync_get_current_url, sync_get_all_links, sync_hover_element, sync_double_click_element, sync_right_click_element, sync_click_element, sync_fill_input, sync_get_page_elements, sync_extract_element_data, sync_get_page_data, sync_analyze_page_content, sync_close_browser, sync_execute_script_steps, sync_start_recording, sync_stop_recording, sync_wait_for_selector, sync_wait_for_element_visible, sync_take_screenshot, worker, sync_enable_element_selection, sync_disable_element_selection, sync_get_selected_element  # 使用全局实例和同步包装器
+from playwright_automation import automation, sync_start_browser, sync_navigate_to, sync_scroll_page, sync_get_page_text, sync_extract_element_text, sync_get_page_title, sync_get_current_url, sync_get_all_links, sync_hover_element, sync_double_click_element, sync_right_click_element, sync_click_element, sync_fill_input, sync_get_page_elements, sync_extract_element_data, sync_get_page_data, sync_analyze_page_content, sync_close_browser, sync_execute_script_steps, sync_start_recording, sync_stop_recording, sync_wait_for_selector, sync_wait_for_element_visible, sync_take_screenshot, sync_execute_multiple_test_cases, worker, sync_enable_element_selection, sync_disable_element_selection, sync_get_selected_element, sync_wait_for_timeout  # 使用全局实例和同步包装器
 import asyncio
 import json
 import functools
 from logger import uat_logger
+
+def generate_selector_by_method(method, value):
+    """根据定位方法生成对应的选择器"""
+    if not value:
+        return ""
+    
+    method = method.lower()
+    
+    if method == 'xpath':
+        return value
+    elif method == 'id':
+        return f'#{value}'
+    elif method == 'name':
+        return f'[name="{value}"]'
+    elif method == 'class':
+        return f'.{value}'
+    elif method == 'text':
+        return f':has-text("{value}")'
+    elif method == 'css':
+        return value
+    else:
+        return value
 
 # 统一的API错误处理装饰器
 def api_error_handler(func):
@@ -64,35 +86,19 @@ db = Database()
 def index():
     return render_template('index.html')
 
-# 创建测试用例页面
-@app.route('/create_case')
-def create_case():
-    return render_template('create_case.html')
+@app.route('/create_case_v2')
+def create_case_v2():
+    return render_template('create_case_v2.html')
 
-# 录制脚本页面
-@app.route('/record_script')
-def record_script():
-    return render_template('record_script.html')
+# 项目管理页面
+@app.route('/list_projects')
+def list_projects():
+    return render_template('list_projects.html')
 
-# 执行脚本页面
-@app.route('/playback_script')
-def playback_script():
-    return render_template('playback_script.html')
-
-# 测试用例列表页面
-@app.route('/list_cases')
-def list_cases():
-    return render_template('list_cases.html')
-
-# 测试脚本列表页面
-@app.route('/list_scripts')
-def list_scripts():
-    return render_template('list_scripts.html')
-
-# 创建测试脚本页面
-@app.route('/create_script')
-def create_script() -> str:
-    return render_template(template_name_or_list='create_script.html')
+# 测试用例管理页面（新版本）
+@app.route('/list_cases_v2')
+def list_cases_v2():
+    return render_template('list_cases_v2.html')
 
 # API: 创建测试用例
 @app.route('/api/create_case', methods=['POST'])
@@ -157,89 +163,6 @@ def api_delete_test_case(case_id):
     else:
         return jsonify({'success': False, 'error': '删除测试用例失败'}), 400
 
-# API: 创建测试脚本
-@app.route('/api/create_script', methods=['POST'])
-@api_error_handler
-@log_api_request
-def api_create_script():
-    data = request.json
-    case_id = data.get('case_id')
-    name = data.get('name', '')
-    
-    if not case_id or not name:
-        return jsonify({'error': '缺少必要参数'}), 400
-    
-    script_id = db.create_test_script(case_id, name)
-    return jsonify({'success': True, 'script_id': script_id})
-
-# API: 获取用例下的所有脚本
-@app.route('/api/case/<int:case_id>/scripts', methods=['GET'])
-@api_error_handler
-@log_api_request
-def api_get_case_scripts(case_id):
-    scripts = db.get_scripts_by_case(case_id)
-    return jsonify({'scripts': scripts})
-
-# API: 获取脚本详情
-@app.route('/api/script/<int:script_id>', methods=['GET'])
-@api_error_handler
-@log_api_request
-def api_get_script(script_id):
-    script = db.get_test_script(script_id)
-    if not script:
-        return jsonify({'error': '脚本不存在'}), 404
-    return jsonify({'script': script})
-
-# API: 获取所有测试脚本
-@app.route('/api/scripts', methods=['GET'])
-@api_error_handler
-@log_api_request
-def api_get_all_scripts():
-    scripts = db.get_all_test_scripts()
-    return jsonify({'scripts': scripts})
-
-# API: 更新脚本步骤
-@app.route('/api/script/<int:script_id>/steps', methods=['PUT'])
-@api_error_handler
-@log_api_request
-def api_update_script_steps(script_id):
-    data = request.json
-    steps = data.get('steps', [])
-    
-    success = db.update_test_script_steps(script_id, steps)
-    if not success:
-        return jsonify({'error': '更新脚本失败'}), 400
-    
-    return jsonify({'success': True})
-
-# API: 更新测试脚本
-@app.route('/api/script/<int:script_id>', methods=['PUT'])
-@api_error_handler
-@log_api_request
-def api_update_script(script_id):
-    data = request.json
-    name = data.get('name')
-    case_id = data.get('case_id')
-    
-    success = db.update_test_script(script_id, name, case_id)
-    
-    if success:
-        return jsonify({'success': True})
-    else:
-        return jsonify({'success': False, 'error': '更新测试脚本失败'}), 400
-
-# API: 删除测试脚本
-@app.route('/api/script/<int:script_id>', methods=['DELETE'])
-@api_error_handler
-@log_api_request
-def api_delete_script(script_id):
-    success = db.delete_test_script(script_id)
-    
-    if success:
-        return jsonify({'success': True})
-    else:
-        return jsonify({'success': False, 'error': '删除测试脚本失败'}), 400
-
 # API: 启动浏览器进行录制
 @app.route('/api/start_recording', methods=['POST'])
 @api_error_handler
@@ -302,39 +225,32 @@ def api_stop_recording():
         
     return jsonify(response_data)
 
-# API: 执行脚本
-@app.route('/api/execute_script', methods=['POST'])
+# API: 执行多个测试用例
+@app.route('/api/execute_multiple_cases', methods=['POST'])
 @api_error_handler
 @log_api_request
-def api_execute_script():
+def api_execute_multiple_cases():
     data = request.json or {}
-    script_id = data.get('script_id')
+    case_ids = data.get('case_ids', [])
     
-    if not script_id:
-        return jsonify({'success': False, 'error': '缺少脚本ID参数'}), 400
+    if not case_ids:
+        return jsonify({'success': False, 'error': '缺少测试用例ID列表参数'}), 400
     
-    # 获取脚本详情
-    script = db.get_test_script(script_id)
-    if not script:
-        return jsonify({'success': False, 'error': '脚本不存在'}), 404
+    if not isinstance(case_ids, list):
+        return jsonify({'success': False, 'error': 'case_ids参数必须是数组'}), 400
     
-    # 检查脚本是否有步骤
-    steps = script.get('steps', [])
-    if not steps:
-        return jsonify({'success': False, 'error': '脚本没有步骤可以执行'}), 400
+    uat_logger.info(f"开始执行多个测试用例，共 {len(case_ids)} 个用例")
     
-    uat_logger.info(f"开始执行脚本 ID={script_id}, 共 {len(steps)} 个步骤")
-    
-    # 执行脚本步骤
-    results = sync_execute_script_steps(steps)
+    # 执行多个测试用例
+    results = sync_execute_multiple_test_cases(case_ids, db)
     
     # 记录执行结果
-    uat_logger.log_script_execution(script_id, len(steps), results)
+    uat_logger.info(f"多个测试用例执行完成，成功: {results['successful_cases']}, 失败: {results['failed_cases']}")
     
     # 尝试关闭浏览器，但不影响结果返回
     try:
         sync_close_browser()
-        uat_logger.info("脚本执行完成，浏览器已关闭")
+        uat_logger.info("多个测试用例执行完成，浏览器已关闭")
     except Exception as close_error:
         uat_logger.warning(f"关闭浏览器时出错: {close_error}")
     
@@ -611,6 +527,511 @@ def api_get_selected_element():
         return jsonify({'success': True, 'element': element_info})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ==================== 项目管理API ====================
+
+# API: 创建项目
+@app.route('/api/projects', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_create_project():
+    data = request.json
+    name = data.get('name', '')
+    description = data.get('description', '')
+    
+    if not name:
+        return jsonify({'error': '项目名称不能为空'}), 400
+    
+    project_id = db.create_project(name, description)
+    return jsonify({'success': True, 'project_id': project_id})
+
+# API: 获取所有项目
+@app.route('/api/projects', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_get_projects():
+    projects = db.get_all_projects()
+    return jsonify({'projects': projects})
+
+# API: 获取单个项目
+@app.route('/api/projects/<int:project_id>', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_get_project(project_id):
+    project = db.get_project(project_id)
+    if not project:
+        return jsonify({'error': '项目不存在'}), 404
+    return jsonify({'project': project})
+
+# API: 更新项目
+@app.route('/api/projects/<int:project_id>', methods=['PUT'])
+@api_error_handler
+@log_api_request
+def api_update_project(project_id):
+    data = request.json
+    name = data.get('name')
+    description = data.get('description')
+    
+    success = db.update_project(project_id, name, description)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '更新项目失败'}), 400
+
+# API: 删除项目
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+@api_error_handler
+@log_api_request
+def api_delete_project(project_id):
+    success = db.delete_project(project_id)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '删除项目失败'}), 400
+
+# API: 获取项目下的所有测试用例
+@app.route('/api/projects/<int:project_id>/cases', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_get_project_cases(project_id):
+    cases = db.get_project_cases(project_id)
+    return jsonify({'cases': cases})
+
+# ==================== 测试用例管理API（新版本） ====================
+
+# API: 创建测试用例（关联到项目）
+@app.route('/api/cases', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_create_case_v2():
+    data = request.json
+    project_id = data.get('project_id')
+    name = data.get('name', '')
+    url = data.get('url', '')
+    description = data.get('description', '')
+    precondition = data.get('precondition', '')
+    expected_result = data.get('expected_result', '')
+    
+    if not project_id:
+        return jsonify({'error': '项目ID不能为空'}), 400
+    if not name:
+        return jsonify({'error': '用例名称不能为空'}), 400
+    
+    case_id = db.create_test_case_v2(project_id, name, url, description, precondition, expected_result)
+    return jsonify({'success': True, 'case_id': case_id})
+
+# API: 获取测试用例详情（新版本）
+@app.route('/api/cases/<int:case_id>', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_get_case_v2(case_id):
+    case = db.get_test_case_v2(case_id)
+    if not case:
+        return jsonify({'error': '测试用例不存在'}), 404
+    return jsonify({'test_case': case})
+
+# API: 更新测试用例（新版本）
+@app.route('/api/cases/<int:case_id>', methods=['PUT'])
+@api_error_handler
+@log_api_request
+def api_update_case_v2(case_id):
+    data = request.json
+    name = data.get('name')
+    url = data.get('url')
+    description = data.get('description')
+    precondition = data.get('precondition')
+    expected_result = data.get('expected_result')
+    
+    success = db.update_test_case_v2(case_id, name, url, description, precondition, expected_result)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '更新测试用例失败'}), 400
+
+# API: 删除测试用例（新版本）
+@app.route('/api/cases/<int:case_id>', methods=['DELETE'])
+@api_error_handler
+@log_api_request
+def api_delete_case_v2(case_id):
+    success = db.delete_test_case_v2(case_id)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '删除测试用例失败'}), 400
+
+# ==================== 测试步骤管理API ====================
+
+# API: 获取测试用例的所有步骤
+@app.route('/api/cases/<int:case_id>/steps', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_get_case_steps(case_id):
+    steps = db.get_case_steps(case_id)
+    return jsonify({'steps': steps})
+
+# API: 创建测试步骤
+@app.route('/api/steps', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_create_step():
+    data = request.json
+    case_id = data.get('case_id')
+    action = data.get('action', '')
+    selector_type = data.get('selector_type', '')
+    selector_value = data.get('selector_value', '')
+    input_value = data.get('input_value', '')
+    description = data.get('description', '')
+    step_order = data.get('step_order', 0)
+    page_name = data.get('page_name', '')
+    swipe_x = data.get('swipe_x', '')
+    swipe_y = data.get('swipe_y', '')
+    url = data.get('url', '')
+    
+    if not case_id:
+        return jsonify({'error': '用例ID不能为空'}), 400
+    if not action:
+        return jsonify({'error': '操作类型不能为空'}), 400
+    
+    step_id = db.create_test_step(case_id, action, selector_type, selector_value, 
+                                  input_value, description, step_order, page_name,
+                                  swipe_x, swipe_y, url)
+    return jsonify({'success': True, 'step_id': step_id})
+
+# API: 更新测试步骤
+@app.route('/api/steps/<int:step_id>', methods=['PUT'])
+@api_error_handler
+@log_api_request
+def api_update_step(step_id):
+    data = request.json
+    action = data.get('action')
+    selector_type = data.get('selector_type')
+    selector_value = data.get('selector_value')
+    input_value = data.get('input_value')
+    description = data.get('description')
+    step_order = data.get('step_order')
+    page_name = data.get('page_name')
+    
+    success = db.update_test_step(step_id, action, selector_type, selector_value,
+                                   input_value, description, step_order, page_name)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '更新测试步骤失败'}), 400
+
+# API: 删除测试步骤
+@app.route('/api/steps/<int:step_id>', methods=['DELETE'])
+@api_error_handler
+@log_api_request
+def api_delete_step(step_id):
+    success = db.delete_test_step(step_id)
+
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '删除测试步骤失败'}), 400
+
+# API: 删除测试用例的所有步骤
+@app.route('/api/cases/<int:case_id>/steps', methods=['DELETE'])
+@api_error_handler
+@log_api_request
+def api_delete_case_steps(case_id):
+    success = db.delete_case_steps(case_id)
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '删除测试用例步骤失败'}), 400
+
+# API: 运行测试用例
+@app.route('/api/cases/<int:case_id>/run', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_run_case(case_id):
+    try:
+        # 记录开始时间
+        start_time = time.time()
+        
+        # 获取测试用例信息
+        case = db.get_test_case_v2(case_id)
+        if not case:
+            return jsonify({'error': '测试用例不存在'}), 404
+        
+        # 获取测试步骤
+        steps = db.get_case_steps(case_id)
+        if not steps:
+            return jsonify({'error': '测试用例没有步骤'}), 400
+        
+        uat_logger.info(f"开始运行测试用例 #{case_id}: {case['name']}")
+        uat_logger.info(f"测试用例共有 {len(steps)} 个步骤")
+        
+        # 提取的文本
+        extracted_text = ""
+        
+        # 启动浏览器
+        sync_start_browser(headless=False)
+        
+        # 执行测试步骤
+        try:
+            # 如果有目标URL，先导航到该URL
+            if case.get('url'):
+                uat_logger.log_automation_step("navigate", case['url'], "测试开始时导航")
+                sync_navigate_to(case['url'])
+            
+            # 执行所有步骤
+            for step in steps:
+                action = step.get('action', '')
+                selector_type = step.get('selector_type', 'css')
+                selector_value = step.get('selector_value', '')
+                input_value = step.get('input_value', '')
+                description = step.get('description', '')
+                
+                uat_logger.log_automation_step(action, selector_value or input_value, description)
+                
+                if action == 'navigate':
+                    # 获取URL并进行有效性检查
+                    url = None
+                    if step.get('url'):
+                        url = step['url']
+                    elif step.get('description'):
+                        url = step['description']
+                    elif step.get('input_value'):
+                        url = step['input_value']
+                    
+                    # URL有效性检查和修复
+                    if url:
+                        # 自动添加协议前缀
+                        if not url.startswith(('http://', 'https://')):
+                            url = 'https://' + url
+                        uat_logger.log_automation_step("navigate", url, "导航到URL")
+                        sync_navigate_to(url)
+                elif action == 'click':
+                    if selector_value:
+                        sync_click_element(selector_value, selector_type)
+                        # 点击后等待页面响应
+                        sync_wait_for_timeout(2000)
+                elif action == 'input':
+                    if selector_value and input_value:
+                        sync_fill_input(selector_value, input_value, selector_type)
+                        # 输入后等待页面响应
+                        sync_wait_for_timeout(1000)
+                elif action == 'fill':
+                    if selector_value and input_value:
+                        sync_fill_input(selector_value, input_value, selector_type)
+                        # 填充后等待页面响应
+                        sync_wait_for_timeout(1000)
+                elif action == 'hover':
+                    if selector_value:
+                        sync_hover_element(selector_value, selector_type)
+                        # 悬停后等待页面响应
+                        sync_wait_for_timeout(1000)
+                elif action == 'double_click':
+                    if selector_value:
+                        sync_double_click_element(selector_value, selector_type)
+                        # 双击后等待页面响应
+                        sync_wait_for_timeout(2000)
+                elif action == 'right_click':
+                    if selector_value:
+                        sync_right_click_element(selector_value, selector_type)
+                        # 右键点击后等待页面响应
+                        sync_wait_for_timeout(1000)
+                elif action == 'wait':
+                    if selector_value:
+                        sync_wait_for_selector(selector_value, selector_type=selector_type)
+                elif action == 'scroll':
+                    direction = 'down'
+                    pixels = 500
+                    sync_scroll_page(direction, pixels)
+                    # 滚动后等待页面响应
+                    sync_wait_for_timeout(1500)
+                elif action == 'extract_text':
+                    if selector_value:
+                        # 构建完整的选择器
+                        full_selector = selector_value
+                        if selector_type == 'xpath' and not full_selector.startswith('xpath='):
+                            full_selector = f'xpath={full_selector}'
+                        # 提取元素文本
+                        extracted_text = sync_extract_element_text(full_selector)
+                        uat_logger.info(f"提取到文本: {extracted_text[:100]}...")
+                        
+                        # 检查是否需要验证文本
+                        expected_text = input_value or description
+                        verify_type = step.get('verify_type', 'equals')
+                        
+                        if expected_text:
+                            uat_logger.info(f"验证文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
+                            
+                            # 根据验证方式执行不同的验证逻辑
+                            if verify_type == 'equals':
+                                if extracted_text != expected_text:
+                                    uat_logger.error("文本验证失败: 提取的文本与预期结果不相等")
+                                    raise Exception(f"文本验证失败: 提取的文本与预期结果不相等")
+                            elif verify_type == 'contains':
+                                if expected_text not in extracted_text:
+                                    uat_logger.error("文本验证失败: 提取的文本不包含预期内容")
+                                    raise Exception(f"文本验证失败: 提取的文本不包含预期内容")
+                            elif verify_type == 'partial':
+                                if expected_text not in extracted_text:
+                                    uat_logger.error("文本验证失败: 提取的文本不包含预期的部分内容")
+                                    raise Exception(f"文本验证失败: 提取的文本不包含预期的部分内容")
+                            
+                            uat_logger.info("文本验证成功")
+                        
+                        # 提取后等待页面响应
+                        sync_wait_for_timeout(1000)
+                    else:
+                        # 提取整个页面文本
+                        extracted_text = sync_get_page_text()
+                        uat_logger.info(f"提取到页面文本: {extracted_text[:100]}...")
+                        
+                        # 检查是否需要验证文本
+                        expected_text = input_value or description
+                        verify_type = step.get('verify_type', 'equals')
+                        
+                        if expected_text:
+                            uat_logger.info(f"验证页面文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
+                            
+                            # 根据验证方式执行不同的验证逻辑
+                            if verify_type == 'equals':
+                                if extracted_text != expected_text:
+                                    uat_logger.error("页面文本验证失败: 提取的文本与预期结果不相等")
+                                    raise Exception(f"页面文本验证失败: 提取的文本与预期结果不相等")
+                            elif verify_type == 'contains':
+                                if expected_text not in extracted_text:
+                                    uat_logger.error("页面文本验证失败: 提取的文本不包含预期内容")
+                                    raise Exception(f"页面文本验证失败: 提取的文本不包含预期内容")
+                            elif verify_type == 'partial':
+                                if expected_text not in extracted_text:
+                                    uat_logger.error("页面文本验证失败: 提取的文本不包含预期的部分内容")
+                                    raise Exception(f"页面文本验证失败: 提取的文本不包含预期的部分内容")
+                            
+                            uat_logger.info("页面文本验证成功")
+                        
+                        # 提取后等待页面响应
+                        sync_wait_for_timeout(1000)
+            
+            # 计算执行时间
+            duration = round(time.time() - start_time, 2)
+            
+            uat_logger.info(f"测试用例 #{case_id} 运行成功，耗时: {duration}秒")
+            
+            # 保存运行历史记录
+            try:
+                db = Database()
+                db.create_run_history(case_id, 'passed', duration, extracted_text=extracted_text)
+            except Exception as history_error:
+                uat_logger.warning(f"保存运行历史记录失败: {history_error}")
+            
+            # 尝试关闭浏览器
+            try:
+                sync_close_browser()
+            except Exception as close_error:
+                uat_logger.warning(f"关闭浏览器时出错: {close_error}")
+            
+            return jsonify({
+                'success': True,
+                'status': 'passed',
+                'duration': duration,
+                'message': '测试用例运行成功'
+            })
+            
+        except Exception as e:
+            # 执行失败时的处理
+            duration = round(time.time() - start_time, 2)
+            uat_logger.error(f"测试用例 #{case_id} 运行失败: {str(e)}")
+            
+            # 保存运行历史记录
+            try:
+                db = Database()
+                db.create_run_history(case_id, 'failed', duration, str(e), extracted_text=extracted_text)
+            except Exception as history_error:
+                uat_logger.warning(f"保存运行历史记录失败: {history_error}")
+            
+            # 尝试关闭浏览器
+            try:
+                sync_close_browser()
+            except Exception:
+                pass
+            
+            return jsonify({
+                'success': False,
+                'status': 'failed',
+                'duration': duration,
+                'error': str(e)
+            })
+            
+    except Exception as e:
+        uat_logger.error(f"运行测试用例时发生错误: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/run-history', methods=['GET'])
+def run_history_page():
+    """运行历史记录页面"""
+    return render_template('run_history.html')
+
+
+@app.route('/api/run-history', methods=['GET'])
+def get_run_history():
+    """获取所有运行历史记录"""
+    try:
+        db = Database()
+        history = db.get_all_run_history()
+        return jsonify({
+            'success': True,
+            'history': history
+        })
+    except Exception as e:
+        uat_logger.error(f"获取运行历史记录失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/run-history/<int:record_id>', methods=['DELETE'])
+def delete_run_history(record_id):
+    """删除运行历史记录"""
+    try:
+        db = Database()
+        success = db.delete_run_history(record_id)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '运行历史记录删除成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '运行历史记录不存在'
+            }), 404
+    except Exception as e:
+        uat_logger.error(f"删除运行历史记录失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/cases/<int:case_id>/run-history', methods=['GET'])
+def get_case_run_history(case_id):
+    """获取指定测试用例的运行历史记录"""
+    try:
+        db = Database()
+        history = db.get_case_run_history(case_id)
+        return jsonify({
+            'success': True,
+            'history': history
+        })
+    except Exception as e:
+        uat_logger.error(f"获取测试用例运行历史记录失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

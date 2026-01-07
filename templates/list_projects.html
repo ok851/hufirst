@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目管理 - UI自动化测试平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header-actions {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #138496;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .project-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .project-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            word-wrap: break-word;
+        }
+        
+        .project-info {
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .project-info strong {
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .project-stats {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 10px 0;
+            border-top: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .stat-label {
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .project-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 22px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .project-cases {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .cases-header {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .cases-header h4 {
+            margin: 0;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .cases-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .case-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .case-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .case-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .case-info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .case-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .case-actions .btn {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>项目管理</h1>
+        </div>
+        
+        <div class="header-actions">
+            <button onclick="showCreateProjectModal()" class="btn btn-success">+ 创建新项目</button>
+        </div>
+        
+        <div class="content">
+            <div id="projectsList">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载项目列表...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="navigation">
+            <a href="/" class="btn btn-secondary">← 返回首页</a>
+        </div>
+    </div>
+
+    <div id="createProjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建新项目</h3>
+                <button class="close-btn" onclick="hideCreateProjectModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="projectName">项目名称 *</label>
+                <input type="text" id="projectName" placeholder="请输入项目名称">
+            </div>
+            <div class="form-group">
+                <label for="projectDescription">项目描述</label>
+                <textarea id="projectDescription" placeholder="请输入项目描述（可选）"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="createProject()" class="btn btn-success">创建</button>
+                <button onclick="hideCreateProjectModal()" class="btn btn-secondary" style="margin-left: 10px;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="runStatusModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>测试用例运行状态</h3>
+                <button class="close-btn" onclick="hideRunStatusModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div id="runStatusContent" style="text-align: center;">
+                    <div class="loading-spinner"></div>
+                    <p id="runStatusMessage" style="margin-top: 20px; font-size: 16px;">正在运行测试用例...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEditProjectId = null;
+
+        function showRunStatusModal() {
+            document.getElementById('runStatusModal').classList.add('active');
+        }
+
+        function hideRunStatusModal() {
+            document.getElementById('runStatusModal').classList.remove('active');
+        }
+
+        function updateRunStatus(message) {
+            document.getElementById('runStatusMessage').textContent = message;
+        }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/projects');
+                const data = await response.json();
+                
+                const projectsList = document.getElementById('projectsList');
+                
+                if (data.projects && data.projects.length > 0) {
+                    projectsList.innerHTML = '<div class="project-grid"></div>';
+                    const grid = projectsList.querySelector('.project-grid');
+                    
+                    for (const project of data.projects) {
+                        const caseCount = await getProjectCaseCount(project.id);
+                        
+                        const projectCard = document.createElement('div');
+                        projectCard.className = 'project-card';
+                        
+                        projectCard.innerHTML = `
+                            <div class="project-name">${escapeHtml(project.name)}</div>
+                            <div class="project-info"><strong>ID:</strong> ${project.id}</div>
+                            <div class="project-info"><strong>描述:</strong> ${escapeHtml(project.description || '无描述')}</div>
+                            <div class="project-info"><strong>创建时间:</strong> ${project.created_at}</div>
+                            <div class="project-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">测试用例:</span>
+                                    <span class="stat-value">${caseCount}</span>
+                                </div>
+                            </div>
+                            <div class="project-actions">
+                                <button onclick="createCaseForProject(${project.id})" class="btn btn-success">创建用例</button>
+                                <button onclick="toggleProjectCases(${project.id})" class="btn btn-info">查看用例</button>
+                                <button onclick="showEditProjectModal(${project.id}, '${escapeHtml(project.name)}', '${escapeHtml(project.description || '')}')" class="btn">编辑</button>
+                                <button onclick="deleteProject(${project.id})" class="btn btn-danger">删除</button>
+                            </div>
+                            <div id="cases-${project.id}" class="project-cases" style="display: none;">
+                                <div class="cases-header">
+                                    <h4>测试用例列表</h4>
+                                </div>
+                                <div id="cases-list-${project.id}" class="cases-list">
+                                    <div class="loading">
+                                        <div class="loading-spinner" style="width: 30px; height: 30px;"></div>
+                                        <p>正在加载测试用例...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        grid.appendChild(projectCard);
+                    }
+                } else {
+                    projectsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📁</div>
+                            <div class="empty-state-text">暂无项目，请创建一个新项目</div>
+                            <button onclick="showCreateProjectModal()" class="btn btn-success">创建第一个项目</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载项目列表失败:', error);
+                document.getElementById('projectsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div class="empty-state-text">加载项目列表失败</div>
+                        <button onclick="loadProjects()" class="btn btn-primary">重新加载</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function getProjectCaseCount(projectId) {
+            try {
+                const response = await fetch(`/api/projects/${projectId}/cases`);
+                const data = await response.json();
+                return data.cases ? data.cases.length : 0;
+            } catch (error) {
+                console.error('获取项目用例数量失败:', error);
+                return 0;
+            }
+        }
+
+        function showCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.add('active');
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectDescription').value = '';
+        }
+
+        function hideCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.remove('active');
+        }
+
+        async function createProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const description = document.getElementById('projectDescription').value.trim();
+            
+            if (!name) {
+                alert('请输入项目名称');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('项目创建成功！');
+                    hideCreateProjectModal();
+                    loadProjects();
+                } else {
+                    alert('创建失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('创建项目时发生错误: ' + error.message);
+            }
+        }
+
+        function showEditProjectModal(projectId, name, description) {
+            currentEditProjectId = projectId;
+            document.getElementById('editProjectModal').classList.add('active');
+            document.getElementById('editProjectName').value = name;
+            document.getElementById('editProjectDescription').value = description;
+        }
+
+        function hideEditProjectModal() {
+            document.getElementById('editProjectModal').classList.remove('active');
+            currentEditProjectId = null;
+        }
+
+        async function saveProjectEdit() {
+            if (!currentEditProjectId) {
+                alert('无效的项目ID');
+                return;
+            }
+            
+            const name = document.getElementById('editProjectName').value.trim();
+            const description = document.getElementById('editProjectDescription').value.trim();
+            
+            if (!name) {
+                alert('请输入项目名称');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/projects/${currentEditProjectId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('项目更新成功！');
+                    hideEditProjectModal();
+                    loadProjects();
+                } else {
+                    alert('更新失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('更新项目时发生错误: ' + error.message);
+            }
+        }
+
+        async function deleteProject(projectId) {
+            if (confirm('确定要删除这个项目吗？此操作将同时删除项目下的所有测试用例和测试步骤。')) {
+                try {
+                    const response = await fetch(`/api/projects/${projectId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('项目删除成功！');
+                        loadProjects();
+                    } else {
+                        alert('删除失败: ' + (data.error || '未知错误'));
+                    }
+                } catch (error) {
+                    alert('删除项目时发生错误: ' + error.message);
+                }
+            }
+        }
+
+        function createCaseForProject(projectId) {
+            window.location.href = `/create_case_v2?project_id=${projectId}`;
+        }
+
+        async function toggleProjectCases(projectId) {
+            const casesDiv = document.getElementById(`cases-${projectId}`);
+            const casesList = document.getElementById(`cases-list-${projectId}`);
+            
+            if (casesDiv.style.display === 'none') {
+                casesDiv.style.display = 'block';
+                await loadProjectCases(projectId, casesList);
+            } else {
+                casesDiv.style.display = 'none';
+            }
+        }
+
+        async function loadProjectCases(projectId, container) {
+            try {
+                const response = await fetch(`/api/projects/${projectId}/cases`);
+                const data = await response.json();
+                
+                if (data.cases && data.cases.length > 0) {
+                    container.innerHTML = '';
+                    
+                    data.cases.forEach(testCase => {
+                        const caseItem = document.createElement('div');
+                        caseItem.className = 'case-item';
+                        caseItem.innerHTML = `
+                            <div class="case-title">${escapeHtml(testCase.title || testCase.name)}</div>
+                            <div class="case-info">
+                                <strong>ID:</strong> ${testCase.id} | 
+                                <strong>描述:</strong> ${escapeHtml(testCase.description || '无描述')}
+                            </div>
+                            <div class="case-actions">
+                                <button onclick="editCase(${testCase.id}, ${projectId})" class="btn btn-primary">编辑</button>
+                                <button onclick="runCase(${testCase.id})" class="btn btn-success">运行</button>
+                                <button onclick="deleteCase(${testCase.id}, ${projectId})" class="btn btn-danger">删除</button>
+                            </div>
+                        `;
+                        container.appendChild(caseItem);
+                    });
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #999;">
+                            <p>暂无测试用例</p>
+                            <button onclick="createCaseForProject(${projectId})" class="btn btn-success btn-sm" style="margin-top: 10px;">创建第一个测试用例</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载测试用例失败:', error);
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #999;">
+                        <p>加载测试用例失败</p>
+                        <button onclick="loadProjectCases(${projectId}, document.getElementById('cases-list-${projectId}'))" class="btn btn-primary btn-sm" style="margin-top: 10px;">重新加载</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function editCase(caseId, projectId) {
+            window.location.href = `/create_case_v2?project_id=${projectId}&case_id=${caseId}`;
+        }
+
+        async function deleteCase(caseId, projectId) {
+            if (confirm('确定要删除这个测试用例吗？')) {
+                try {
+                    const response = await fetch(`/api/cases/${caseId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        // 处理非JSON响应
+                        const text = await response.text();
+                        alert(`删除失败：服务器返回无效响应: ${text.substring(0, 100)}`);
+                        return;
+                    }
+                    
+                    if (data.success) {
+                        alert('测试用例删除成功！');
+                        await loadProjectCases(projectId, document.getElementById(`cases-list-${projectId}`));
+                        await loadProjects();
+                    } else {
+                        alert('删除失败: ' + (data.error || '未知错误'));
+                    }
+                } catch (error) {
+                    alert('删除测试用例时发生错误: ' + error.message);
+                }
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function runCase(caseId) {
+            try {
+                // 显示运行状态模态框
+                showRunStatusModal();
+                updateRunStatus('开始运行测试用例...');
+                
+                // 发送运行请求到后端
+                const response = await fetch(`/api/cases/${caseId}/run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateRunStatus(`测试用例运行成功！\n结果: ${result.status}\n耗时: ${result.duration || 'N/A'}秒`);
+                } else {
+                    updateRunStatus(`测试用例运行失败: ${result.error || '未知错误'}`);
+                }
+                
+                // 3秒后自动关闭模态框
+                setTimeout(hideRunStatusModal, 3000);
+            } catch (error) {
+                updateRunStatus('运行测试用例时发生错误: ' + error.message);
+                setTimeout(hideRunStatusModal, 3000);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadProjects);
+    </script>
+</body>
+</html>

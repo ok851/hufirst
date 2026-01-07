@@ -414,6 +414,37 @@ class PlaywrightAutomation:
                                 timestamp: Date.now(),
                                 elementInfo: elementInfo
                             });
+                            
+                            // 检查是否点击了提交按钮，如果是则记录submit事件
+                            const isSubmitButton = actualTarget.tagName === 'BUTTON' || 
+                                                  (actualTarget.tagName === 'INPUT' && (actualTarget.type === 'submit' || actualTarget.type === 'button'));
+                            const hasSubmitClass = actualTarget.className && 
+                                                  (actualTarget.className.includes('submit') || 
+                                                   actualTarget.className.includes('primary') || 
+                                                   actualTarget.className.includes('login'));
+                            
+                            if (isSubmitButton || hasSubmitClass) {
+                                // 查找关联的表单
+                                const form = actualTarget.closest('form');
+                                if (form) {
+                                    const formSelector = generateSelector(form);
+                                    // 记录submit事件，选择器是提交按钮的选择器，而不是表单的选择器
+                                    // 这样在回放时可以直接点击提交按钮来触发表单提交
+                                    window.automationEvents.push({
+                                        action: 'submit',
+                                        selector: selector,
+                                        timestamp: Date.now(),
+                                        elementInfo: {
+                                            tagName: actualTarget.tagName,
+                                            id: actualTarget.id || '',
+                                            className: actualTarget.className || '',
+                                            type: actualTarget.type || '',
+                                            formSelector: formSelector,
+                                            formAction: form.action || ''
+                                        }
+                                    });
+                                }
+                            }
                         }
                     }, false); // 使用冒泡阶段，避免重复捕获
                 }
@@ -478,16 +509,34 @@ class PlaywrightAutomation:
                     document.addEventListener('submit', function(e) {
                         const target = e.target;
                         if (target.tagName === 'FORM') {
-                            const selector = generateSelector(target);
+                            // 不要阻止默认的表单提交行为，让表单能够正常提交
+                            // e.preventDefault();  // 移除此行，避免阻止表单提交
+                            
+                            // 找到触发表单提交的提交按钮
+                            let submitButton = null;
+                            if (e.submitter) {
+                                // 如果浏览器支持e.submitter属性，直接使用
+                                submitButton = e.submitter;
+                            } else {
+                                // 否则，查找表单内的第一个提交按钮
+                                const buttons = target.querySelectorAll('button[type="submit"], input[type="submit"]');
+                                if (buttons.length > 0) {
+                                    submitButton = buttons[0];
+                                }
+                            }
+                            
+                            // 如果找到提交按钮，使用提交按钮的选择器；否则使用表单的选择器
+                            const selector = submitButton ? generateSelector(submitButton) : generateSelector(target);
+                            
                             if (window && window.automationEvents) {
                                 window.automationEvents.push({
                                     action: 'submit',
                                     selector: selector,
                                     timestamp: Date.now(),
                                     elementInfo: {
-                                        tagName: target.tagName,
-                                        id: target.id || '',
-                                        className: target.className || '',
+                                        tagName: submitButton ? submitButton.tagName : target.tagName,
+                                        id: submitButton ? (submitButton.id || '') : (target.id || ''),
+                                        className: submitButton ? (submitButton.className || '') : (target.className || ''),
                                         action: target.action || ''
                                     }
                                 });
@@ -795,6 +844,16 @@ class PlaywrightAutomation:
                     if self.recorded_steps:
                         last_step = self.recorded_steps[-1]
                         
+                        # 重新获取上一步骤
+                        if self.recorded_steps:
+                            last_step = self.recorded_steps[-1]
+                        
+                        # 特殊处理：如果当前是navigate事件，且上一步是submit事件，则跳过这个navigate事件
+                        # 因为submit操作可能导致页面导航，我们不需要重复记录导航
+                        if step['action'] == 'navigate' and last_step['action'] == 'submit':
+                            uat_logger.info(f"跳过submit后的navigate事件: {step.get('url')}")
+                            continue
+                        
                         # 检查是否与上一步骤完全相同
                         if last_step['action'] == step['action']:
                             # 计算时间差（毫秒）
@@ -908,67 +967,141 @@ class PlaywrightAutomation:
         else:
             uat_logger.info(f"执行导航操作: {url}")
     
-    async def click_element(self, selector: str):
+    async def click_element(self, selector: str, selector_type: str = "css"):
         """点击元素"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
+        uat_logger.info(f"🔍 [CLICK_DEBUG] 开始点击元素，选择器: {selector}, 选择器类型: {selector_type}")
+        
+        # 构建完整的选择器
+        full_selector = selector
+        if selector_type == "xpath":
+            full_selector = f"xpath={selector}"
+        
         if self.page is not None:
             element_clicked = False
+            
+            # 获取当前页面URL和状态
             try:
-                # 等待元素可见且可交互（进一步减少超时时间到2秒，提高执行速度）
-                await self.page.wait_for_selector(selector, state='visible', timeout=2000)
-                # 使用更健壮的点击方式，尝试不同的点击位置
-                await self.page.click(selector, force=True, timeout=2000)
-                uat_logger.info(f"成功点击元素: {selector}")
+                current_url = self.page.url
+                uat_logger.info(f"🔍 [CLICK_DEBUG] 当前页面URL: {current_url}")
+            except Exception as e:
+                uat_logger.warning(f"🔍 [CLICK_DEBUG] 获取当前URL失败: {str(e)}")
+            
+            # 尝试多种点击方式，增加成功概率
+            # 方式1: 使用Playwright的click方法，等待元素可点击
+            try:
+                uat_logger.info(f"🔍 [CLICK_DEBUG] 尝试方式1: Playwright click方法")
+                # 等待元素可见且可交互
+                await self.page.wait_for_selector(full_selector, state='visible', timeout=5000)
+                # 等待元素可点击
+                await self.page.wait_for_selector(full_selector, state='enabled', timeout=5000)
+                # 使用更健壮的点击方式
+                await self.page.click(full_selector, timeout=5000)
+                uat_logger.info(f"✅ [CLICK_DEBUG] 方式1成功点击元素: {selector}, 选择器类型: {selector_type}")
                 element_clicked = True
             except Exception as e:
-                uat_logger.warning(f"常规点击失败: {str(e)}, 尝试使用JavaScript点击")
+                uat_logger.warning(f"⚠️ [CLICK_DEBUG] 方式1失败: {str(e)}, 尝试方式2: force click")
                 
-                # 尝试使用JavaScript点击，先检查元素是否存在
-                element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
-                if element_exists:
-                    # 尝试使用JavaScript点击
-                    await self.page.evaluate("(selector) => document.querySelector(selector).click();", selector)
-                    uat_logger.info(f"使用JavaScript成功点击元素: {selector}")
+                # 方式2: 使用force参数强制点击
+                try:
+                    await self.page.click(full_selector, force=True, timeout=5000)
+                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式2成功点击元素: {selector}, 选择器类型: {selector_type}")
                     element_clicked = True
-                else:
-                    uat_logger.error(f"元素不存在，无法使用JavaScript点击: {selector}")
+                except Exception as e2:
+                    uat_logger.warning(f"⚠️ [CLICK_DEBUG] 方式2失败: {str(e2)}, 尝试方式3: JavaScript点击")
                     
+                    # 方式3: 尝试使用JavaScript点击
+                    try:
+                        uat_logger.info(f"🔍 [CLICK_DEBUG] 尝试方式3: JavaScript点击")
+                        # 检查元素是否存在并点击
+                        if selector_type == "css":
+                            element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                            if element_exists:
+                                # 使用JavaScript点击，正常触发所有事件
+                                await self.page.evaluate("""(selector) => {
+                                    const element = document.querySelector(selector);
+                                    if (element) {
+                                        // 直接使用click()，触发所有相关事件
+                                        element.click();
+                                    }
+                                }""", selector)
+                                uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
+                                element_clicked = True
+                            else:
+                                uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
+                        else:  # xpath
+                            element_exists = await self.page.evaluate("""(xpath) => {
+                                const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                return result.singleNodeValue !== null;
+                            }""", selector)
+                            if element_exists:
+                                # 使用JavaScript点击，正常触发所有事件
+                                await self.page.evaluate("""(xpath) => {
+                                    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                    const element = result.singleNodeValue;
+                                    if (element) {
+                                        // 直接使用click()，触发所有相关事件
+                                        element.click();
+                                    }
+                                }""", selector)
+                                uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
+                                element_clicked = True
+                            else:
+                                uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
+                    except Exception as e3:
+                        uat_logger.error(f"❌ [CLICK_DEBUG] 方式3失败: {str(e3)}")
+                        
             if not element_clicked:
-                # 如果两种点击方式都失败，抛出异常
-                raise Exception(f"无法点击元素: {selector}")
+                # 如果所有点击方式都失败，抛出异常
+                raise Exception(f"无法点击元素: {selector}, 选择器类型: {selector_type}, 所有点击方式均失败")
             
-            # 单选框点击后状态验证
+            # 检查点击后的页面状态
             try:
-                # 检查是否是单选框相关选择器
+                new_url = self.page.url
+                uat_logger.info(f"🔍 [CLICK_DEBUG] 点击后页面URL: {new_url}")
+                if new_url != current_url:
+                    uat_logger.info(f"🔄 [CLICK_DEBUG] 检测到页面URL变化: {current_url} -> {new_url}")
+            except Exception as e:
+                uat_logger.warning(f"🔍 [CLICK_DEBUG] 获取点击后URL失败: {str(e)}")
+            
+            # 单选框和复选框点击后状态验证
+            try:
+                # 检查是否是单选框或复选框相关选择器
                 is_radio_selector = False
-                if 'radio' in selector.lower() or 'type="radio"' in selector:
+                is_checkbox_selector = False
+                selector_lower = selector.lower()
+                if 'radio' in selector_lower or 'type="radio"' in selector_lower:
                     is_radio_selector = True
+                elif 'checkbox' in selector_lower or 'type="checkbox"' in selector_lower:
+                    is_checkbox_selector = True
                 
-                # 如果是单选框选择器，验证点击后状态
-                if is_radio_selector:
+                # 如果是单选框或复选框选择器，验证点击后状态
+                if is_radio_selector or is_checkbox_selector:
                     # 等待元素状态更新
-                    await self.page.wait_for_timeout(100)
+                    await self.page.wait_for_timeout(200)
                     
-                    # 检查单选框是否被选中
-                    evaluate_script = '''() => {
-                        const element = document.querySelector('%s');
-                        if (element && element.tagName === 'INPUT' && element.type === 'radio') {
+                    # 检查单选框或复选框是否被选中
+                    evaluate_script = f'''() => {{
+                        const element = document.querySelector('{selector}');
+                        if (element && element.tagName === 'INPUT' && (element.type === 'radio' || element.type === 'checkbox')) {{
                             return element.checked;
-                        }
+                        }}
                         // 处理复合组件，找到内部的input元素
-                        const inputElement = element?.querySelector('input[type="radio"]');
+                        const inputElement = element?.querySelector('input[type="radio"], input[type="checkbox"]');
                         return inputElement ? inputElement.checked : false;
-                    }''' % selector
+                    }}'''
                     is_checked = await self.page.evaluate(evaluate_script)
                     
                     if is_checked:
-                        uat_logger.info(f"✅ 单选框点击验证通过: {selector} 已选中")
+                        element_type = "单选框" if is_radio_selector else "复选框"
+                        uat_logger.info(f"✅ {element_type}点击验证通过: {selector} 已选中")
                     else:
-                        uat_logger.warning(f"⚠️ 单选框点击验证警告: {selector} 未选中")
+                        element_type = "单选框" if is_radio_selector else "复选框"
+                        uat_logger.warning(f"⚠️ {element_type}点击验证警告: {selector} 未选中")
             except Exception as e:
-                uat_logger.warning(f"验证单选框状态时出错: {str(e)}")
+                uat_logger.warning(f"验证单选框/复选框状态时出错: {str(e)}")
         
         # 如果正在录制，记录点击步骤
         if self.recording:
@@ -979,26 +1112,123 @@ class PlaywrightAutomation:
             }
             self.recorded_steps.append(step)
     
-    async def fill_input(self, selector: str, text: str):
+    async def fill_input(self, selector: str, text: str, selector_type: str = "css"):
         """填充输入框"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
+        # 构建完整的选择器
+        full_selector = selector
+        if selector_type == "xpath":
+            full_selector = f"xpath={selector}"
+        
+        # 尝试多种填充方式，增加成功概率
+        fill_success = False
+        
+        # 方式1: 使用Playwright的fill方法
         try:
-            # 直接使用Playwright的fill方法，它会自动处理元素查找、可见性和可交互性
-            await self.page.fill(selector, text, timeout=3000)
-            uat_logger.info(f"成功填充元素: {selector}, 文本: {text}")
-            
+            # 等待元素可见和可交互
+            await self.page.wait_for_selector(full_selector, state='visible', timeout=5000)
+            await self.page.wait_for_selector(full_selector, state='enabled', timeout=5000)
+            # 填充输入框
+            await self.page.fill(full_selector, text, timeout=5000)
+            uat_logger.info(f"成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+            fill_success = True
         except Exception as e:
-            uat_logger.error(f"填充元素时出错: {selector}, 错误: {str(e)}")
-            # 重新抛出异常，让调用者知道操作失败
-            raise
+            uat_logger.warning(f"常规填充失败: {str(e)}, 尝试使用type方法")
+            
+            # 方式2: 使用type方法
+            try:
+                await self.page.type(full_selector, text, timeout=5000)
+                uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                fill_success = True
+            except Exception as e2:
+                uat_logger.warning(f"type方法失败: {str(e2)}, 尝试使用JavaScript")
+                
+                # 方式3: 使用JavaScript直接设置值（避免触发表单提交事件）
+                try:
+                    # 检查元素是否存在并设置值
+                    if selector_type == "css":
+                        element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                        if element_exists:
+                            # 使用JavaScript设置值并触发输入相关事件，但避免触发可能导致页面刷新的事件
+                            await self.page.evaluate("""(selector, text) => {
+                                const element = document.querySelector(selector);
+                                if (element) {
+                                    // 临时禁用表单提交相关事件
+                                    const form = element.closest('form');
+                                    let originalSubmitHandler = null;
+                                    if (form && form.onsubmit) {
+                                        originalSubmitHandler = form.onsubmit;
+                                        form.onsubmit = function(e) { e.preventDefault(); };
+                                    }
+                                    
+                                    // 设置值
+                                    element.value = text;
+                                    
+                                    // 触发输入相关事件，但不触发可能导致提交的事件
+                                    element.dispatchEvent(new Event('input', {bubbles: true}));
+                                    element.dispatchEvent(new Event('change', {bubbles: true}));
+                                    
+                                    // 恢复原始提交处理程序
+                                    if (originalSubmitHandler) {
+                                        form.onsubmit = originalSubmitHandler;
+                                    }
+                                }
+                            }""", selector, text)
+                            uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 文本: {text}")
+                            fill_success = True
+                        else:
+                            uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                    else:  # xpath
+                        # 使用XPath查找元素
+                        element_exists = await self.page.evaluate("""(xpath) => {
+                            const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                            return result.singleNodeValue !== null;
+                        }""", selector)
+                        if element_exists:
+                            # 使用JavaScript设置值并触发输入相关事件，但避免触发可能导致页面刷新的事件
+                            await self.page.evaluate("""(xpath, text) => {
+                                const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                const element = result.singleNodeValue;
+                                if (element) {
+                                    // 临时禁用表单提交相关事件
+                                    const form = element.closest('form');
+                                    let originalSubmitHandler = null;
+                                    if (form && form.onsubmit) {
+                                        originalSubmitHandler = form.onsubmit;
+                                        form.onsubmit = function(e) { e.preventDefault(); };
+                                    }
+                                    
+                                    // 设置值
+                                    element.value = text;
+                                    
+                                    // 触发输入相关事件，但不触发可能导致提交的事件
+                                    element.dispatchEvent(new Event('input', {bubbles: true}));
+                                    element.dispatchEvent(new Event('change', {bubbles: true}));
+                                    
+                                    // 恢复原始提交处理程序
+                                    if (originalSubmitHandler) {
+                                        form.onsubmit = originalSubmitHandler;
+                                    }
+                                }
+                            }""", selector, text)
+                            uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                            fill_success = True
+                        else:
+                            uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                except Exception as e3:
+                    uat_logger.error(f"JavaScript填充失败: {str(e3)}")
+        
+        if not fill_success:
+            raise Exception(f"无法填充元素: {selector}, 选择器类型: {selector_type}, 所有填充方式均失败")
         
         # 如果正在录制，记录填充步骤
         if self.recording:
             step = {
                 "action": "fill",
                 "selector": selector,
+                "selector_type": selector_type,
                 "text": text,
                 "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
             }
@@ -1231,18 +1461,22 @@ class PlaywrightAutomation:
             print(f"分析页面内容时出错: {e}")
             return {'error': str(e)}
     
-    async def wait_for_element_visible(self, selector: str, timeout: int = 30000):
+    async def wait_for_element_visible(self, selector: str, timeout: int = 30000, selector_type: str = "css"):
         """等待元素可见"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
         try:
-            await self.page.wait_for_selector(selector, state="visible", timeout=timeout)
+            if selector_type == "xpath":
+                element = self.page.locator(f"xpath={selector}")
+                await element.wait_for(state="visible", timeout=timeout)
+            else:
+                await self.page.wait_for_selector(selector, state="visible", timeout=timeout)
             return True
         except:
             return False
     
-    async def hover_element(self, selector: str):
+    async def hover_element(self, selector: str, selector_type: str = "css"):
         """悬停在元素上"""
         if self.page is None:
             raise Exception("浏览器未启动")
@@ -1250,9 +1484,15 @@ class PlaywrightAutomation:
         # 悬停步骤通常不是必要的，设置较短的超时时间
         try:
             # 等待元素可见（减少超时时间到2秒）
-            await self.page.wait_for_selector(selector, state='visible', timeout=2000)
-            # 使用更健壮的悬停方式
-            await self.page.hover(selector, timeout=2000)
+            if selector_type == "xpath":
+                element = self.page.locator(f"xpath={selector}")
+                await element.wait_for(state='visible', timeout=2000)
+                # 使用更健壮的悬停方式
+                await element.hover(timeout=2000)
+            else:
+                await self.page.wait_for_selector(selector, state='visible', timeout=2000)
+                # 使用更健壮的悬停方式
+                await self.page.hover(selector, timeout=2000)
             uat_logger.info(f"成功悬停元素: {selector}")
         except Exception as e:
             uat_logger.warning(f"悬停失败，这通常不影响执行: {str(e)}")
@@ -1267,15 +1507,20 @@ class PlaywrightAutomation:
             }
             self.recorded_steps.append(step)
     
-    async def double_click_element(self, selector: str):
+    async def double_click_element(self, selector: str, selector_type: str = "css"):
         """双击元素"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
         if self.page is not None:
             # 等待元素可见且可交互
-            await self.page.wait_for_selector(selector, state='visible', timeout=10000)
-            await self.page.dblclick(selector)
+            if selector_type == "xpath":
+                element = self.page.locator(f"xpath={selector}")
+                await element.wait_for(state='visible', timeout=10000)
+                await element.dblclick(timeout=10000)
+            else:
+                await self.page.wait_for_selector(selector, state='visible', timeout=10000)
+                await self.page.dblclick(selector, timeout=10000)
         
         # 如果正在录制，记录双击步骤
         if self.recording:
@@ -1286,15 +1531,20 @@ class PlaywrightAutomation:
             }
             self.recorded_steps.append(step)
     
-    async def right_click_element(self, selector: str):
+    async def right_click_element(self, selector: str, selector_type: str = "css"):
         """右键点击元素"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
         if self.page is not None:
             # 等待元素可见且可交互
-            await self.page.wait_for_selector(selector, state='visible', timeout=10000)
-            await self.page.click(selector, button="right")
+            if selector_type == "xpath":
+                element = self.page.locator(f"xpath={selector}")
+                await element.wait_for(state='visible', timeout=10000)
+                await element.click(button="right", timeout=10000)
+            else:
+                await self.page.wait_for_selector(selector, state='visible', timeout=10000)
+                await self.page.click(selector, button="right", timeout=10000)
         
         # 如果正在录制，记录右键步骤
         if self.recording:
@@ -1488,7 +1738,12 @@ class PlaywrightAutomation:
         # 跟踪所有已处理的点击步骤（用于处理非连续的重复点击）
         processed_clicks = {}
         
+        uat_logger.info(f"开始步骤去重，原始步骤数: {len(all_steps)}")
+        
         for step in all_steps:
+            action = step.get('action')
+            uat_logger.info(f"处理步骤: {action}, 详情: {step}")
+            
             # 过滤悬停动作，不记录和执行
             if step['action'] == 'hover':
                 uat_logger.info(f"跳过悬停步骤: {step.get('selector')}")
@@ -1579,7 +1834,12 @@ class PlaywrightAutomation:
             if not last_step:
                 deduplicated_steps.append(step)
                 last_step = step
+                uat_logger.info(f"添加第一个步骤: {action}")
                 continue
+            
+            # 移除跳过submit后navigate事件的逻辑，确保所有步骤都按顺序执行
+            
+            uat_logger.info(f"上一步骤: {last_step['action']}, 当前步骤: {action}")
             
             # 跳过连续的重复步骤
             if last_step['action'] == step['action']:
@@ -1588,7 +1848,13 @@ class PlaywrightAutomation:
                         uat_logger.info(f"跳过重复导航步骤: {step.get('url')}")
                         continue
                 elif step['action'] == 'click' or step['action'] == 'hover':
-                    if last_step.get('selector') == step.get('selector'):
+                    # 特殊处理：如果当前步骤是click，且下一个步骤是submit，则不跳过这个click
+                    # 因为这个click可能是提交按钮的点击，需要保留
+                    next_step_index = all_steps.index(step) + 1
+                    next_step = all_steps[next_step_index] if next_step_index < len(all_steps) else None
+                    if next_step and next_step['action'] == 'submit':
+                        uat_logger.info(f"保留submit前的click操作: {step.get('selector')}")
+                    elif last_step.get('selector') == step.get('selector'):
                         uat_logger.info(f"跳过重复{step['action']}步骤: {step.get('selector')}")
                         continue
                 elif step['action'] == 'scroll':
@@ -1598,28 +1864,71 @@ class PlaywrightAutomation:
             
             deduplicated_steps.append(step)
             last_step = step
+            uat_logger.info(f"添加步骤到去重列表: {action}, 当前去重列表长度: {len(deduplicated_steps)}")
+        
+        uat_logger.info(f"步骤去重完成，去重后步骤数: {len(deduplicated_steps)}")
         
         results = []
+        step_index = 0
+        
+        # 跟踪操作状态，强制执行顺序
+        has_clicked = False
+        has_submitted = False
+        
         for step in deduplicated_steps:
+            step_index += 1
             action = step.get("action")
+            uat_logger.info(f"🎯 [STEP_DEBUG] ========== 开始执行步骤 {step_index}/{len(deduplicated_steps)} ==========")
+            uat_logger.info(f"🎯 [STEP_DEBUG] 步骤类型: {action}, 详情: {step}")
+            uat_logger.info(f"🎯 [STEP_DEBUG] 当前操作状态: has_clicked={has_clicked}, has_submitted={has_submitted}")
+            
+            # 获取当前页面状态
             try:
+                current_url = self.page.url
+                uat_logger.info(f"🎯 [STEP_DEBUG] 当前页面URL: {current_url}")
+            except Exception as e:
+                uat_logger.warning(f"🎯 [STEP_DEBUG] 获取当前URL失败: {str(e)}")
+            
+            try:
+                # 强制检查：submit操作前必须先click
+                if action == "submit":
+                    if not has_clicked:
+                        uat_logger.error(f"❌ [FORCE_CHECK] submit操作前必须先click！当前状态: has_clicked={has_clicked}")
+                        raise Exception(f"违反强制规则：submit操作前必须先click，但当前未检测到click操作")
+                    uat_logger.info(f"✅ [FORCE_CHECK] submit操作检查通过：已检测到click操作")
+                
+                # 强制检查：navigate操作前必须先submit（除非是第一个navigate操作）
+                if action == "navigate" and step_index > 1:
+                    if not has_submitted:
+                        uat_logger.error(f"❌ [FORCE_CHECK] navigate操作前必须先submit！当前状态: has_submitted={has_submitted}")
+                        raise Exception(f"违反强制规则：navigate操作前必须先submit，但当前未检测到submit操作")
+                    uat_logger.info(f"✅ [FORCE_CHECK] navigate操作检查通过：已检测到submit操作")
+                
                 if action == "navigate":
                     url = step.get("url")
-                    await self.navigate_to(url)
-                    # 确保页面完全加载完成
-                    if self.page:
-                        uat_logger.info("导航后等待页面完全加载")
-                        await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
-                        await self.page.wait_for_load_state('load', timeout=30000)
+                    # 检查当前页面是否已经在目标URL上，避免重复导航
+                    if self.page and self.page.url != url:
+                        await self.navigate_to(url)
+                        # 确保页面完全加载完成
+                        if self.page:
+                            uat_logger.info("导航后等待页面完全加载")
+                            await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
+                            await self.page.wait_for_load_state('load', timeout=30000)
+                    else:
+                        uat_logger.info(f"页面已在目标URL上，跳过导航: {url}")
                 elif action == "click":
                     selector = step.get("selector")
                     
                     # 尝试点击元素，如果失败则尝试处理动态选择器
+                    click_success = False
+                    
+                    # 首先尝试原始选择器
                     try:
                         await self.click_element(selector)
+                        click_success = True
                     except Exception as e:
-                        # 如果点击失败，检查是否是动态选择器导致的
-                        uat_logger.warning(f"点击失败: {str(e)}")
+                        uat_logger.warning(f"原始选择器点击失败: {str(e)}")
+                        
                         # 尝试使用更宽松的选择器（移除动态class）
                         if '.' in selector:
                             # 对于CSS选择器，尝试移除动态类名（如is-loading、is-focus等）
@@ -1636,117 +1945,122 @@ class PlaywrightAutomation:
                             base_selector = re.sub(r'\s*>\s*', ' > ', base_selector)
                             base_selector = base_selector.strip()
                             
-                            if base_selector != selector:
+                            if base_selector != selector and base_selector.strip():
                                 uat_logger.info(f"尝试使用更宽松的选择器: {base_selector}")
-                                # 等待基础选择器的元素可见
-                                await self.page.wait_for_selector(base_selector, state='visible', timeout=5000)
-                                await self.page.click(base_selector, force=True, timeout=5000)
-                                uat_logger.info(f"使用宽松选择器成功点击元素: {base_selector}")
-                            else:
-                                # 如果无法简化选择器，重新抛出异常
-                                raise
+                                try:
+                                    # 等待基础选择器的元素可见
+                                    await self.page.wait_for_selector(base_selector, state='visible', timeout=5000)
+                                    await self.page.click(base_selector, force=True, timeout=5000)
+                                    uat_logger.info(f"使用宽松选择器成功点击元素: {base_selector}")
+                                    click_success = True
+                                except Exception as e2:
+                                    uat_logger.warning(f"宽松选择器点击失败: {str(e2)}")
+                                    
+                        # 如果前面的尝试都失败，尝试更基础的选择器
+                        if not click_success:
+                            # 尝试仅使用标签名和ID
+                            try:
+                                import re
+                                # 提取ID部分
+                                id_match = re.search(r'#([\w-]+)', selector)
+                                class_matches = re.findall(r'\.([\w-]+)', selector)
+                                tag_match = re.match(r'([a-zA-Z]+)', selector)
+                                
+                                if id_match:
+                                    basic_selector = f"#{id_match.group(1)}"
+                                    uat_logger.info(f"尝试使用ID选择器: {basic_selector}")
+                                    await self.page.wait_for_selector(basic_selector, state='visible', timeout=5000)
+                                    await self.page.click(basic_selector, force=True, timeout=5000)
+                                    uat_logger.info(f"使用ID选择器成功点击元素: {basic_selector}")
+                                    click_success = True
+                            except:
+                                pass
+                        
+                        if not click_success:
+                            # 如果所有尝试都失败，抛出异常
+                            raise Exception(f"无法点击元素，所有选择器尝试均失败: {selector}")
                     
-                    # 检查是否是可能导致页面刷新的点击操作（如提交按钮）
+                    # 对于点击操作，根据元素类型执行适当的等待策略
                     if self.page:
                         try:
-                            # 等待可能的页面导航完成
-                            # 使用wait_for_event监听framenavigated事件，如果在1秒内发生则等待页面加载
-                            async def wait_for_navigation():
-                                try:
-                                    # 1. 首先记录当前URL，用于后续比较是否真正发生导航
-                                    current_url = self.page.url
-                                    
-                                    # 2. 使用较短时间等待导航事件，减少无导航时的延迟
-                                    navigation_occurred = False
-                                    
-                                    try:
-                                        # 等待可能的导航事件，减少超时时间到1秒
-                                        await self.page.wait_for_event('framenavigated', timeout=1000)
-                                        
-                                        # 3. 检查URL是否真正发生变化，避免将iframe导航或局部更新误认为页面导航
-                                        if self.page.url != current_url:
-                                            uat_logger.info(f"检测到页面导航: {current_url} -> {self.page.url}")
-                                            navigation_occurred = True
-                                        else:
-                                            uat_logger.info("URL未变化，忽略局部导航事件")
-                                            navigation_occurred = False
-                                    except Exception:
-                                        # 没有检测到导航，使用简化的等待策略
-                                        uat_logger.info("未检测到页面导航，使用简化等待策略")
-                                        navigation_occurred = False
-                                    
-                                    # 4. 只有在真正发生导航时，才执行完整的页面加载等待
-                                    if navigation_occurred:
-                                        uat_logger.info("等待DOM内容加载完成")
-                                        await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
-                                        
-                                        uat_logger.info("等待页面可见内容加载")
-                                        await self.page.wait_for_load_state('load', timeout=30000)
-                                        
-                                        # 5. 针对复杂页面，增加额外的等待策略
-                                        try:
-                                            # 等待网络请求基本完成（允许少量长连接）
-                                            uat_logger.info("等待网络请求基本完成")
-                                            await self.page.wait_for_load_state('networkidle', timeout=25000)
-                                        except Exception as e:
-                                            uat_logger.debug(f"网络idle状态超时(可能是正常的长连接): {str(e)}")
-                                        
-                                        # 6. 增加JavaScript渲染等待时间，确保动态内容完全显示
-                                        uat_logger.info("等待JavaScript渲染完成")
-                                        await self.page.wait_for_timeout(1000)
-                                        
-                                        # 7. 等待页面渲染稳定（无更多DOM变化）
-                                        uat_logger.info("等待页面渲染稳定")
-                                        await self.page.evaluate("""
-                                            () => new Promise(resolve => {
-                                                let lastScrollHeight = document.body.scrollHeight;
-                                                let checkCount = 0;
-                                                const checkInterval = 100;
-                                                const maxChecks = 10;
-                                                
-                                                const checkStability = () => {
-                                                    const currentScrollHeight = document.body.scrollHeight;
-                                                    if (currentScrollHeight === lastScrollHeight) {
-                                                        checkCount++;
-                                                        if (checkCount >= maxChecks) {
-                                                            resolve();
-                                                        } else {
-                                                            setTimeout(checkStability, checkInterval);
-                                                        }
-                                                    } else {
-                                                        lastScrollHeight = currentScrollHeight;
-                                                        checkCount = 0;
-                                                        setTimeout(checkStability, checkInterval);
-                                                    }
-                                                };
-                                                
-                                                setTimeout(checkStability, checkInterval);
-                                            })
-                                        """)
-                                        
-                                        uat_logger.info("页面加载处理完成")
-                                    else:
-                                        # 对于没有导航的点击，根据点击类型调整等待时间
-                                        if 'input' in selector or 'textarea' in selector or 'form' in selector:
-                                            # 如果是表单元素，等待更长时间确保数据保存
-                                            uat_logger.info("表单元素操作，等待数据保存完成")
-                                            await self.page.wait_for_timeout(800)
-                                        else:
-                                            # 其他元素点击，使用较短等待时间
-                                            await self.page.wait_for_timeout(300)
-                                except Exception as e:
-                                    uat_logger.warning(f"等待页面加载时发生异常: {str(e)}")
-                                    # 即使发生异常，也继续执行，避免整个回放失败
-                                    pass
-                            
-                            await wait_for_navigation()
+                            # 根据选择器判断元素类型，执行不同的等待策略
+                            if 'input' in selector or 'textarea' in selector or 'select' in selector:
+                                # 对于表单元素，等待一段时间让数据保存，但不等待页面加载
+                                uat_logger.info("表单元素点击，等待数据保存完成")
+                                await self.page.wait_for_timeout(300)
+                            elif 'button' in selector or 'submit' in selector.lower():
+                                # 对于按钮，先不进行导航检测，因为可能只是UI变化
+                                uat_logger.info("按钮点击，等待UI响应")
+                                await self.page.wait_for_timeout(300)
+                            else:
+                                # 对于其他元素，使用较短的等待时间
+                                await self.page.wait_for_timeout(200)
                         except Exception as e:
-                            uat_logger.warning(f"等待页面导航时出错: {str(e)}")
+                            uat_logger.warning(f"点击后等待时出错: {str(e)}")
+                            # 发生错误时也继续执行
                 elif action == "fill":
                     selector = step.get("selector")
                     text = step.get("text")
-                    await self.fill_input(selector, text)
-                    # 移除填充后的固定等待
+                    
+                    # 尝试填充元素，如果失败则尝试处理动态选择器
+                    fill_success = False
+                    
+                    # 首先尝试原始选择器
+                    try:
+                        await self.fill_input(selector, text)
+                        fill_success = True
+                    except Exception as e:
+                        uat_logger.warning(f"原始选择器填充失败: {str(e)}")
+                        
+                        # 尝试使用更宽松的选择器（移除动态class）
+                        if '.' in selector:
+                            import re
+                            # 保留基础元素类型和非动态类
+                            # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                            base_selector = re.sub(r'\.(is-\w+)', '', selector)
+                            # 移除所有以el-开头的动态类（Element UI临时类名）
+                            base_selector = re.sub(r'\.(el-\w+-\w+)', '', base_selector)
+                            # 移除所有以has-开头的动态类
+                            base_selector = re.sub(r'\.(has-\w+)', '', base_selector)
+                            # 移除连续的空格和重复的>符号
+                            base_selector = re.sub(r'\s+', ' ', base_selector)
+                            base_selector = re.sub(r'\s*>\s*', ' > ', base_selector)
+                            base_selector = base_selector.strip()
+                            
+                            if base_selector != selector and base_selector.strip():
+                                uat_logger.info(f"尝试使用更宽松的选择器: {base_selector}")
+                                try:
+                                    await self.fill_input(base_selector, text)
+                                    fill_success = True
+                                except Exception as e2:
+                                    uat_logger.warning(f"宽松选择器填充失败: {str(e2)}")
+                                    
+                        # 如果前面的尝试都失败，尝试更基础的选择器
+                        if not fill_success:
+                            # 尝试仅使用标签名和ID
+                            try:
+                                import re
+                                # 提取ID部分
+                                id_match = re.search(r'#([\w-]+)', selector)
+                                class_matches = re.findall(r'\.([\w-]+)', selector)
+                                tag_match = re.match(r'([a-zA-Z]+)', selector)
+                                
+                                if id_match:
+                                    basic_selector = f"#{id_match.group(1)}"
+                                    uat_logger.info(f"尝试使用ID选择器: {basic_selector}")
+                                    await self.fill_input(basic_selector, text)
+                                    fill_success = True
+                            except:
+                                pass
+                        
+                        if not fill_success:
+                            # 如果所有尝试都失败，抛出异常
+                            raise Exception(f"无法填充元素，所有选择器尝试均失败: {selector}")
+                    
+                    # 填充后等待一小段时间以确保值已设置，但不等待页面加载
+                    if self.page:
+                        await self.page.wait_for_timeout(300)
+                        uat_logger.info(f"填充操作完成，等待值生效: {selector}")
                 elif action == "scroll":
                     # 处理新的滚动格式
                     if "scrollPosition" in step:
@@ -1792,8 +2106,131 @@ class PlaywrightAutomation:
                     # 移除右键点击后的固定等待
                 elif action == "submit":
                     selector = step.get("selector")
-                    await self.page.click(selector)
-                    # 移除表单提交后的固定等待，依赖页面加载状态
+                    uat_logger.info(f"🔍 [SUBMIT_DEBUG] 开始执行submit操作，选择器: {selector}")
+                    
+                    # 获取当前页面URL和状态
+                    try:
+                        current_url = self.page.url
+                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 当前页面URL: {current_url}")
+                    except Exception as e:
+                        uat_logger.warning(f"🔍 [SUBMIT_DEBUG] 获取当前URL失败: {str(e)}")
+                    
+                    # 尝试提交表单，如果失败则尝试处理动态选择器
+                    submit_success = False
+                    
+                    # 首先尝试原始选择器，直接点击提交按钮来触发表单提交
+                    try:
+                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试方式1: 原始选择器提交")
+                        # 检查元素是否存在
+                        element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                        if element_exists:
+                            uat_logger.info(f"🔍 [SUBMIT_DEBUG] 提交按钮存在，准备点击")
+                            # 使用JavaScript点击提交按钮，触发表单提交
+                            await self.page.evaluate("""(selector) => {
+                                const element = document.querySelector(selector);
+                                if (element) {
+                                    // 直接点击提交按钮，触发表单提交
+                                    element.click();
+                                }
+                            }""", selector)
+                            uat_logger.info(f"✅ [SUBMIT_DEBUG] 方式1成功点击提交按钮")
+                            submit_success = True
+                        else:
+                            uat_logger.error(f"❌ [SUBMIT_DEBUG] 提交按钮不存在: {selector}")
+                    except Exception as e:
+                        uat_logger.error(f"❌ [SUBMIT_DEBUG] 原始选择器提交失败: {str(e)}")
+                        
+                        # 尝试使用更宽松的选择器（移除动态class）
+                        if '.' in selector:
+                            uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试方式2: 更宽松的选择器")
+                            import re
+                            # 保留基础元素类型和非动态类
+                            # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                            base_selector = re.sub(r'\.(is-\w+)', '', selector)
+                            # 移除所有以el-开头的动态类（Element UI临时类名）
+                            base_selector = re.sub(r'\.(el-\w+-\w+)', '', base_selector)
+                            # 移除所有以has-开头的动态类
+                            base_selector = re.sub(r'\.(has-\w+)', '', base_selector)
+                            # 移除连续的空格和重复的>符号
+                            base_selector = re.sub(r'\s+', ' ', base_selector)
+                            base_selector = re.sub(r'\s*>\s*', ' > ', base_selector)
+                            base_selector = base_selector.strip()
+                            
+                            if base_selector != selector and base_selector.strip():
+                                uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试使用更宽松的选择器: {base_selector}")
+                                try:
+                                    # 使用JavaScript点击提交按钮
+                                    element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", base_selector)
+                                    if element_exists:
+                                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 宽松选择器元素存在，准备点击")
+                                        await self.page.evaluate("""(selector) => {
+                                            const element = document.querySelector(selector);
+                                            if (element) {
+                                                // 直接点击提交按钮，触发表单提交
+                                                element.click();
+                                            }
+                                        }""", base_selector)
+                                        uat_logger.info(f"✅ [SUBMIT_DEBUG] 方式2成功点击提交按钮")
+                                        submit_success = True
+                                    else:
+                                        uat_logger.warning(f"⚠️ [SUBMIT_DEBUG] 宽松选择器元素不存在: {base_selector}")
+                                except Exception as e2:
+                                    uat_logger.warning(f"❌ [SUBMIT_DEBUG] 宽松选择器提交失败: {str(e2)}")
+                                    
+                        # 如果前面的尝试都失败，尝试更基础的选择器
+                        if not submit_success:
+                            uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试方式3: 基础选择器")
+                            # 尝试仅使用标签名和ID
+                            try:
+                                import re
+                                # 提取ID部分
+                                id_match = re.search(r'#([\w-]+)', selector)
+                                class_matches = re.findall(r'\.([\w-]+)', selector)
+                                tag_match = re.match(r'([a-zA-Z]+)', selector)
+                                
+                                if id_match:
+                                    basic_selector = f"#{id_match.group(1)}"
+                                    uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试使用ID选择器: {basic_selector}")
+                                    # 使用JavaScript点击提交按钮
+                                    element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", basic_selector)
+                                    if element_exists:
+                                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] ID选择器元素存在，准备点击")
+                                        await self.page.evaluate("""(selector) => {
+                                            const element = document.querySelector(selector);
+                                            if (element) {
+                                                // 直接点击提交按钮，触发表单提交
+                                                element.click();
+                                            }
+                                        }""", basic_selector)
+                                        uat_logger.info(f"✅ [SUBMIT_DEBUG] 方式3成功点击提交按钮")
+                                        submit_success = True
+                                    else:
+                                        uat_logger.warning(f"⚠️ [SUBMIT_DEBUG] ID选择器元素不存在: {basic_selector}")
+                            except Exception as e3:
+                                uat_logger.warning(f"❌ [SUBMIT_DEBUG] 基础选择器提交失败: {str(e3)}")
+                        
+                        if not submit_success:
+                            # 如果所有尝试都失败，抛出异常
+                            uat_logger.error(f"❌ [SUBMIT_DEBUG] 所有提交方式均失败: {selector}")
+                            raise Exception(f"无法提交表单，所有选择器尝试均失败: {selector}")
+                        
+                        uat_logger.info(f"✅ [SUBMIT_DEBUG] submit操作执行成功: {selector}")
+                    
+                    # 提交后等待一小段时间，确保表单提交事件被触发
+                    if self.page:
+                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 表单提交，等待一小段时间确保提交事件触发")
+                        await self.page.wait_for_timeout(300)
+                        
+                        # 检查提交后的页面状态
+                        try:
+                            new_url = self.page.url
+                            uat_logger.info(f"🔍 [SUBMIT_DEBUG] 提交后页面URL: {new_url}")
+                            if new_url != current_url:
+                                uat_logger.info(f"🔄 [SUBMIT_DEBUG] 检测到页面URL变化: {current_url} -> {new_url}")
+                        except Exception as e:
+                            uat_logger.warning(f"🔍 [SUBMIT_DEBUG] 获取提交后URL失败: {str(e)}")
+                        
+                        uat_logger.info(f"✅ [SUBMIT_DEBUG] submit操作完成")
                 elif action == "keypress":
                     selector = step.get("selector")
                     key = step.get("key")
@@ -1819,11 +2256,205 @@ class PlaywrightAutomation:
                     # 截取页面截图
                     await self.take_screenshot()
                 
+                # 每个步骤执行成功后，等待页面状态稳定
+                if self.page:
+                    try:
+                        # 等待页面稳定，确保上一步操作完成
+                        uat_logger.info(f"等待步骤完成: {action}")
+                        
+                        # 检查页面是否正在加载
+                        try:
+                            # 等待页面加载状态稳定（最多等待2秒）
+                            await self.page.wait_for_load_state('domcontentloaded', timeout=2000)
+                        except:
+                            pass  # 页面可能已经加载完成
+                        
+                        # 等待一小段时间，让页面状态稳定
+                        await self.page.wait_for_timeout(500)
+                        
+                        # 检查是否有正在进行的网络请求
+                        try:
+                            # 等待网络空闲（最多等待3秒）
+                            await self.page.wait_for_load_state('networkidle', timeout=3000)
+                        except:
+                            pass  # 网络可能一直有活动
+                        
+                        uat_logger.info(f"步骤完成: {action}")
+                    except Exception as e:
+                        uat_logger.warning(f"等待页面稳定时出错: {str(e)}")
+                        # 即使等待失败，也继续执行后续步骤
+                
+                # 检查步骤执行后的页面状态
+                try:
+                    new_url = self.page.url
+                    uat_logger.info(f"🎯 [STEP_DEBUG] 步骤执行后页面URL: {new_url}")
+                    if new_url != current_url:
+                        uat_logger.info(f"🔄 [STEP_DEBUG] 检测到页面URL变化: {current_url} -> {new_url}")
+                except Exception as e:
+                    uat_logger.warning(f"🎯 [STEP_DEBUG] 获取步骤执行后URL失败: {str(e)}")
+                
+                uat_logger.info(f"✅ [STEP_DEBUG] ========== 步骤 {step_index}/{len(deduplicated_steps)} 执行成功 ==========")
                 results.append({"status": "success", "step": step})
+                
+                # 更新操作状态
+                if action == "click":
+                    has_clicked = True
+                    uat_logger.info(f"🔄 [STATE_UPDATE] 已执行click操作，更新状态: has_clicked=True")
+                elif action == "submit":
+                    has_submitted = True
+                    uat_logger.info(f"🔄 [STATE_UPDATE] 已执行submit操作，更新状态: has_submitted=True")
             except Exception as e:
+                uat_logger.error(f"❌ [STEP_DEBUG] ========== 步骤 {step_index}/{len(deduplicated_steps)} 执行失败 ==========")
+                uat_logger.error(f"❌ [STEP_DEBUG] 错误详情: {str(e)}")
                 results.append({"status": "error", "step": step, "error": str(e)})
         
+        uat_logger.info(f"🎯 [STEP_DEBUG] ========== 所有步骤执行完成，共 {len(results)} 个步骤 ==========")
         return results
+    
+    async def execute_multiple_test_cases(self, case_ids: List[int], db) -> Dict[str, Any]:
+        """执行多个测试用例
+        
+        Args:
+            case_ids: 测试用例ID列表
+            db: 数据库实例，用于获取测试用例步骤
+            
+        Returns:
+            包含所有测试用例执行结果的字典
+        """
+        uat_logger.info(f"🚀 [MULTI_CASE] ========== 开始执行多个测试用例，共 {len(case_ids)} 个用例 ==========")
+        
+        all_results = {
+            "total_cases": len(case_ids),
+            "successful_cases": 0,
+            "failed_cases": 0,
+            "case_results": []
+        }
+        
+        # 确保浏览器已启动
+        if self.page is None:
+            await self.start_browser(headless=False)
+        
+        for case_index, case_id in enumerate(case_ids):
+            case_number = case_index + 1
+            uat_logger.info(f"🎯 [MULTI_CASE] ========== 开始执行第 {case_number}/{len(case_ids)} 个测试用例，ID: {case_id} ==========")
+            
+            try:
+                # 从数据库获取测试用例信息
+                case_info = db.get_test_case_v2(case_id)
+                if not case_info:
+                    uat_logger.error(f"❌ [MULTI_CASE] 测试用例不存在，ID: {case_id}")
+                    all_results["case_results"].append({
+                        "case_id": case_id,
+                        "case_name": "未知",
+                        "status": "error",
+                        "error": f"测试用例不存在，ID: {case_id}"
+                    })
+                    all_results["failed_cases"] += 1
+                    continue
+                
+                case_name = case_info.get("name", "未命名用例")
+                uat_logger.info(f"📋 [MULTI_CASE] 测试用例名称: {case_name}")
+                
+                # 从数据库获取测试用例的所有步骤
+                steps = db.get_case_steps(case_id)
+                uat_logger.info(f"📋 [MULTI_CASE] 获取到 {len(steps)} 个测试步骤")
+                
+                if not steps:
+                    uat_logger.warning(f"⚠️ [MULTI_CASE] 测试用例没有步骤，ID: {case_id}")
+                    all_results["case_results"].append({
+                        "case_id": case_id,
+                        "case_name": case_name,
+                        "status": "warning",
+                        "warning": "测试用例没有步骤"
+                    })
+                    continue
+                
+                # 将数据库步骤格式转换为执行脚本所需的格式
+                execution_steps = []
+                for step in steps:
+                    exec_step = {
+                        "action": step["action"]
+                    }
+                    
+                    # 根据不同的操作类型添加相应的参数
+                    if step["action"] == "click":
+                        exec_step["selector"] = step["selector_value"]
+                    elif step["action"] == "fill":
+                        exec_step["selector"] = step["selector_value"]
+                        exec_step["text"] = step["input_value"]
+                    elif step["action"] == "submit":
+                        exec_step["selector"] = step["selector_value"]
+                    elif step["action"] == "navigate":
+                        exec_step["url"] = step["selector_value"]
+                    elif step["action"] == "keypress":
+                        exec_step["key"] = step["input_value"]
+                    elif step["action"] == "wait":
+                        try:
+                            exec_step["time"] = int(step["input_value"])
+                        except:
+                            exec_step["time"] = 1000
+                    elif step["action"] in ["wait_for_selector", "wait_for_element_visible"]:
+                        exec_step["selector"] = step["selector_value"]
+                        try:
+                            exec_step["timeout"] = int(step["input_value"])
+                        except:
+                            exec_step["timeout"] = 30000
+                    
+                    # 添加描述信息
+                    if step["description"]:
+                        exec_step["description"] = step["description"]
+                    
+                    execution_steps.append(exec_step)
+                
+                uat_logger.info(f"🔄 [MULTI_CASE] 转换后的执行步骤数: {len(execution_steps)}")
+                
+                # 执行测试用例的步骤
+                case_results = await self.execute_script_steps(execution_steps)
+                
+                # 统计执行结果
+                success_count = sum(1 for r in case_results if r.get("status") == "success")
+                error_count = sum(1 for r in case_results if r.get("status") == "error")
+                
+                case_status = "success" if error_count == 0 else "error"
+                
+                uat_logger.info(f"✅ [MULTI_CASE] 测试用例执行完成: {case_name}")
+                uat_logger.info(f"📊 [MULTI_CASE] 成功步骤: {success_count}, 失败步骤: {error_count}")
+                
+                # 记录测试用例执行结果
+                all_results["case_results"].append({
+                    "case_id": case_id,
+                    "case_name": case_name,
+                    "status": case_status,
+                    "total_steps": len(case_results),
+                    "successful_steps": success_count,
+                    "failed_steps": error_count,
+                    "step_results": case_results
+                })
+                
+                if case_status == "success":
+                    all_results["successful_cases"] += 1
+                else:
+                    all_results["failed_cases"] += 1
+                
+                # 在测试用例之间添加短暂的等待，确保页面状态稳定
+                if case_index < len(case_ids) - 1:
+                    uat_logger.info(f"⏳ [MULTI_CASE] 等待 2 秒后执行下一个测试用例")
+                    await asyncio.sleep(2)
+                
+            except Exception as e:
+                uat_logger.error(f"❌ [MULTI_CASE] 测试用例执行异常，ID: {case_id}, 错误: {str(e)}")
+                all_results["case_results"].append({
+                    "case_id": case_id,
+                    "case_name": case_info.get("name", "未命名用例") if 'case_info' in locals() else "未知",
+                    "status": "error",
+                    "error": str(e)
+                })
+                all_results["failed_cases"] += 1
+        
+        uat_logger.info(f"🎉 [MULTI_CASE] ========== 所有测试用例执行完成 ==========")
+        uat_logger.info(f"📊 [MULTI_CASE] 总用例数: {all_results['total_cases']}, 成功: {all_results['successful_cases']}, 失败: {all_results['failed_cases']}")
+        
+        return all_results
     
     async def start_recording(self):
         """开始录制"""
@@ -1973,6 +2604,21 @@ class PlaywrightAutomation:
                         if self.recorded_steps:
                             last_step = self.recorded_steps[-1]
                             
+                            # 特殊处理：click和submit事件都需要保留，不要跳过
+                            # 因为回放时需要先点击按钮，再提交表单
+                            
+                            # 重新获取上一步骤
+                            if self.recorded_steps:
+                                last_step = self.recorded_steps[-1]
+                            
+                            # 关键修复：过滤掉submit事件后的navigate事件
+                            # 因为submit操作本身就会导致页面导航，不需要额外的navigate步骤
+                            if step['action'] == 'navigate' and last_step['action'] == 'submit':
+                                time_diff = step.get('timestamp', 0) - last_step.get('timestamp', 0)
+                                if time_diff < 3000:  # 3秒内的navigate事件都认为是submit导致的
+                                    uat_logger.info(f"🚫 [NAV_FILTER] 过滤掉submit后的navigate事件，时间差: {time_diff}ms")
+                                    continue
+                            
                             # 检查是否与上一步骤完全相同
                             if last_step['action'] == step['action']:
                                 # 计算时间差（毫秒）
@@ -2012,6 +2658,14 @@ class PlaywrightAutomation:
         # 为了避免事件循环冲突，直接返回空列表
         # 实际的事件同步已经在后台任务中完成
         return []
+    
+    async def wait_for_timeout(self, milliseconds: int):
+        """等待指定的毫秒数"""
+        if self.page is None:
+            raise Exception("浏览器未启动")
+        
+        uat_logger.info(f"等待 {milliseconds} 毫秒")
+        await self.page.wait_for_timeout(milliseconds)
     
     async def close_browser(self):
         """关闭浏览器"""
@@ -2566,14 +3220,14 @@ def sync_navigate_to(url: str):
         return await automation.navigate_to(url)
     return worker.execute(run)
 
-def sync_click_element(selector: str):
+def sync_click_element(selector: str, selector_type: str = "css"):
     async def run():
-        return await automation.click_element(selector)
+        return await automation.click_element(selector, selector_type)
     return worker.execute(run)
 
-def sync_fill_input(selector: str, text: str):
+def sync_fill_input(selector: str, text: str, selector_type: str = "css"):
     async def run():
-        return await automation.fill_input(selector, text)
+        return await automation.fill_input(selector, text, selector_type)
     return worker.execute(run)
 
 def sync_scroll_page(direction: str = "down", pixels: int = 500):
@@ -2599,6 +3253,11 @@ def sync_execute_script_steps(steps: List[Dict[str, Any]]):
 def sync_close_browser():
     async def run():
         return await automation.close_browser()
+    return worker.execute(run)
+
+def sync_wait_for_timeout(milliseconds: int):
+    async def run():
+        return await automation.wait_for_timeout(milliseconds)
     return worker.execute(run)
 
 def sync_get_all_links():
@@ -2633,19 +3292,19 @@ def sync_take_screenshot(path: str = None):
         return await automation.take_screenshot(path)
     return worker.execute(run)
 
-def sync_hover_element(selector: str):
+def sync_hover_element(selector: str, selector_type: str = "css"):
     async def run():
-        return await automation.hover_element(selector)
+        return await automation.hover_element(selector, selector_type)
     return worker.execute(run)
 
-def sync_double_click_element(selector: str):
+def sync_double_click_element(selector: str, selector_type: str = "css"):
     async def run():
-        return await automation.double_click_element(selector)
+        return await automation.double_click_element(selector, selector_type)
     return worker.execute(run)
 
-def sync_right_click_element(selector: str):
+def sync_right_click_element(selector: str, selector_type: str = "css"):
     async def run():
-        return await automation.right_click_element(selector)
+        return await automation.right_click_element(selector, selector_type)
     return worker.execute(run)
 
 def sync_get_page_elements():
@@ -2668,11 +3327,11 @@ def sync_analyze_page_content(selector: str):
         return await automation.analyze_page_content(selector)
     return worker.execute(run)
 
-def sync_wait_for_element_visible(selector: str, timeout: int = 30000):
+def sync_wait_for_element_visible(selector: str, timeout: int = 30000, selector_type: str = "css"):
     async def run():
         if selector is None:
             raise ValueError("选择器不能为None")
-        return await automation.wait_for_element_visible(selector, timeout)
+        return await automation.wait_for_element_visible(selector, timeout, selector_type)
     return worker.execute(run)
 
 def sync_start_recording():
@@ -2698,4 +3357,9 @@ def sync_disable_element_selection():
 def sync_get_selected_element():
     async def run():
         return await automation.get_selected_element()
+    return worker.execute(run)
+
+def sync_execute_multiple_test_cases(case_ids: List[int], db):
+    async def run():
+        return await automation.execute_multiple_test_cases(case_ids, db)
     return worker.execute(run)

@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建测试用例 - UI自动化测试平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        
+        .section:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: #667eea;
+            border-radius: 2px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .steps-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .steps-table th, 
+        .steps-table td {
+            border: 1px solid #e9ecef;
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+        }
+        
+        .steps-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .steps-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .steps-table tr:hover {
+            background-color: #e9ecef;
+        }
+        
+        .step-row {
+            transition: background-color 0.2s;
+        }
+        
+        .step-row.editing {
+            background-color: #fff3cd !important;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .history-extracted-text {
+            position: relative;
+        }
+        
+        .extracted-text-preview {
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .extracted-text-preview:hover {
+            overflow: visible;
+            white-space: normal;
+            background-color: #f9f9f9;
+            padding: 4px;
+            border-radius: 4px;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .extracted-time {
+            font-size: 10px;
+            color: #999;
+            margin-top: 4px;
+        }
+        
+        .loading-history {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* 错误提示样式 */
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            padding: 4px 8px;
+            background-color: #f8d7da;
+            border-radius: 4px;
+            border-left: 3px solid #dc3545;
+            margin-top: 4px;
+            white-space: normal;
+            word-break: break-word;
+        }
+        
+        /* 验证失败的步骤行样式 */
+        .step-row.error {
+            background-color: #fff2f0 !important;
+        }
+        
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .project-selector {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #e8f4f8;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .step-form {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #e8f4f8;
+            border-radius: 8px;
+            border: 1px solid #667eea;
+        }
+        
+        .step-form.active {
+            display: block;
+        }
+        
+        .step-form h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .step-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .step-form-row.full-width {
+            grid-template-columns: 1fr;
+        }
+        
+        .step-form-row > div {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .step-form-row label {
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+            font-size: 13px;
+        }
+        
+        .step-form-row input,
+        .step-form-row select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+        
+        .step-form-row input:focus,
+        .step-form-row select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>创建测试用例</h1>
+        </div>
+        
+        <div class="content">
+            <form id="caseForm">
+                <div class="project-selector">
+                    <div class="form-group">
+                        <label for="projectSelect">选择项目 *</label>
+                        <select id="projectSelect" name="project_id" required>
+                            <option value="">请选择项目</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">1. 基本信息</div>
+                    <div class="form-group">
+                        <label for="caseTitle">用例标题 *</label>
+                        <input type="text" id="caseTitle" name="caseTitle" required placeholder="请输入用例标题">
+                    </div>
+                    <div class="form-group">
+                        <label for="caseDescription">用例描述</label>
+                        <textarea id="caseDescription" name="caseDescription" placeholder="请输入测试用例的详细描述..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">2. 前置条件</div>
+                    <div class="form-group">
+                        <label for="precondition">前置条件</label>
+                        <textarea id="precondition" name="precondition" placeholder="请输入测试用例的前置条件，如：已登录系统、已打开特定页面等..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">3. 操作步骤</div>
+                    <button type="button" class="btn btn-success" onclick="showStepForm()">+ 添加步骤</button>
+                    
+                    <div id="stepForm" class="step-form">
+                        <h4>添加/编辑操作步骤</h4>
+                        <div class="step-form-row">
+                            <div>
+                                <label for="stepAction">操作方式 *</label>
+                                <select id="stepAction" onchange="updateStepFormFields()">
+                                    <option value="">请选择操作方式</option>
+                                    <option value="input">输入</option>
+                                    <option value="click">点击</option>
+                                    <option value="swipe">滑动</option>
+                                    <option value="navigate">导航</option>
+                                    <option value="extract_text">提取文本</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="stepPageName">页面名称</label>
+                                <input type="text" id="stepPageName" placeholder="请输入页面名称">
+                            </div>
+                        </div>
+                        <div id="locatorFields" class="step-form-row">
+                            <div>
+                                <label for="stepLocatorMethod">元素定位方法 *</label>
+                                <select id="stepLocatorMethod">
+                                    <option value="css">CSS选择器</option>
+                                    <option value="xpath">XPath</option>
+                                    <option value="id">ID</option>
+                                    <option value="name">Name</option>
+                                    <option value="class">Class</option>
+                                    <option value="text">文本</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="stepElementName">元素定位值 *</label>
+                                <input type="text" id="stepElementName" placeholder="请输入元素的定位值（如ID、class、name等）">
+                            </div>
+                        </div>
+                        
+                        <div id="inputValueField" class="step-form-row" style="display: none;">
+                            <div>
+                                <label for="stepInputValue">输入值/预期结果</label>
+                                <input type="text" id="stepInputValue" placeholder="请输入要输入的值或预期的文本结果">
+                            </div>
+                        </div>
+                        
+                        <div id="verifyTypeField" class="step-form-row" style="display: none;">
+                            <div>
+                                <label for="stepVerifyType">验证方式</label>
+                                <select id="stepVerifyType">
+                                    <option value="equals">等于</option>
+                                    <option value="contains">包含</option>
+                                    <option value="partial">部分等于</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="swipeFields" class="step-form-row" style="display: none;">
+                            <div>
+                                <label for="stepSwipeX">X轴偏移量</label>
+                                <input type="text" id="stepSwipeX" placeholder="请输入X轴偏移量">
+                            </div>
+                            <div>
+                                <label for="stepSwipeY">Y轴偏移量</label>
+                                <input type="text" id="stepSwipeY" placeholder="请输入Y轴偏移量">
+                            </div>
+                        </div>
+                        
+                        <div id="urlField" class="step-form-row" style="display: none;">
+                            <div>
+                                <label for="stepUrl">URL地址</label>
+                                <input type="text" id="stepUrl" placeholder="请输入URL地址">
+                            </div>
+                        </div>
+                        
+                        <div class="step-form-row full-width">
+                            <div>
+                                <label for="stepDescription">步骤描述</label>
+                                <input type="text" id="stepDescription" placeholder="请输入步骤描述">
+                            </div>
+                        </div>
+                        <div style="text-align: right; margin-top: 10px;">
+                            <button type="button" class="btn" onclick="saveStep()">保存步骤</button>
+                            <button type="button" class="btn btn-secondary" onclick="hideStepForm()">取消</button>
+                        </div>
+                    </div>
+                    
+                    <table class="steps-table" id="stepsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">序号</th>
+                                <th style="width: 100px;">操作方式</th>
+                                <th style="width: 120px;">页面名称</th>
+                                <th style="width: 120px;">元素定位方法</th>
+                                <th style="width: 150px;">元素定位值</th>
+                                <th style="width: 200px;">输入值</th>
+                                <th style="width: 250px;">历史提取文本</th>
+                                <th>步骤描述</th>
+                                <th style="width: 150px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stepsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">4. 预期结果</div>
+                    <div class="form-group">
+                        <label for="expectedResult">预期结果</label>
+                        <textarea id="expectedResult" name="expectedResult" placeholder="请输入测试用例的预期结果，如：页面跳转成功、显示特定提示信息等..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="navigation">
+                    <button type="submit" class="btn btn-success">创建用例</button>
+                    <a href="/list_projects" class="btn btn-secondary">返回项目列表</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script>
+    let steps = [];
+    let editingStepIndex = -1;
+    let currentProjectId = null;
+    let currentCaseId = null;
+
+    async function loadProjects() {
+        try {
+            const response = await fetch('/api/projects');
+            const data = await response.json();
+            
+            const projectSelect = document.getElementById('projectSelect');
+            projectSelect.innerHTML = '<option value="">请选择项目</option>';
+            
+            if (data.projects && data.projects.length > 0) {
+                data.projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = project.name;
+                    projectSelect.appendChild(option);
+                });
+            } else {
+                alert('暂无项目，请先创建项目');
+                window.location.href = '/list_projects';
+            }
+        } catch (error) {
+            console.error('加载项目失败:', error);
+            alert('加载项目失败');
+        }
+    }
+
+    async function loadTestCase(caseId) {
+        try {
+            console.log('加载测试用例详情:', caseId);
+            
+            // 获取用例基本信息
+            const caseResponse = await fetch(`/api/cases/${caseId}`);
+            const caseData = await caseResponse.json();
+            
+            if (caseData.test_case) {
+                const testCase = caseData.test_case;
+                
+                // 填充表单数据
+                document.getElementById('projectSelect').value = testCase.project_id;
+                document.getElementById('caseTitle').value = testCase.name;
+                document.getElementById('caseDescription').value = testCase.description || '';
+                document.getElementById('precondition').value = testCase.precondition || '';
+                document.getElementById('expectedResult').value = testCase.expected_result || '';
+                
+                // 获取用例步骤
+                const stepsResponse = await fetch(`/api/cases/${caseId}/steps`);
+                const stepsData = await stepsResponse.json();
+                
+                if (stepsData.steps && stepsData.steps.length > 0) {
+                    steps = [];
+                    stepsData.steps.forEach(step => {
+                        steps.push({
+                            action: step.action,
+                            page_name: step.page_name || '',
+                            locator_method: step.selector_type || 'css',
+                            element_name: step.selector_value || '',
+                            input_value: step.input_value || '',
+                            swipe_x: step.swipe_x || '',
+                            swipe_y: step.swipe_y || '',
+                            url: step.url || '',
+                            description: step.description || ''
+                        });
+                    });
+                    renderSteps();
+                }
+                
+                currentCaseId = caseId;
+                console.log('测试用例加载成功');
+            }
+        } catch (error) {
+            console.error('加载测试用例失败:', error);
+            alert('加载测试用例失败: ' + error.message);
+        }
+    }
+
+    function showStepForm() {
+        document.getElementById('stepForm').classList.add('active');
+        clearStepForm();
+    }
+
+    function hideStepForm() {
+        document.getElementById('stepForm').classList.remove('active');
+        editingStepIndex = -1;
+        clearStepForm();
+    }
+
+    function clearStepForm() {
+        document.getElementById('stepAction').value = '';
+        document.getElementById('stepPageName').value = '';
+        document.getElementById('stepLocatorMethod').value = 'css';
+        document.getElementById('stepElementName').value = '';
+        document.getElementById('stepInputValue').value = '';
+        document.getElementById('stepSwipeX').value = '';
+        document.getElementById('stepSwipeY').value = '';
+        document.getElementById('stepUrl').value = '';
+        document.getElementById('stepDescription').value = '';
+        updateStepFormFields();
+    }
+
+    function updateStepFormFields() {
+        const action = document.getElementById('stepAction').value;
+        
+        document.getElementById('inputValueField').style.display = 'none';
+        document.getElementById('swipeFields').style.display = 'none';
+        document.getElementById('urlField').style.display = 'none';
+        document.getElementById('locatorFields').style.display = 'none'; // 默认隐藏元素定位字段
+        document.getElementById('verifyTypeField').style.display = 'none'; // 默认隐藏验证方式字段
+        
+        if (action === 'input' || action === 'click' || action === 'extract_text') {
+            document.getElementById('locatorFields').style.display = 'grid'; // 点击/输入/提取文本操作显示定位字段
+            if (action === 'input' || action === 'extract_text') {
+                document.getElementById('inputValueField').style.display = 'grid'; // 输入和提取文本操作显示输入值/预期结果字段
+                if (action === 'extract_text') {
+                    document.getElementById('verifyTypeField').style.display = 'grid'; // 提取文本操作显示验证方式字段
+                }
+            }
+        } else if (action === 'swipe') {
+            document.getElementById('swipeFields').style.display = 'grid';
+        } else if (action === 'navigate') {
+            document.getElementById('urlField').style.display = 'grid';
+        }
+    }
+
+    function saveStep() {
+        const action = document.getElementById('stepAction').value;
+        const pageName = document.getElementById('stepPageName').value;
+        const locatorMethod = document.getElementById('stepLocatorMethod').value;
+        const elementName = document.getElementById('stepElementName').value;
+        const inputValue = document.getElementById('stepInputValue').value;
+        const swipeX = document.getElementById('stepSwipeX').value;
+        const swipeY = document.getElementById('stepSwipeY').value;
+        const url = document.getElementById('stepUrl').value;
+        const verifyType = document.getElementById('stepVerifyType').value;
+        const description = document.getElementById('stepDescription').value;
+
+        if (!action) {
+            alert('请选择操作方式');
+            return;
+        }
+
+        // 添加点击/输入/提取文本操作时元素定位值的必填验证
+        if ((action === 'click' || action === 'input' || action === 'extract_text') && !elementName) {
+            alert('点击、输入或提取文本操作必须填写元素定位值');
+            return;
+        }
+
+        // 输入操作时输入值的验证
+        if (action === 'input' && !inputValue) {
+            alert('输入操作必须填写输入值');
+            return;
+        }
+
+        // 提取文本操作时预期结果的验证
+        if (action === 'extract_text' && !inputValue) {
+            alert('提取文本操作必须填写预期的文本结果');
+            return;
+        }
+
+        // 滑动操作时坐标的验证
+        if (action === 'swipe') {
+            if (!swipeX || !swipeY) {
+                alert('滑动操作必须填写X轴和Y轴偏移量');
+                return;
+            }
+        }
+
+        // 导航操作时URL的验证
+        if (action === 'navigate' && !url) {
+            alert('导航操作必须填写URL地址');
+            return;
+        }
+
+        const step = {
+            action: action,
+            page_name: pageName,
+            locator_method: locatorMethod,
+            element_name: elementName,
+            input_value: inputValue,
+            swipe_x: swipeX,
+            swipe_y: swipeY,
+            url: url,
+            verify_type: verifyType,
+            description: description
+        };
+
+        if (editingStepIndex >= 0) {
+            steps[editingStepIndex] = step;
+            editingStepIndex = -1;
+        } else {
+            steps.push(step);
+        }
+
+        renderSteps();
+        hideStepForm();
+    }
+
+    function renderSteps() {
+        const tbody = document.getElementById('stepsTableBody');
+        tbody.innerHTML = '';
+
+        steps.forEach((step, index) => {
+            const row = document.createElement('tr');
+            row.className = 'step-row';
+            
+            let displayValue = '-';
+            if (step.action === 'input') {
+                displayValue = step.input_value || '-';
+            } else if (step.action === 'swipe') {
+                displayValue = `X: ${step.swipe_x || '0'}, Y: ${step.swipe_y || '0'}`;
+            } else if (step.action === 'navigate') {
+                displayValue = step.url || '-';
+            } else if (step.action === 'extract_text') {
+                displayValue = step.input_value || '-';
+            }
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${step.action}</td>
+                <td>${step.page_name || '-'}</td>
+                <td>${step.locator_method || '-'}</td>
+                <td>${step.element_name || '-'}</td>
+                <td>${displayValue}</td>
+                <td class="history-extracted-text" data-step-index="${index}">
+                    ${step.action === 'extract_text' ? '<span class="loading-history">加载中...</span>' : '-'}
+                </td>
+                <td>${step.description || '-'}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-sm" onclick="editStep(${index})">编辑</button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteStep(${index})">删除</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        // 加载历史提取文本
+        if (currentCaseId) {
+            loadHistoricalExtractedText();
+        }
+    }
+    
+    // 加载历史提取文本
+    async function loadHistoricalExtractedText() {
+        try {
+            const response = await fetch(`/api/cases/${currentCaseId}/run-history`);
+            const data = await response.json();
+            
+            if (data.success && data.history) {
+                // 按步骤索引关联历史记录
+                const historyCells = document.querySelectorAll('.history-extracted-text');
+                const stepRows = document.querySelectorAll('.step-row');
+                
+                historyCells.forEach((cell, index) => {
+                    const step = steps[index];
+                    const stepRow = stepRows[index];
+                    
+                    if (step.action === 'extract_text') {
+                        // 为每个提取文本步骤找到最相关的历史记录
+                        let relevantHistory = null;
+                        
+                        // 遍历历史记录，找到最新的相关记录
+                        data.history.forEach(record => {
+                            if (record.extracted_text) {
+                                // 检查是否有验证失败的错误信息，并且该错误与当前步骤相关
+                                const isRelevant = !record.error || 
+                                    (record.error.includes('文本验证失败') && 
+                                     (record.error.includes(step.input_value || '') || 
+                                      record.error.includes(step.description || '')));
+                                
+                                // 如果找到相关记录，并且是最新的，则使用它
+                                if (isRelevant && 
+                                    (!relevantHistory || new Date(record.created_at) > new Date(relevantHistory.created_at))) {
+                                    relevantHistory = record;
+                                }
+                            }
+                        });
+                        
+                        if (relevantHistory) {
+                            let errorHtml = '';
+                            // 检查是否有验证失败的错误信息
+                            if (relevantHistory.status === 'failed' && relevantHistory.error) {
+                                errorHtml = `
+                                    <div class="error-message">
+                                        ${relevantHistory.error.substring(0, 100)}${relevantHistory.error.length > 100 ? '...' : ''}
+                                    </div>
+                                `;
+                                // 添加错误行样式
+                                stepRow.classList.add('error');
+                            } else {
+                                // 移除错误行样式
+                                stepRow.classList.remove('error');
+                            }
+                            
+                            cell.innerHTML = `
+                                <div class="extracted-text-preview" title="${relevantHistory.extracted_text}">
+                                    ${relevantHistory.extracted_text.substring(0, 50)}${relevantHistory.extracted_text.length > 50 ? '...' : ''}
+                                </div>
+                                <div class="extracted-time">${formatDateTime(relevantHistory.created_at)}</div>
+                                ${errorHtml}
+                            `;
+                        } else {
+                            cell.textContent = '暂无历史记录';
+                            // 移除错误行样式
+                            stepRow.classList.remove('error');
+                        }
+                    } else {
+                        // 非提取文本步骤，清空历史提取文本单元格
+                        cell.textContent = '';
+                        stepRow.classList.remove('error');
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('加载历史提取文本失败:', error);
+            // 加载失败时显示错误信息
+            const historyCells = document.querySelectorAll('.history-extracted-text');
+            historyCells.forEach(cell => {
+                if (cell.querySelector('.loading-history')) {
+                    cell.textContent = '加载失败';
+                }
+            });
+        }
+    }
+    
+    // 格式化日期时间
+    function formatDateTime(dateTimeStr) {
+        const date = new Date(dateTimeStr);
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function editStep(index) {
+        const step = steps[index];
+        document.getElementById('stepAction').value = step.action;
+        document.getElementById('stepPageName').value = step.page_name || '';
+        document.getElementById('stepLocatorMethod').value = step.locator_method || 'css';
+        document.getElementById('stepElementName').value = step.element_name || '';
+        document.getElementById('stepInputValue').value = step.input_value || '';
+        document.getElementById('stepSwipeX').value = step.swipe_x || '';
+        document.getElementById('stepSwipeY').value = step.swipe_y || '';
+        document.getElementById('stepUrl').value = step.url || '';
+        document.getElementById('stepVerifyType').value = step.verify_type || 'equals';
+        document.getElementById('stepDescription').value = step.description || '';
+        
+        updateStepFormFields();
+        editingStepIndex = index;
+        document.getElementById('stepForm').classList.add('active');
+    }
+
+    function deleteStep(index) {
+        if (confirm('确定要删除这个步骤吗？')) {
+            steps.splice(index, 1);
+            renderSteps();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('caseForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            console.log('=== 开始提交表单 ===');
+
+            const projectId = document.getElementById('projectSelect').value;
+            const caseTitle = document.getElementById('caseTitle').value;
+            const caseDescription = document.getElementById('caseDescription').value;
+            const precondition = document.getElementById('precondition').value;
+            const expectedResult = document.getElementById('expectedResult').value;
+
+            console.log('表单数据:', {
+                projectId: projectId,
+                caseTitle: caseTitle,
+                caseDescription: caseDescription,
+                precondition: precondition,
+                expectedResult: expectedResult,
+                stepsCount: steps.length
+            });
+
+            if (!projectId) {
+                alert('请选择项目');
+                return;
+            }
+
+            if (!caseTitle) {
+                alert('请输入用例标题');
+                return;
+            }
+
+            try {
+                console.log('发送创建/更新用例请求...');
+                
+                let response, data;
+                if (currentCaseId) {
+                    // 更新用例
+                    response = await fetch(`/api/cases/${currentCaseId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: caseTitle,
+                            url: '',
+                            description: caseDescription,
+                            precondition: precondition,
+                            expected_result: expectedResult
+                        })
+                    });
+                    data = await response.json();
+                    
+                    if (data.success) {
+                        // 删除原有步骤
+                        await fetch(`/api/cases/${currentCaseId}/steps`, {
+                            method: 'DELETE'
+                        });
+                        
+                        // 添加新步骤
+                        for (let i = 0; i < steps.length; i++) {
+                            const step = steps[i];
+                            let stepData = {
+                                case_id: currentCaseId,
+                                action: step.action,
+                                selector_type: step.locator_method,
+                                selector_value: step.element_name || '',
+                                description: step.description || '',
+                                step_order: i + 1,
+                                page_name: step.page_name || ''
+                            };
+                            
+                            if (step.action === 'input') {
+                                stepData.input_value = step.input_value || '';
+                            } else if (step.action === 'swipe') {
+                                stepData.swipe_x = step.swipe_x || '0';
+                                stepData.swipe_y = step.swipe_y || '0';
+                            } else if (step.action === 'navigate') {
+                                stepData.url = step.url || '';
+                            }
+                            
+                            await fetch('/api/steps', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(stepData)
+                            });
+                        }
+
+                        alert('测试用例更新成功！');
+                        window.location.href = '/list_projects';
+                    } else {
+                        alert('更新失败: ' + (data.error || '未知错误'));
+                    }
+                } else {
+                    // 创建用例
+                    response = await fetch('/api/cases', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            project_id: parseInt(projectId),
+                            name: caseTitle,
+                            url: '',
+                            description: caseDescription,
+                            precondition: precondition,
+                            expected_result: expectedResult
+                        })
+                    });
+
+                    console.log('响应状态:', response.status);
+                    data = await response.json();
+                    console.log('响应数据:', data);
+
+                    if (data.success) {
+                        const caseId = data.case_id;
+                        
+                        for (let i = 0; i < steps.length; i++) {
+                            const step = steps[i];
+                            let stepData = {
+                                case_id: caseId,
+                                action: step.action,
+                                selector_type: step.locator_method,
+                                selector_value: step.element_name || '',
+                                description: step.description || '',
+                                step_order: i + 1,
+                                page_name: step.page_name || ''
+                            };
+                            
+                            if (step.action === 'input') {
+                                stepData.input_value = step.input_value || '';
+                            } else if (step.action === 'swipe') {
+                                stepData.swipe_x = step.swipe_x || '0';
+                                stepData.swipe_y = step.swipe_y || '0';
+                            } else if (step.action === 'navigate') {
+                                stepData.url = step.url || '';
+                            }
+                            
+                            await fetch('/api/steps', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(stepData)
+                            });
+                        }
+
+                        alert('测试用例创建成功！用例ID: ' + caseId);
+                        window.location.href = '/list_projects';
+                    } else {
+                        alert('创建失败: ' + (data.error || '未知错误'));
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('创建测试用例时发生错误: ' + error.message);
+            }
+        });
+
+        loadProjects();
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('project_id');
+        if (projectId) {
+            setTimeout(() => {
+                document.getElementById('projectSelect').value = projectId;
+            }, 500);
+        }
+        
+        // 检查是否有case_id参数，如果有则加载测试用例
+        const caseId = urlParams.get('case_id');
+        if (caseId) {
+            loadTestCase(caseId);
+        }
+    });
+</script>
+</body>
+</html>
