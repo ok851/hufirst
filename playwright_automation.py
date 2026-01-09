@@ -1272,17 +1272,90 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
+            # 使用locator()定位元素，内置自动等待
+            element = self.page.locator(selector)
             # 等待元素可见
-            await self.page.wait_for_selector(selector, state='visible', timeout=10000)
-            text = await self.page.inner_text(selector)
+            await element.wait_for(state='visible', timeout=10000)
+            # 使用inner_text()提取可见文本
+            text = await element.inner_text()
             return text if text else ""
-        except:
+        except Exception as e:
+            print(f"提取元素文本时出错: {e}")
             try:
-                # 尝试使用text_content
-                text = await self.page.text_content(selector)
+                # 尝试使用text_content()获取所有文本
+                element = self.page.locator(selector)
+                await element.wait_for(timeout=5000)
+                text = await element.text_content()
                 return text if text else ""
-            except:
+            except Exception as e2:
+                print(f"使用text_content提取时出错: {e2}")
                 return ""
+    
+    async def extract_all_texts(self, selector: str) -> List[str]:
+        """批量提取多个元素的文本"""
+        if self.page is None:
+            raise Exception("浏览器未启动")
+        
+        try:
+            # 使用locator()定位多个元素，内置自动等待
+            elements = self.page.locator(selector)
+            # 等待至少一个元素可见
+            await elements.first.wait_for(state='visible', timeout=10000)
+            # 使用all_inner_texts()批量提取文本
+            texts = await elements.all_inner_texts()
+            return texts
+        except Exception as e:
+            print(f"批量提取文本时出错: {e}")
+            return []
+    
+    async def extract_text_from_iframe(self, iframe_selector: str, element_selector: str) -> str:
+        """从iframe中提取文本"""
+        if self.page is None:
+            raise Exception("浏览器未启动")
+        
+        try:
+            # 使用frame_locator()定位iframe
+            iframe = self.page.frame_locator(iframe_selector)
+            # 在iframe中定位元素
+            element = iframe.locator(element_selector)
+            # 等待元素可见
+            await element.wait_for(state='visible', timeout=10000)
+            # 提取文本
+            text = await element.inner_text()
+            return text if text else ""
+        except Exception as e:
+            print(f"从iframe提取文本时出错: {e}")
+            return ""
+    
+    async def extract_text_from_image(self, selector: str) -> str:
+        """从图片中提取文本（OCR）"""
+        if self.page is None:
+            raise Exception("浏览器未启动")
+        
+        try:
+            # 定位图片元素
+            element = self.page.locator(selector)
+            # 等待元素可见
+            await element.wait_for(state='visible', timeout=10000)
+            
+            # 截取图片
+            screenshot_path = f"temp_image_{int(time.time())}.png"
+            await element.screenshot(path=screenshot_path)
+            
+            # 这里可以集成OCR库，如Tesseract或第三方API
+            # 暂时返回占位符，实际项目中需要实现OCR逻辑
+            print(f"图片已保存到: {screenshot_path}")
+            print("OCR功能需要安装Tesseract或集成第三方OCR API")
+            
+            # 清理临时文件
+            import os
+            if os.path.exists(screenshot_path):
+                os.remove(screenshot_path)
+            
+            return "OCR功能已触发（需要安装Tesseract或集成第三方API）"
+        except Exception as e:
+            print(f"从图片提取文本时出错: {e}")
+            return ""
     
     async def get_element_attributes(self, selector: str) -> Dict[str, str]:
         """获取元素属性"""
@@ -1332,56 +1405,65 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
-            # 直接尝试获取元素数据，不等待元素可见
-            # 移除元素加载限制，允许在页面加载过程中进行录制
-            data = await self.page.evaluate(f"""
-                (selector) => {{
-                    const element = document.querySelector(selector);
-                    if (!element) return {{}};
-                    
-                    return {{
-                        textContent: element.textContent ? element.textContent.trim() : '',
-                        innerHTML: element.innerHTML ? element.innerHTML.trim() : '',
-                        attributes: {{
-                            id: element.id,
-                            className: element.className,
-                            tagName: element.tagName,
-                            href: element.href,
-                            src: element.src,
-                            alt: element.alt,
-                            title: element.title,
-                            value: element.value,
-                            placeholder: element.placeholder,
-                            type: element.type,
-                            name: element.name,
-                            ...element.dataset  // data-* 属性
-                        }},
-                        styles: {{
-                            display: getComputedStyle(element).display,
-                            visibility: getComputedStyle(element).visibility,
-                            opacity: getComputedStyle(element).opacity,
-                        }},
-                        rect: element.getBoundingClientRect ? {{
-                            x: element.getBoundingClientRect().x,
-                            y: element.getBoundingClientRect().y,
-                            width: element.getBoundingClientRect().width,
-                            height: element.getBoundingClientRect().height,
-                            top: element.getBoundingClientRect().top,
-                            right: element.getBoundingClientRect().right,
-                            bottom: element.getBoundingClientRect().bottom,
-                            left: element.getBoundingClientRect().left
-                        }} : null,
-                        isVisible: element.offsetParent !== null,
-                        isEnabled: element.disabled !== true,
-                        isSelected: element.selected || element.checked || false
-                    }};
-                }}
-            """, selector)
+            # 使用 locator() 定位元素，内置自动等待
+            element = self.page.locator(selector)
             
-            return data
+            # 等待元素可见
+            await element.wait_for(state='visible', timeout=10000)
+            
+            # 提取文本内容
+            text_content = await element.text_content()
+            inner_text = await element.inner_text()
+            
+            # 提取属性
+            attributes = {
+                'id': await element.get_attribute('id') or '',
+                'className': await element.get_attribute('class') or '',
+                'tagName': await element.evaluate('el => el.tagName') or '',
+                'href': await element.get_attribute('href') or '',
+                'src': await element.get_attribute('src') or '',
+                'alt': await element.get_attribute('alt') or '',
+                'title': await element.get_attribute('title') or '',
+                'value': await element.get_attribute('value') or '',
+                'placeholder': await element.get_attribute('placeholder') or '',
+                'type': await element.get_attribute('type') or '',
+                'name': await element.get_attribute('name') or '',
+            }
+            
+            # 提取样式
+            styles = {
+                'display': await element.evaluate('el => getComputedStyle(el).display'),
+                'visibility': await element.evaluate('el => getComputedStyle(el).visibility'),
+                'opacity': await element.evaluate('el => getComputedStyle(el).opacity'),
+            }
+            
+            # 提取位置信息
+            bounding_box = await element.bounding_box()
+            
+            # 提取状态信息
+            is_visible = await element.is_visible()
+            is_enabled = await element.is_enabled()
+            # 仅对复选框或单选按钮调用 is_checked()
+            try:
+                is_selected = await element.is_checked()
+            except:
+                is_selected = False
+            
+            return {
+                'textContent': text_content.strip() if text_content else '',
+                'innerText': inner_text.strip() if inner_text else '',
+                'innerHTML': await element.inner_html() or '',
+                'attributes': attributes,
+                'styles': styles,
+                'rect': bounding_box,
+                'isVisible': is_visible,
+                'isEnabled': is_enabled,
+                'isSelected': is_selected
+            }
         except Exception as e:
             print(f"提取元素数据时出错: {e}")
             return {}
+
     
     async def get_page_data(self) -> Dict[str, Any]:
         """获取页面的全面数据"""
@@ -2255,8 +2337,81 @@ class PlaywrightAutomation:
                 elif action == "screenshot":
                     # 截取页面截图
                     await self.take_screenshot()
-                
-                # 每个步骤执行成功后，等待页面状态稳定
+                elif action == "extract_text":
+                    selector = step.get("selector")
+                    uat_logger.info(f"🔍 [EXTRACT_TEXT_DEBUG] 开始执行提取文本操作，选择器: {selector}")
+                    
+                    try:
+                        if selector:
+                            # 提取元素文本
+                            extracted_text = await self.extract_element_text(selector)
+                            uat_logger.info(f"✅ [EXTRACT_TEXT_DEBUG] 提取到文本: {extracted_text[:100]}...")
+                            # 标记为成功
+                            step_status = "success"
+                            step_extracted_text = extracted_text
+                        else:
+                            # 提取整个页面文本
+                            extracted_text = await self.get_page_text()
+                            uat_logger.info(f"✅ [EXTRACT_TEXT_DEBUG] 提取到页面文本: {extracted_text[:100]}...")
+                            # 标记为成功
+                            step_status = "success"
+                            step_extracted_text = extracted_text
+                    except Exception as e:
+                        uat_logger.error(f"❌ [EXTRACT_TEXT_DEBUG] 提取文本失败: {str(e)}")
+                        step_status = "error"
+                        step_error = str(e)
+                        step_extracted_text = ""
+                    
+                    # 等待页面状态稳定
+                    if self.page:
+                        try:
+                            # 等待页面稳定，确保上一步操作完成
+                            uat_logger.info(f"等待步骤完成: {action}")
+                            
+                            # 检查页面是否正在加载
+                            try:
+                                # 等待页面加载状态稳定（最多等待2秒）
+                                await self.page.wait_for_load_state('domcontentloaded', timeout=2000)
+                            except:
+                                pass  # 页面可能已经加载完成
+                            
+                            # 等待一小段时间，让页面状态稳定
+                            await self.page.wait_for_timeout(500)
+                            
+                            # 检查是否有正在进行的网络请求
+                            try:
+                                # 等待网络空闲（最多等待3秒）
+                                await self.page.wait_for_load_state('networkidle', timeout=3000)
+                            except:
+                                pass  # 网络可能一直有活动
+                            
+                            uat_logger.info(f"步骤完成: {action}")
+                        except Exception as e:
+                            uat_logger.warning(f"等待页面稳定时出错: {str(e)}")
+                            # 即使等待失败，也继续执行后续步骤
+                    
+                    # 检查步骤执行后的页面状态
+                    try:
+                        new_url = self.page.url
+                        uat_logger.info(f"🎯 [STEP_DEBUG] 步骤执行后页面URL: {new_url}")
+                        if new_url != current_url:
+                            uat_logger.info(f"🔄 [STEP_DEBUG] 检测到页面URL变化: {current_url} -> {new_url}")
+                    except Exception as e:
+                        uat_logger.warning(f"🎯 [STEP_DEBUG] 获取步骤执行后URL失败: {str(e)}")
+                    
+                    uat_logger.info(f"✅ [STEP_DEBUG] ========== 步骤 {step_index}/{len(deduplicated_steps)} 执行成功 ==========")
+                    
+                    # 添加到结果中
+                    if step_status == "success":
+                        result = {"status": "success", "step": step}
+                        if step_extracted_text:
+                            result["extracted_text"] = step_extracted_text
+                        results.append(result)
+                    else:
+                        results.append({"status": "error", "step": step, "error": step_error})
+                    
+                    # 跳过后续的通用处理
+                    continue
                 if self.page:
                     try:
                         # 等待页面稳定，确保上一步操作完成
@@ -2385,7 +2540,7 @@ class PlaywrightAutomation:
                     elif step["action"] == "submit":
                         exec_step["selector"] = step["selector_value"]
                     elif step["action"] == "navigate":
-                        exec_step["url"] = step["selector_value"]
+                        exec_step["url"] = step["url"] or step["input_value"]
                     elif step["action"] == "keypress":
                         exec_step["key"] = step["input_value"]
                     elif step["action"] == "wait":
@@ -2399,6 +2554,8 @@ class PlaywrightAutomation:
                             exec_step["timeout"] = int(step["input_value"])
                         except:
                             exec_step["timeout"] = 30000
+                    elif step["action"] == "extract_text":
+                        exec_step["selector"] = step["selector_value"]
                     
                     # 添加描述信息
                     if step["description"]:
@@ -2415,10 +2572,32 @@ class PlaywrightAutomation:
                 success_count = sum(1 for r in case_results if r.get("status") == "success")
                 error_count = sum(1 for r in case_results if r.get("status") == "error")
                 
+                # 提取文本（从所有步骤中收集）
+                extracted_text = ""
+                for r in case_results:
+                    if r.get("extracted_text"):
+                        extracted_text = r.get("extracted_text")
+                        break  # 只使用第一个提取的文本
+                
                 case_status = "success" if error_count == 0 else "error"
                 
                 uat_logger.info(f"✅ [MULTI_CASE] 测试用例执行完成: {case_name}")
                 uat_logger.info(f"📊 [MULTI_CASE] 成功步骤: {success_count}, 失败步骤: {error_count}")
+                if extracted_text:
+                    uat_logger.info(f"📝 [MULTI_CASE] 提取的文本: {extracted_text[:100]}...")
+                
+                # 记录测试用例执行结果到数据库
+                try:
+                    db.create_run_history(
+                        case_id,
+                        case_status,
+                        0,  # 暂时设置为0，后续可以计算实际执行时间
+                        "" if case_status == "success" else str(case_results),
+                        extracted_text
+                    )
+                    uat_logger.info(f"📋 [MULTI_CASE] 测试结果已保存到数据库")
+                except Exception as db_error:
+                    uat_logger.error(f"❌ [MULTI_CASE] 保存测试结果到数据库失败: {db_error}")
                 
                 # 记录测试用例执行结果
                 all_results["case_results"].append({
@@ -2428,6 +2607,7 @@ class PlaywrightAutomation:
                     "total_steps": len(case_results),
                     "successful_steps": success_count,
                     "failed_steps": error_count,
+                    "extracted_text": extracted_text,
                     "step_results": case_results
                 })
                 
@@ -2694,7 +2874,7 @@ class PlaywrightAutomation:
         
         try:
             # 注入元素选择悬浮窗
-            await self.page.evaluate("""
+            await self.page.evaluate(r"""
                 (() => {
                     // 检查是否已经存在选择器悬浮窗
                     if (document.getElementById('automation-selector-overlay')) {
@@ -3315,6 +3495,16 @@ def sync_get_page_elements():
 def sync_extract_element_data(selector: str):
     async def run():
         return await automation.extract_element_data(selector)
+    return worker.execute(run)
+
+def sync_extract_all_texts(selector: str):
+    async def run():
+        return await automation.extract_all_texts(selector)
+    return worker.execute(run)
+
+def sync_extract_text_from_iframe(iframe_selector: str, element_selector: str):
+    async def run():
+        return await automation.extract_text_from_iframe(iframe_selector, element_selector)
     return worker.execute(run)
 
 def sync_get_page_data():

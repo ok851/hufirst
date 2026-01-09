@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试用例步骤管理 - UI自动化测试平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header .case-info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .toolbar {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .steps-list {
+            margin-top: 20px;
+        }
+        
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 15px 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .step-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+            padding: 0 15px;
+        }
+        
+        .step-content h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .step-details {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .step-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .empty-state-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            color: #333;
+            font-size: 22px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>测试用例步骤管理</h1>
+            <div class="case-info" id="caseInfo">正在加载用例信息...</div>
+        </div>
+        
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button onclick="showCreateStepModal()" class="btn btn-primary">+ 添加步骤</button>
+                <button onclick="runTestCase()" class="btn btn-success">▶ 运行用例</button>
+            </div>
+            <div class="toolbar-right">
+                <button onclick="backToCases()" class="btn btn-secondary">← 返回用例列表</button>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div id="stepsList">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载测试步骤...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建步骤模态框 -->
+    <div id="createStepModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加测试步骤</h3>
+            </div>
+            <div class="form-group">
+                <label for="stepAction">操作类型 *</label>
+                <select id="stepAction" onchange="toggleActionFields()">
+                    <option value="navigate">导航</option>
+                    <option value="click">点击</option>
+                    <option value="input">输入</option>
+                    <option value="fill">填充</option>
+                    <option value="hover">悬停</option>
+                    <option value="double_click">双击</option>
+                    <option value="right_click">右键点击</option>
+                    <option value="wait">等待</option>
+                    <option value="scroll">滚动</option>
+                    <option value="extract_text">提取文本</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="stepSelectorType">定位方式</label>
+                <select id="stepSelectorType">
+                    <option value="css">CSS选择器</option>
+                    <option value="xpath">XPath</option>
+                    <option value="id">ID</option>
+                    <option value="class">Class</option>
+                    <option value="name">Name</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="stepSelectorValue">选择器值</label>
+                <input type="text" id="stepSelectorValue" placeholder="例如: #username 或 //input[@id='username']">
+            </div>
+            <div class="form-group">
+                <label for="stepInputValue">输入值/预期文本</label>
+                <input type="text" id="stepInputValue" placeholder="输入内容或预期验证的文本">
+            </div>
+            <div class="form-group">
+                <label for="stepDescription">步骤描述</label>
+                <textarea id="stepDescription" placeholder="描述此步骤的目的"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeCreateStepModal()" class="btn btn-secondary">取消</button>
+                <button onclick="createStep()" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑步骤模态框 -->
+    <div id="editStepModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑测试步骤</h3>
+            </div>
+            <div class="form-group">
+                <label for="editStepAction">操作类型 *</label>
+                <select id="editStepAction" onchange="toggleEditActionFields()">
+                    <option value="navigate">导航</option>
+                    <option value="click">点击</option>
+                    <option value="input">输入</option>
+                    <option value="fill">填充</option>
+                    <option value="hover">悬停</option>
+                    <option value="double_click">双击</option>
+                    <option value="right_click">右键点击</option>
+                    <option value="wait">等待</option>
+                    <option value="scroll">滚动</option>
+                    <option value="extract_text">提取文本</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editStepSelectorType">定位方式</label>
+                <select id="editStepSelectorType">
+                    <option value="css">CSS选择器</option>
+                    <option value="xpath">XPath</option>
+                    <option value="id">ID</option>
+                    <option value="class">Class</option>
+                    <option value="name">Name</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editStepSelectorValue">选择器值</label>
+                <input type="text" id="editStepSelectorValue" placeholder="例如: #username 或 //input[@id='username']">
+            </div>
+            <div class="form-group">
+                <label for="editStepInputValue">输入值/预期文本</label>
+                <input type="text" id="editStepInputValue" placeholder="输入内容或预期验证的文本">
+            </div>
+            <div class="form-group">
+                <label for="editStepDescription">步骤描述</label>
+                <textarea id="editStepDescription" placeholder="描述此步骤的目的"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeEditStepModal()" class="btn btn-secondary">取消</button>
+                <button onclick="updateStep()" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentCaseId = null;
+        let currentCaseName = '';
+        let currentEditingStepId = null;
+        let currentProjectId = null;
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function getCaseIdFromSession() {
+            return sessionStorage.getItem('currentCaseId');
+        }
+        
+        function getProjectIdFromUrl() {
+            const path = window.location.pathname;
+            const parts = path.split('/');
+            return parts[2];
+        }
+        
+        async function loadCaseInfo() {
+            currentCaseId = getCaseIdFromSession();
+            
+            if (!currentCaseId) {
+                alert('未找到用例信息，请先选择测试用例');
+                window.location.href = '/list_projects';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/cases/${currentCaseId}`);
+                const data = await response.json();
+                
+                if (data.test_case) {
+                    currentCaseName = data.test_case.name;
+                    currentProjectId = data.test_case.project_id;
+                    document.getElementById('caseInfo').textContent = `用例: ${escapeHtml(currentCaseName)}`;
+                } else {
+                    document.getElementById('caseInfo').textContent = `用例: 未知用例`;
+                }
+            } catch (error) {
+                console.error('加载用例信息失败:', error);
+                document.getElementById('caseInfo').textContent = `用例: 未知用例`;
+            }
+        }
+        
+        async function loadSteps() {
+            if (!currentCaseId) return;
+            
+            try {
+                const response = await fetch(`/api/cases/${currentCaseId}/steps`);
+                const data = await response.json();
+                
+                const stepsList = document.getElementById('stepsList');
+                
+                if (data.steps && data.steps.length > 0) {
+                    stepsList.innerHTML = '<div class="steps-list" id="stepsListContainer"></div>';
+                    const stepsListContainer = document.getElementById('stepsListContainer');
+                    
+                    data.steps.forEach((step, index) => {
+                        const stepItem = document.createElement('div');
+                        stepItem.className = 'step-item';
+                        stepItem.id = `step-${step.id}`;
+                        
+                        let actionText = '';
+                        switch (step.action) {
+                            case 'navigate': actionText = '导航'; break;
+                            case 'click': actionText = '点击'; break;
+                            case 'input': actionText = '输入'; break;
+                            case 'fill': actionText = '填充'; break;
+                            case 'hover': actionText = '悬停'; break;
+                            case 'double_click': actionText = '双击'; break;
+                            case 'right_click': actionText = '右键点击'; break;
+                            case 'wait': actionText = '等待'; break;
+                            case 'scroll': actionText = '滚动'; break;
+                            case 'extract_text': actionText = '提取文本'; break;
+                            default: actionText = step.action;
+                        }
+                        
+                        stepItem.innerHTML = `
+                            <div class="step-number">${index + 1}</div>
+                            <div class="step-content">
+                                <h4>${actionText}</h4>
+                                <div class="step-details">
+                                    ${step.selector_type ? `<div><strong>定位方式:</strong> ${escapeHtml(step.selector_type)}</div>` : ''}
+                                    ${step.selector_value ? `<div><strong>选择器:</strong> ${escapeHtml(step.selector_value)}</div>` : ''}
+                                    ${step.input_value ? `<div><strong>输入值:</strong> ${escapeHtml(step.input_value)}</div>` : ''}
+                                    ${step.description ? `<div><strong>描述:</strong> ${escapeHtml(step.description)}</div>` : ''}
+                                </div>
+                            </div>
+                            <div class="step-actions">
+                                <button onclick="editStep(${step.id})" class="btn btn-sm btn-secondary">编辑</button>
+                                <button onclick="deleteStep(${step.id})" class="btn btn-sm btn-danger">删除</button>
+                            </div>
+                        `;
+                        
+                        stepsListContainer.appendChild(stepItem);
+                    });
+                } else {
+                    stepsList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📝</div>
+                            <div class="empty-state-text">该测试用例暂无步骤</div>
+                            <button onclick="showCreateStepModal()" class="btn btn-primary">添加第一个步骤</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载测试步骤失败:', error);
+                document.getElementById('stepsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div class="empty-state-text">加载测试步骤失败</div>
+                        <button onclick="loadSteps()" class="btn btn-primary">重新加载</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function showCreateStepModal() {
+            document.getElementById('createStepModal').classList.add('active');
+            document.getElementById('stepAction').value = 'click';
+            document.getElementById('stepSelectorType').value = 'css';
+            document.getElementById('stepSelectorValue').value = '';
+            document.getElementById('stepInputValue').value = '';
+            document.getElementById('stepDescription').value = '';
+            toggleActionFields();
+        }
+        
+        function closeCreateStepModal() {
+            document.getElementById('createStepModal').classList.remove('active');
+        }
+        
+        function showEditStepModal(step) {
+            currentEditingStepId = step.id;
+            document.getElementById('editStepModal').classList.add('active');
+            document.getElementById('editStepAction').value = step.action;
+            document.getElementById('editStepSelectorType').value = step.selector_type || 'css';
+            document.getElementById('editStepSelectorValue').value = step.selector_value || '';
+            document.getElementById('editStepInputValue').value = step.input_value || '';
+            document.getElementById('editStepDescription').value = step.description || '';
+            toggleEditActionFields();
+        }
+        
+        function closeEditStepModal() {
+            document.getElementById('editStepModal').classList.remove('active');
+            currentEditingStepId = null;
+        }
+        
+        function toggleActionFields() {
+            const action = document.getElementById('stepAction').value;
+            const selectorTypeField = document.querySelector('label[for="stepSelectorType"]').parentElement;
+            const selectorValueField = document.querySelector('label[for="stepSelectorValue"]').parentElement;
+            const inputValueField = document.querySelector('label[for="stepInputValue"]').parentElement;
+            
+            if (action === 'navigate' || action === 'scroll') {
+                selectorTypeField.style.display = 'none';
+                selectorValueField.style.display = 'none';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="stepInputValue"]').textContent = 'URL (导航) / 方向 (滚动)';
+            } else if (action === 'input' || action === 'fill') {
+                selectorTypeField.style.display = 'block';
+                selectorValueField.style.display = 'block';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="stepInputValue"]').textContent = '输入值';
+            } else if (action === 'extract_text') {
+                selectorTypeField.style.display = 'block';
+                selectorValueField.style.display = 'block';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="stepInputValue"]').textContent = '预期文本 (可选)';
+            } else {
+                selectorTypeField.style.display = 'block';
+                selectorValueField.style.display = 'block';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="stepInputValue"]').textContent = '附加信息 (可选)';
+            }
+        }
+        
+        function toggleEditActionFields() {
+            const action = document.getElementById('editStepAction').value;
+            const selectorTypeField = document.querySelector('label[for="editStepSelectorType"]').parentElement;
+            const selectorValueField = document.querySelector('label[for="editStepSelectorValue"]').parentElement;
+            const inputValueField = document.querySelector('label[for="editStepInputValue"]').parentElement;
+            
+            if (action === 'navigate' || action === 'scroll') {
+                selectorTypeField.style.display = 'none';
+                selectorValueField.style.display = 'none';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="editStepInputValue"]').textContent = 'URL (导航) / 方向 (滚动)';
+            } else if (action === 'input' || action === 'fill') {
+                selectorTypeField.style.display = 'block';
+                selectorValueField.style.display = 'block';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="editStepInputValue"]').textContent = '输入值';
+            } else if (action === 'extract_text') {
+                selectorTypeField.style.display = 'block';
+                selectorValueField.style.display = 'block';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="editStepInputValue"]').textContent = '预期文本 (可选)';
+            } else {
+                selectorTypeField.style.display = 'block';
+                selectorValueField.style.display = 'block';
+                inputValueField.style.display = 'block';
+                document.querySelector('label[for="editStepInputValue"]').textContent = '附加信息 (可选)';
+            }
+        }
+        
+        async function createStep() {
+            const action = document.getElementById('stepAction').value;
+            const selectorType = document.getElementById('stepSelectorType').value;
+            const selectorValue = document.getElementById('stepSelectorValue').value.trim();
+            const inputValue = document.getElementById('stepInputValue').value.trim();
+            const description = document.getElementById('stepDescription').value.trim();
+            
+            if (!action) {
+                alert('请选择操作类型');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/steps', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        case_id: currentCaseId,
+                        action: action,
+                        selector_type: selectorType,
+                        selector_value: selectorValue,
+                        input_value: inputValue,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('测试步骤添加成功！');
+                    closeCreateStepModal();
+                    loadSteps();
+                } else {
+                    alert('添加失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('添加测试步骤时发生错误: ' + error.message);
+            }
+        }
+        
+        async function editStep(stepId) {
+            try {
+                const response = await fetch(`/api/steps/${stepId}`);
+                const data = await response.json();
+                
+                if (data.step) {
+                    showEditStepModal(data.step);
+                } else {
+                    alert('获取步骤信息失败');
+                }
+            } catch (error) {
+                alert('获取步骤信息时发生错误: ' + error.message);
+            }
+        }
+        
+        async function updateStep() {
+            const action = document.getElementById('editStepAction').value;
+            const selectorType = document.getElementById('editStepSelectorType').value;
+            const selectorValue = document.getElementById('editStepSelectorValue').value.trim();
+            const inputValue = document.getElementById('editStepInputValue').value.trim();
+            const description = document.getElementById('editStepDescription').value.trim();
+            
+            if (!action) {
+                alert('请选择操作类型');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/steps/${currentEditingStepId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        selector_type: selectorType,
+                        selector_value: selectorValue,
+                        input_value: inputValue,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('测试步骤更新成功！');
+                    closeEditStepModal();
+                    loadSteps();
+                } else {
+                    alert('更新失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('更新测试步骤时发生错误: ' + error.message);
+            }
+        }
+        
+        async function deleteStep(stepId) {
+            if (confirm('确定要删除这个测试步骤吗？')) {
+                try {
+                    const response = await fetch(`/api/steps/${stepId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('测试步骤删除成功！');
+                        loadSteps();
+                    } else {
+                        alert('删除失败: ' + (data.error || '未知错误'));
+                    }
+                } catch (error) {
+                    alert('删除测试步骤时发生错误: ' + error.message);
+                }
+            }
+        }
+        
+        async function runTestCase() {
+            try {
+                const response = await fetch(`/api/cases/${currentCaseId}/run`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('测试用例运行成功！\n状态: ' + data.status + '\n耗时: ' + data.duration + '秒');
+                } else {
+                    alert('运行失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('运行测试用例时发生错误: ' + error.message);
+            }
+        }
+        
+        function backToCases() {
+            if (currentProjectId) {
+                window.location.href = `/list_cases_v2/${currentProjectId}`;
+            } else {
+                window.location.href = '/list_projects';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadCaseInfo();
+            loadSteps();
+        });
+    </script>
+</body>
+</html>

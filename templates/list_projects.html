@@ -332,69 +332,6 @@
             background: #f8f9fa;
             border-top: 1px solid #e9ecef;
         }
-        
-        .project-cases {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .cases-header {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-        }
-        
-        .cases-header h4 {
-            margin: 0;
-            color: #667eea;
-            font-size: 16px;
-        }
-        
-        .cases-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .case-item {
-            background: white;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .case-item:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-color: #667eea;
-        }
-        
-        .case-title {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        
-        .case-info {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 8px;
-        }
-        
-        .case-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .case-actions .btn {
-            padding: 5px 10px;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
@@ -442,34 +379,36 @@
         </div>
     </div>
 
-    <div id="runStatusModal" class="modal">
+    <div id="editProjectModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>测试用例运行状态</h3>
-                <button class="close-btn" onclick="hideRunStatusModal()">&times;</button>
+                <h3>编辑项目</h3>
+                <button class="close-btn" onclick="hideEditProjectModal()">&times;</button>
             </div>
-            <div style="padding: 20px;">
-                <div id="runStatusContent" style="text-align: center;">
-                    <div class="loading-spinner"></div>
-                    <p id="runStatusMessage" style="margin-top: 20px; font-size: 16px;">正在运行测试用例...</p>
-                </div>
+            <div class="form-group">
+                <label for="editProjectName">项目名称 *</label>
+                <input type="text" id="editProjectName" placeholder="请输入项目名称">
+            </div>
+            <div class="form-group">
+                <label for="editProjectDescription">项目描述</label>
+                <textarea id="editProjectDescription" placeholder="请输入项目描述（可选）"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button onclick="saveProjectEdit()" class="btn btn-success">保存</button>
+                <button onclick="hideEditProjectModal()" class="btn btn-secondary" style="margin-left: 10px;">取消</button>
             </div>
         </div>
     </div>
 
+
     <script>
+
         let currentEditProjectId = null;
 
-        function showRunStatusModal() {
-            document.getElementById('runStatusModal').classList.add('active');
-        }
-
-        function hideRunStatusModal() {
-            document.getElementById('runStatusModal').classList.remove('active');
-        }
-
-        function updateRunStatus(message) {
-            document.getElementById('runStatusMessage').textContent = message;
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         async function loadProjects() {
@@ -500,23 +439,11 @@
                                     <span class="stat-value">${caseCount}</span>
                                 </div>
                             </div>
-                            <div class="project-actions">
-                                <button onclick="createCaseForProject(${project.id})" class="btn btn-success">创建用例</button>
-                                <button onclick="toggleProjectCases(${project.id})" class="btn btn-info">查看用例</button>
+                            <div class="project-actions">                                <button onclick="createCaseForProject(${project.id})" class="btn btn-success">创建用例</button>
+                                <a href="/list_cases_v2/${project.id}" class="btn btn-info">查看用例</a>
                                 <button onclick="showEditProjectModal(${project.id}, '${escapeHtml(project.name)}', '${escapeHtml(project.description || '')}')" class="btn">编辑</button>
-                                <button onclick="deleteProject(${project.id})" class="btn btn-danger">删除</button>
-                            </div>
-                            <div id="cases-${project.id}" class="project-cases" style="display: none;">
-                                <div class="cases-header">
-                                    <h4>测试用例列表</h4>
-                                </div>
-                                <div id="cases-list-${project.id}" class="cases-list">
-                                    <div class="loading">
-                                        <div class="loading-spinner" style="width: 30px; height: 30px;"></div>
-                                        <p>正在加载测试用例...</p>
-                                    </div>
-                                </div>
-                            </div>
+                                <button onclick="deleteProject(${project.id})" class="btn btn-danger">删除</button>                            </div>
+
                         `;
                         
                         grid.appendChild(projectCard);
@@ -675,66 +602,6 @@
             window.location.href = `/create_case_v2?project_id=${projectId}`;
         }
 
-        async function toggleProjectCases(projectId) {
-            const casesDiv = document.getElementById(`cases-${projectId}`);
-            const casesList = document.getElementById(`cases-list-${projectId}`);
-            
-            if (casesDiv.style.display === 'none') {
-                casesDiv.style.display = 'block';
-                await loadProjectCases(projectId, casesList);
-            } else {
-                casesDiv.style.display = 'none';
-            }
-        }
-
-        async function loadProjectCases(projectId, container) {
-            try {
-                const response = await fetch(`/api/projects/${projectId}/cases`);
-                const data = await response.json();
-                
-                if (data.cases && data.cases.length > 0) {
-                    container.innerHTML = '';
-                    
-                    data.cases.forEach(testCase => {
-                        const caseItem = document.createElement('div');
-                        caseItem.className = 'case-item';
-                        caseItem.innerHTML = `
-                            <div class="case-title">${escapeHtml(testCase.title || testCase.name)}</div>
-                            <div class="case-info">
-                                <strong>ID:</strong> ${testCase.id} | 
-                                <strong>描述:</strong> ${escapeHtml(testCase.description || '无描述')}
-                            </div>
-                            <div class="case-actions">
-                                <button onclick="editCase(${testCase.id}, ${projectId})" class="btn btn-primary">编辑</button>
-                                <button onclick="runCase(${testCase.id})" class="btn btn-success">运行</button>
-                                <button onclick="deleteCase(${testCase.id}, ${projectId})" class="btn btn-danger">删除</button>
-                            </div>
-                        `;
-                        container.appendChild(caseItem);
-                    });
-                } else {
-                    container.innerHTML = `
-                        <div style="text-align: center; padding: 20px; color: #999;">
-                            <p>暂无测试用例</p>
-                            <button onclick="createCaseForProject(${projectId})" class="btn btn-success btn-sm" style="margin-top: 10px;">创建第一个测试用例</button>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('加载测试用例失败:', error);
-                container.innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: #999;">
-                        <p>加载测试用例失败</p>
-                        <button onclick="loadProjectCases(${projectId}, document.getElementById('cases-list-${projectId}'))" class="btn btn-primary btn-sm" style="margin-top: 10px;">重新加载</button>
-                    </div>
-                `;
-            }
-        }
-
-        async function editCase(caseId, projectId) {
-            window.location.href = `/create_case_v2?project_id=${projectId}&case_id=${caseId}`;
-        }
-
         async function deleteCase(caseId, projectId) {
             if (confirm('确定要删除这个测试用例吗？')) {
                 try {
@@ -754,50 +621,13 @@
                     
                     if (data.success) {
                         alert('测试用例删除成功！');
-                        await loadProjectCases(projectId, document.getElementById(`cases-list-${projectId}`));
-                        await loadProjects();
+                        loadProjects();
                     } else {
                         alert('删除失败: ' + (data.error || '未知错误'));
                     }
                 } catch (error) {
                     alert('删除测试用例时发生错误: ' + error.message);
                 }
-            }
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        async function runCase(caseId) {
-            try {
-                // 显示运行状态模态框
-                showRunStatusModal();
-                updateRunStatus('开始运行测试用例...');
-                
-                // 发送运行请求到后端
-                const response = await fetch(`/api/cases/${caseId}/run`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateRunStatus(`测试用例运行成功！\n结果: ${result.status}\n耗时: ${result.duration || 'N/A'}秒`);
-                } else {
-                    updateRunStatus(`测试用例运行失败: ${result.error || '未知错误'}`);
-                }
-                
-                // 3秒后自动关闭模态框
-                setTimeout(hideRunStatusModal, 3000);
-            } catch (error) {
-                updateRunStatus('运行测试用例时发生错误: ' + error.message);
-                setTimeout(hideRunStatusModal, 3000);
             }
         }
 

@@ -139,77 +139,50 @@
             padding: 30px;
         }
         
-        .case-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
+        .case-list {
             margin-top: 20px;
         }
         
-        .case-card {
-            background: white;
+        .case-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
             border: 1px solid #e9ecef;
             border-radius: 8px;
-            padding: 20px;
+            margin-bottom: 10px;
+            background: white;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         
-        .case-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        .case-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-color: #667eea;
         }
         
-        .case-name {
-            font-size: 18px;
+        .case-checkbox {
+            margin-right: 20px;
+        }
+        
+        .case-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .case-content {
+            flex: 1;
+            padding: 0 20px;
+        }
+        
+        .case-content h3 {
+            font-size: 16px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 12px;
-            word-wrap: break-word;
-        }
-        
-        .case-info {
-            margin-bottom: 8px;
-            color: #666;
-            font-size: 14px;
-        }
-        
-        .case-info strong {
-            color: #333;
-        }
-        
-        .case-stats {
-            display: flex;
-            gap: 15px;
-            margin: 15px 0;
-            padding: 10px 0;
-            border-top: 1px solid #e9ecef;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 13px;
-            color: #666;
-        }
-        
-        .stat-label {
-            font-weight: 500;
-        }
-        
-        .stat-value {
-            font-weight: 600;
-            color: #667eea;
+            margin: 0;
         }
         
         .case-actions {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 15px;
+            gap: 10px;
         }
         
         .empty-state {
@@ -383,10 +356,6 @@
                 <input type="text" id="caseName" placeholder="请输入测试用例名称">
             </div>
             <div class="form-group">
-                <label for="caseUrl">目标URL</label>
-                <input type="text" id="caseUrl" placeholder="https://example.com">
-            </div>
-            <div class="form-group">
                 <label for="caseDescription">用例描述</label>
                 <textarea id="caseDescription" placeholder="请输入测试用例描述"></textarea>
             </div>
@@ -405,10 +374,6 @@
             <div class="form-group">
                 <label for="editCaseName">用例名称 *</label>
                 <input type="text" id="editCaseName">
-            </div>
-            <div class="form-group">
-                <label for="editCaseUrl">目标URL</label>
-                <input type="text" id="editCaseUrl">
             </div>
             <div class="form-group">
                 <label for="editCaseDescription">用例描述</label>
@@ -462,9 +427,14 @@
             document.getElementById('runResultModal').classList.remove('active');
         }
         
-        function loadProjectInfo() {
-            currentProjectId = sessionStorage.getItem('currentProjectId');
-            currentProjectName = sessionStorage.getItem('currentProjectName') || '未知项目';
+        function getProjectIdFromUrl() {
+            const path = window.location.pathname;
+            const parts = path.split('/');
+            return parts[2];
+        }
+
+        async function loadProjectInfo() {
+            currentProjectId = getProjectIdFromUrl();
             
             if (!currentProjectId) {
                 alert('未找到项目信息，请先选择项目');
@@ -472,7 +442,20 @@
                 return;
             }
             
-            document.getElementById('projectInfo').textContent = `项目: ${escapeHtml(currentProjectName)}`;
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}`);
+                const data = await response.json();
+                
+                if (data.project) {
+                    currentProjectName = data.project.name;
+                    document.getElementById('projectInfo').textContent = `项目: ${escapeHtml(currentProjectName)}`;
+                } else {
+                    document.getElementById('projectInfo').textContent = `项目: 未知项目`;
+                }
+            } catch (error) {
+                console.error('加载项目信息失败:', error);
+                document.getElementById('projectInfo').textContent = `项目: 未知项目`;
+            }
         }
         
         async function loadTestCases() {
@@ -483,38 +466,31 @@
                 const casesList = document.getElementById('casesList');
                 
                 if (data.cases && data.cases.length > 0) {
-                    casesList.innerHTML = '<div class="case-grid" id="caseGrid"></div>';
-                    const caseGrid = document.getElementById('caseGrid');
+                    casesList.innerHTML = '<div class="case-list" id="caseListContainer"></div>';
+                    const caseListContainer = document.getElementById('caseListContainer');
                     
                     data.cases.forEach(testCase => {
-                        const caseCard = document.createElement('div');
-                        caseCard.className = 'case-card';
-                        caseCard.id = `case-${testCase.id}`;
+                        const caseItem = document.createElement('div');
+                        caseItem.className = 'case-item';
+                        caseItem.id = `case-${testCase.id}`;
                         
-                        caseCard.innerHTML = `
-                            <div class="case-name">${escapeHtml(testCase.name)}</div>
-                            <div class="case-info"><strong>ID:</strong> ${testCase.id}</div>
-                            <div class="case-info"><strong>描述:</strong> ${escapeHtml(testCase.description || '无描述')}</div>
-                            <div class="case-info"><strong>目标URL:</strong> ${escapeHtml(testCase.url || '无URL')}</div>
-                            <div class="case-info"><strong>创建时间:</strong> ${testCase.created_at}</div>
-                            <div class="case-stats">
-                                <div class="stat-item">
-                                    <span class="stat-label">测试步骤:</span>
-                                    <span class="stat-value">${testCase.step_count || 0}</span>
-                                </div>
-                            </div>
-                            <div class="checkbox-group">
+                        caseItem.innerHTML = `
+                            <div class="case-checkbox">
                                 <input type="checkbox" id="select-${testCase.id}" onchange="toggleCaseSelection(${testCase.id})">
-                                <label for="select-${testCase.id}">选择此用例</label>
+                            </div>
+                            <div class="case-content">
+                                <h3>${escapeHtml(testCase.name)}</h3>
                             </div>
                             <div class="case-actions">
                                 <button onclick="viewCaseSteps(${testCase.id})" class="btn btn-info btn-sm">查看步骤</button>
-                                <button onclick="showEditCaseModal(${testCase.id}, '${escapeHtml(testCase.name)}', '${escapeHtml(testCase.url || '')}', '${escapeHtml(testCase.description || '')}')" class="btn btn-sm">编辑</button>
+                                <button onclick="viewRunHistory(${testCase.id})" class="btn btn-secondary btn-sm">历史记录</button>
+                                <button onclick="editTestCase(${testCase.id})" class="btn btn-sm">编辑</button>
+                                <button onclick="runTestCase(${testCase.id})" class="btn btn-success btn-sm">运行</button>
                                 <button onclick="deleteTestCase(${testCase.id})" class="btn btn-danger btn-sm">删除</button>
                             </div>
                         `;
                         
-                        caseGrid.appendChild(caseCard);
+                        caseListContainer.appendChild(caseItem);
                     });
                 } else {
                     casesList.innerHTML = `
@@ -540,7 +516,6 @@
         function showCreateCaseModal() {
             document.getElementById('createCaseModal').classList.add('active');
             document.getElementById('caseName').value = '';
-            document.getElementById('caseUrl').value = '';
             document.getElementById('caseDescription').value = '';
         }
         
@@ -550,7 +525,6 @@
         
         async function createTestCase() {
             const name = document.getElementById('caseName').value.trim();
-            const url = document.getElementById('caseUrl').value.trim();
             const description = document.getElementById('caseDescription').value.trim();
             
             if (!name) {
@@ -567,7 +541,6 @@
                     body: JSON.stringify({
                         project_id: currentProjectId,
                         name: name,
-                        url: url,
                         description: description
                     })
                 });
@@ -586,11 +559,10 @@
             }
         }
         
-        function showEditCaseModal(caseId, name, url, description) {
+        function showEditCaseModal(caseId, name, description) {
             currentEditingCaseId = caseId;
             document.getElementById('editCaseModal').classList.add('active');
             document.getElementById('editCaseName').value = name;
-            document.getElementById('editCaseUrl').value = url;
             document.getElementById('editCaseDescription').value = description;
         }
         
@@ -599,9 +571,23 @@
             currentEditingCaseId = null;
         }
         
+        async function editTestCase(caseId) {
+            try {
+                const response = await fetch(`/api/cases/${caseId}`);
+                const data = await response.json();
+                
+                if (data.test_case) {
+                    showEditCaseModal(caseId, data.test_case.name, data.test_case.description);
+                } else {
+                    alert('获取测试用例信息失败');
+                }
+            } catch (error) {
+                alert('获取测试用例信息时发生错误: ' + error.message);
+            }
+        }
+        
         async function updateTestCase() {
             const name = document.getElementById('editCaseName').value.trim();
-            const url = document.getElementById('editCaseUrl').value.trim();
             const description = document.getElementById('editCaseDescription').value.trim();
             
             if (!name) {
@@ -617,7 +603,6 @@
                     },
                     body: JSON.stringify({
                         name: name,
-                        url: url,
                         description: description
                     })
                 });
@@ -639,27 +624,27 @@
         async function deleteTestCase(caseId) {
             if (confirm('确定要删除这个测试用例吗？此操作将同时删除相关的所有测试步骤。')) {
                 try {
-                const response = await fetch(`/api/cases/${caseId}`, {
-                    method: 'DELETE'
-                });
-                
-                let data;
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    // 处理非JSON响应
-                    const text = await response.text();
-                    alert(`删除失败：服务器返回无效响应: ${text.substring(0, 100)}`);
-                    return;
-                }
-                
-                if (data.success) {
-                    alert('测试用例删除成功！');
-                    selectedCaseIds.delete(caseId);
-                    loadTestCases();
-                } else {
-                    alert('删除失败: ' + (data.error || '未知错误'));
-                }
+                    const response = await fetch(`/api/cases/${caseId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        // 处理非JSON响应
+                        const text = await response.text();
+                        alert(`删除失败：服务器返回无效响应: ${text.substring(0, 100)}`);
+                        return;
+                    }
+                    
+                    if (data.success) {
+                        alert('测试用例删除成功！');
+                        selectedCaseIds.delete(caseId);
+                        loadTestCases();
+                    } else {
+                        alert('删除失败: ' + (data.error || '未知错误'));
+                    }
                 } catch (error) {
                     alert('删除测试用例时发生错误: ' + error.message);
                 }
@@ -669,6 +654,10 @@
         function viewCaseSteps(caseId) {
             sessionStorage.setItem('currentCaseId', caseId);
             window.location.href = '/list_steps';
+        }
+        
+        function viewRunHistory(caseId) {
+            window.location.href = `/run-history?case_id=${caseId}`;
         }
         
         function toggleCaseSelection(caseId) {
@@ -732,11 +721,11 @@
                     `;
                     
                     results.case_results.forEach((result, index) => {
-                        const statusClass = result.success ? 'color: #28a745;' : 'color: #dc3545;';
+                        const statusClass = result.status === 'success' ? 'color: #28a745;' : 'color: #dc3545;';
                         content += `
                             <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #e9ecef; border-radius: 4px;">
                                 <div style="font-weight: 600; margin-bottom: 5px;">用例 ${index + 1}: ${result.case_name}</div>
-                                <div style="${statusClass} margin-bottom: 5px;">状态: ${result.success ? '成功' : '失败'}</div>
+                                <div style="${statusClass} margin-bottom: 5px;">状态: ${result.status === 'success' ? '成功' : '失败'}</div>
                                 ${result.error ? `<div style="color: #dc3545; font-size: 12px; background: #f8d7da; padding: 8px; border-radius: 3px; margin-top: 5px;">
                                     <strong>错误:</strong> ${escapeHtml(result.error)}
                                 </div>` : ''}
@@ -755,12 +744,48 @@
             }
         }
         
+        // 运行单个测试用例
+        async function runTestCase(caseId) {
+    try {
+        const response = await fetch(`/api/cases/${caseId}/run`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showRunResultModal(`
+                <div style="padding: 20px;">
+                    <h4>执行结果</h4>
+                    <p><strong>状态:</strong> 成功</p>
+                    ${data.extracted_text ? `<p><strong>提取的文本:</strong> ${escapeHtml(data.extracted_text)}</p>` : ''}
+                    <p><strong>执行时间:</strong> ${data.duration || '未知'}秒</p>
+                </div>
+            `);
+        } else {
+            showRunResultModal(`
+                <div style="padding: 20px; color: red;">
+                    <h4>执行失败</h4>
+                    <p>${escapeHtml(data.error || '未知错误')}</p>
+                </div>
+            `);
+        }
+    } catch (error) {
+        showRunResultModal(`
+            <div style="padding: 20px; color: red;">
+                <h4>执行失败</h4>
+                <p>发生错误: ${error.message}</p>
+            </div>
+        `);
+    }
+}
+        
         function backToProjects() {
             window.location.href = '/list_projects';
         }
         
-        document.addEventListener('DOMContentLoaded', function() {
-            loadProjectInfo();
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadProjectInfo();
             loadTestCases();
         });
     </script>

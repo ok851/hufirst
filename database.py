@@ -650,17 +650,30 @@ class Database:
         
         return history_id
     
-    def get_all_run_history(self) -> List[Dict[str, Any]]:
-        """获取所有运行历史记录"""
+    def get_all_run_history(self, page: int = 1, page_size: int = 20, case_id: int = None) -> List[Dict[str, Any]]:
+        """获取所有运行历史记录（支持分页和按测试用例ID过滤）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute("""
-            SELECT rh.*, tc.name as case_name 
-            FROM run_history rh 
-            LEFT JOIN test_cases tc ON rh.case_id = tc.id 
-            ORDER BY rh.created_at DESC
-        """)
+        offset = (page - 1) * page_size
+        
+        if case_id:
+            cursor.execute("""
+                SELECT rh.*, tc.name as case_name 
+                FROM run_history rh 
+                LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                WHERE rh.case_id = ?
+                ORDER BY rh.created_at DESC
+                LIMIT ? OFFSET ?
+            """, (case_id, page_size, offset))
+        else:
+            cursor.execute("""
+                SELECT rh.*, tc.name as case_name 
+                FROM run_history rh 
+                LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                ORDER BY rh.created_at DESC
+                LIMIT ? OFFSET ?
+            """, (page_size, offset))
         rows = cursor.fetchall()
         
         history = []
@@ -678,6 +691,20 @@ class Database:
         
         conn.close()
         return history
+
+    def get_run_history_count(self, case_id: int = None) -> int:
+        """获取运行历史记录总数（支持按测试用例ID过滤）"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        if case_id:
+            cursor.execute("SELECT COUNT(*) FROM run_history WHERE case_id = ?", (case_id,))
+        else:
+            cursor.execute("SELECT COUNT(*) FROM run_history")
+        count = cursor.fetchone()[0]
+        
+        conn.close()
+        return count
     
     def get_case_run_history(self, case_id: int) -> List[Dict[str, Any]]:
         """获取指定测试用例的运行历史记录"""
@@ -726,6 +753,41 @@ class Database:
         cursor = conn.cursor()
         
         cursor.execute("DELETE FROM run_history WHERE case_id = ?", (case_id,))
+        
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def get_run_history_detail(self, record_id: int) -> Dict[str, Any]:
+        """获取运行历史记录详情"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT rh.*, tc.name as case_name 
+            FROM run_history rh 
+            LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+            WHERE rh.id = ?
+        """, (record_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            return {
+                'id': row[0],
+                'case_id': row[1],
+                'status': row[2],
+                'duration': row[3],
+                'error': row[4],
+                'extracted_text': row[5],
+                'created_at': row[6],
+                'case_name': row[7]
+            }
+        
+        conn.close()
+        return None
         
         success = cursor.rowcount > 0
         

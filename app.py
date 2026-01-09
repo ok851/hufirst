@@ -88,7 +88,19 @@ def index():
 
 @app.route('/create_case_v2')
 def create_case_v2():
-    return render_template('create_case_v2.html')
+    response = make_response(render_template('create_case_v2.html'))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return response
+
+# CDN测试页面
+@app.route('/cdn_test')
+def cdn_test():
+    response = make_response(render_template('cdn_test.html'))
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return response
 
 # 项目管理页面
 @app.route('/list_projects')
@@ -96,9 +108,14 @@ def list_projects():
     return render_template('list_projects.html')
 
 # 测试用例管理页面（新版本）
-@app.route('/list_cases_v2')
-def list_cases_v2():
-    return render_template('list_cases_v2.html')
+@app.route('/list_cases_v2/<int:project_id>')
+def list_cases_v2(project_id):
+    return render_template('list_cases_v2.html', project_id=project_id)
+
+# 测试步骤管理页面
+@app.route('/list_steps')
+def list_steps():
+    return render_template('list_steps.html')
 
 # API: 创建测试用例
 @app.route('/api/create_case', methods=['POST'])
@@ -332,7 +349,7 @@ def api_extract_element_data():
     if not selector:
         return jsonify({'error': '选择器不能为空'}), 400
     
-    element_data = automation.extract_element_data(selector)
+    element_data = sync_extract_element_data(selector)
     return jsonify({'success': True, 'data': element_data})
 
 # API: 获取页面数据
@@ -673,6 +690,16 @@ def api_get_case_steps(case_id):
     steps = db.get_case_steps(case_id)
     return jsonify({'steps': steps})
 
+# API: 获取单个测试步骤详情
+@app.route('/api/steps/<int:step_id>', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_get_step(step_id):
+    step = db.get_test_step(step_id)
+    if not step:
+        return jsonify({'error': '测试步骤不存在'}), 404
+    return jsonify({'step': step})
+
 # API: 创建测试步骤
 @app.route('/api/steps', methods=['POST'])
 @api_error_handler
@@ -713,10 +740,9 @@ def api_update_step(step_id):
     input_value = data.get('input_value')
     description = data.get('description')
     step_order = data.get('step_order')
-    page_name = data.get('page_name')
     
     success = db.update_test_step(step_id, action, selector_type, selector_value,
-                                   input_value, description, step_order, page_name)
+                                   input_value, description, step_order)
     
     if success:
         return jsonify({'success': True})
@@ -755,6 +781,9 @@ def api_run_case(case_id):
         # 记录开始时间
         start_time = time.time()
         
+        # 初始化数据库连接（修复变量作用域问题）
+        db = Database()
+        
         # 获取测试用例信息
         case = db.get_test_case_v2(case_id)
         if not case:
@@ -778,8 +807,18 @@ def api_run_case(case_id):
         try:
             # 如果有目标URL，先导航到该URL
             if case.get('url'):
-                uat_logger.log_automation_step("navigate", case['url'], "测试开始时导航")
-                sync_navigate_to(case['url'])
+                url = case['url']
+                # 验证URL有效性
+                if url and url.strip():
+                    # 清理URL
+                    url = url.strip()
+                    # 自动添加协议前缀
+                    if not url.startswith(('http://', 'https://')):
+                        url = 'http://' + url
+                    uat_logger.log_automation_step("navigate", url, "测试开始时导航")
+                    sync_navigate_to(url)
+                else:
+                    uat_logger.warning("测试用例URL为空或无效，跳过初始导航")
             
             # 执行所有步骤
             for step in steps:
@@ -796,18 +835,38 @@ def api_run_case(case_id):
                     url = None
                     if step.get('url'):
                         url = step['url']
-                    elif step.get('description'):
-                        url = step['description']
                     elif step.get('input_value'):
                         url = step['input_value']
                     
                     # URL有效性检查和修复
                     if url:
+                        # 清理URL
+                        url = url.strip()
                         # 自动添加协议前缀
                         if not url.startswith(('http://', 'https://')):
-                            url = 'https://' + url
-                        uat_logger.log_automation_step("navigate", url, "导航到URL")
-                        sync_navigate_to(url)
+                            url = 'http://' + url
+                        
+                        # 验证URL是否为有效地址（避免0.0.0.1等无效地址）
+                        import re
+                        # 改进的URL格式验证，包含IP地址范围验证
+                        url_pattern = re.compile(
+                            r'^(https?://)?'  # 协议前缀
+                            r'(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|'  # 域名
+                            r'localhost|'  # localhost
+                            r'((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))'  # 有效的IP地址
+                            r'(:\d+)?'  # 端口
+                            r'(/.*)?$'  # 路径
+                        )
+                        
+                        if url_pattern.match(url):
+                            uat_logger.log_automation_step("navigate", url, "导航到URL")
+                            sync_navigate_to(url)
+                        else:
+                            error_msg = f"无效的URL地址: {url}"
+                            uat_logger.error(error_msg)
+                            raise Exception(error_msg)
+                    else:
+                        uat_logger.warning("导航步骤缺少有效的URL")
                 elif action == 'click':
                     if selector_value:
                         sync_click_element(selector_value, selector_type)
@@ -853,9 +912,13 @@ def api_run_case(case_id):
                         full_selector = selector_value
                         if selector_type == 'xpath' and not full_selector.startswith('xpath='):
                             full_selector = f'xpath={full_selector}'
-                        # 提取元素文本
-                        extracted_text = sync_extract_element_text(full_selector)
-                        uat_logger.info(f"提取到文本: {extracted_text[:100]}...")
+                        # 提取元素文本（添加异常处理）
+                        try:
+                            extracted_text = sync_extract_element_text(full_selector)
+                            uat_logger.info(f"提取到文本: {extracted_text[:100]}...")
+                        except Exception as extract_error:
+                            uat_logger.warning(f"提取文本失败: {extract_error}")
+                            extracted_text = ""
                         
                         # 检查是否需要验证文本
                         expected_text = input_value or description
@@ -920,8 +983,7 @@ def api_run_case(case_id):
             
             # 保存运行历史记录
             try:
-                db = Database()
-                db.create_run_history(case_id, 'passed', duration, extracted_text=extracted_text)
+                db.create_run_history(case_id, 'passed', duration, "", extracted_text)
             except Exception as history_error:
                 uat_logger.warning(f"保存运行历史记录失败: {history_error}")
             
@@ -945,8 +1007,7 @@ def api_run_case(case_id):
             
             # 保存运行历史记录
             try:
-                db = Database()
-                db.create_run_history(case_id, 'failed', duration, str(e), extracted_text=extracted_text)
+                db.create_run_history(case_id, 'failed', duration, str(e), extracted_text)
             except Exception as history_error:
                 uat_logger.warning(f"保存运行历史记录失败: {history_error}")
             
@@ -978,19 +1039,29 @@ def run_history_page():
 
 @app.route('/api/run-history', methods=['GET'])
 def get_run_history():
-    """获取所有运行历史记录"""
+    """获取所有运行历史记录（支持分页和按测试用例ID过滤）"""
     try:
+        # 获取分页参数
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 20, type=int)
+        case_id = request.args.get('case_id', type=int)
+        
         db = Database()
-        history = db.get_all_run_history()
+        history = db.get_all_run_history(page, page_size, case_id)
+        total = db.get_run_history_count(case_id)
+        
         return jsonify({
             'success': True,
-            'history': history
+            'history': history,
+            'total': total,
+            'page': page,
+            'page_size': page_size
         })
     except Exception as e:
-        uat_logger.error(f"获取运行历史记录失败: {str(e)}")
+        uat_logger.error(f"获取运行历史记录失败: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f'获取运行历史记录失败: {str(e)}'
         }), 500
 
 @app.route('/api/run-history/<int:record_id>', methods=['DELETE'])
@@ -1011,6 +1082,29 @@ def delete_run_history(record_id):
             }), 404
     except Exception as e:
         uat_logger.error(f"删除运行历史记录失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/run-history/<int:record_id>', methods=['GET'])
+def get_run_history_detail(record_id):
+    """获取运行历史记录详情"""
+    try:
+        db = Database()
+        record = db.get_run_history_detail(record_id)
+        if record:
+            return jsonify({
+                'success': True,
+                'record': record
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '运行历史记录不存在'
+            }), 404
+    except Exception as e:
+        uat_logger.error(f"获取运行历史记录详情失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)

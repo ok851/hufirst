@@ -4,509 +4,592 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>创建测试用例 - UI自动化测试平台</title>
+    <!-- 内联基础样式，确保即使CDN失败也能有基本布局 -->
     <style>
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
-        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            background-color: #f3f4f6;
+            color: #333;
         }
-        
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            overflow: hidden;
+            padding: 20px;
         }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+        .bg-white {
+            background-color: white;
         }
-        
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
+        .p-6 {
+            padding: 24px;
         }
-        
-        .content {
-            padding: 30px;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-            padding: 25px;
-            border: 1px solid #e9ecef;
+        .rounded-lg {
             border-radius: 8px;
-            background-color: #f8f9fa;
-            transition: all 0.3s ease;
         }
-        
-        .section:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        .shadow-md {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        
-        .section-title {
-            font-size: 20px;
+        .text-xl {
+            font-size: 1.25rem;
+        }
+        .font-semibold {
             font-weight: 600;
-            color: #667eea;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #667eea;
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
-        
-        .section-title::before {
-            content: '';
-            width: 4px;
-            height: 24px;
-            background: #667eea;
-            border-radius: 2px;
+        .mb-4 {
+            margin-bottom: 16px;
         }
-        
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
-        
         .form-group label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
-            color: #555;
-            font-size: 14px;
         }
-        
         .form-group input,
         .form-group textarea,
         .form-group select {
             width: 100%;
-            padding: 12px;
+            padding: 8px 12px;
             border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
+            border-radius: 4px;
         }
-        
-        .form-group textarea {
-            height: 100px;
-            resize: vertical;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
         .btn {
-            padding: 10px 20px;
+            display: inline-block;
+            padding: 8px 16px;
             border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
+            border-radius: 4px;
             font-weight: 500;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
+            cursor: pointer;
         }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
         .btn-primary {
-            background: #667eea;
+            background-color: #3b82f6;
             color: white;
         }
-        
-        .btn-primary:hover {
-            background: #5568d3;
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover {
-            background: #218838;
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-danger:hover {
-            background: #c82333;
-        }
-        
         .btn-secondary {
-            background: #6c757d;
+            background-color: #10b981;
             color: white;
         }
-        
-        .btn-secondary:hover {
-            background: #545b62;
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
         }
-        
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
+        .btn-outline {
+            background-color: white;
+            color: #333;
+            border: 1px solid #ddd;
         }
-        
-        .steps-table {
+        .grid {
+            display: grid;
+        }
+        .grid-cols-1 {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+        .md\:grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .gap-4 {
+            gap: 16px;
+        }
+        .mt-4 {
+            margin-top: 16px;
+        }
+        .mb-6 {
+            margin-bottom: 24px;
+        }
+        table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
-            background: white;
-            border-radius: 6px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-top: 16px;
         }
-        
-        .steps-table th, 
-        .steps-table td {
-            border: 1px solid #e9ecef;
+        th, td {
             padding: 12px;
             text-align: left;
-            font-size: 13px;
+            border-bottom: 1px solid #ddd;
         }
-        
-        .steps-table th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        th {
+            background-color: #3b82f6;
             color: white;
-            font-weight: 600;
         }
-        
-        .steps-table tr:nth-child(even) {
-            background-color: #f8f9fa;
+        tr:hover {
+            background-color: #f5f5f5;
         }
-        
-        .steps-table tr:hover {
-            background-color: #e9ecef;
-        }
-        
-        .step-row {
-            transition: background-color 0.2s;
-        }
-        
-        .step-row.editing {
-            background-color: #fff3cd !important;
-        }
-        
-        .action-buttons {
+        .flex {
             display: flex;
-            gap: 5px;
         }
-        
-        .history-extracted-text {
-            position: relative;
+        .justify-between {
+            justify-content: space-between;
         }
-        
-        .extracted-text-preview {
-            max-width: 100%;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            cursor: pointer;
-            font-size: 12px;
-            line-height: 1.4;
+        .items-center {
+            align-items: center;
         }
-        
-        .extracted-text-preview:hover {
-            overflow: visible;
-            white-space: normal;
-            background-color: #f9f9f9;
-            padding: 4px;
-            border-radius: 4px;
-            z-index: 10;
-            position: relative;
+        .gap-2 {
+            gap: 8px;
         }
-        
-        .extracted-time {
-            font-size: 10px;
-            color: #999;
-            margin-top: 4px;
+        .bg-gradient-to-r {
+            background: linear-gradient(to right, #3b82f6, #2563eb);
         }
-        
-        .loading-history {
-            font-size: 12px;
-            color: #666;
-            font-style: italic;
+        .text-white {
+            color: white;
         }
-        
-        /* 错误提示样式 */
-        .error-message {
-            color: #dc3545;
-            font-size: 12px;
-            padding: 4px 8px;
-            background-color: #f8d7da;
-            border-radius: 4px;
-            border-left: 3px solid #dc3545;
-            margin-top: 4px;
-            white-space: normal;
-            word-break: break-word;
+        .px-6 {
+            padding-left: 24px;
+            padding-right: 24px;
         }
-        
-        /* 验证失败的步骤行样式 */
-        .step-row.error {
-            background-color: #fff2f0 !important;
+        .py-4 {
+            padding-top: 16px;
+            padding-bottom: 16px;
         }
-        
-        .navigation {
+        .py-6 {
+            padding-top: 24px;
+            padding-bottom: 24px;
+        }
+        .text-center {
             text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
         }
-        
+        .border-l-4 {
+            border-left: 4px solid #3b82f6;
+        }
         .project-selector {
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #e8f4f8;
+            background-color: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 16px;
             border-radius: 8px;
-            border-left: 4px solid #667eea;
+            margin-bottom: 24px;
         }
-        
         .step-form {
-            display: none;
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #e8f4f8;
+            background-color: #dbeafe;
+            border: 1px solid #3b82f6;
             border-radius: 8px;
-            border: 1px solid #667eea;
+            padding: 16px;
+            margin-top: 16px;
         }
-        
         .step-form.active {
             display: block;
         }
-        
-        .step-form h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 16px;
+        .navigation {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #ddd;
         }
-        
+        .section {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+            border-left: 4px solid #3b82f6;
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
         .step-form-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
         }
-        
         .step-form-row.full-width {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
         }
-        
-        .step-form-row > div {
-            display: flex;
-            flex-direction: column;
+        .max-w-7xl {
+            max-width: 80rem;
         }
-        
-        .step-form-row label {
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
-            font-size: 13px;
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
         }
-        
-        .step-form-row input,
-        .step-form-row select {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-            transition: all 0.3s ease;
+        .bg-white {
+            background-color: white;
         }
-        
-        .step-form-row input:focus,
-        .step-form-row select:focus {
+        .rounded-xl {
+            border-radius: 12px;
+        }
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .overflow-hidden {
+            overflow: hidden;
+        }
+        .text-2xl {
+            font-size: 1.5rem;
+        }
+        .font-bold {
+            font-weight: 700;
+        }
+        .min-h-screen {
+            min-height: 100vh;
+        }
+        .py-8 {
+            padding-top: 32px;
+            padding-bottom: 32px;
+        }
+        .px-4 {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        .gap-2 {
+            gap: 8px;
+        }
+        .gap-4 {
+            gap: 16px;
+        }
+        .hover\:bg-gray-100:hover {
+            background-color: #f3f4f6;
+        }
+        .hover\:bg-white\/30:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .mb-8 {
+            margin-bottom: 32px;
+        }
+        .pt-4 {
+            padding-top: 16px;
+        }
+        .border-t {
+            border-top: 1px solid #ddd;
+        }
+        .block {
+            display: block;
+        }
+        .hidden {
+            display: none;
+        }
+        .text-sm {
+            font-size: 0.875rem;
+        }
+        .text-gray-700 {
+            color: #374151;
+        }
+        .mb-1 {
+            margin-bottom: 4px;
+        }
+        .focus\:outline-none:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .focus\:ring-2:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .focus\:ring-primary:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .focus\:border-transparent:focus {
+            border-color: transparent;
+        }
+        .resize-vertical {
+            resize: vertical;
+        }
+        .bg-blue-50 {
+            background-color: #dbeafe;
+        }
+        .border {
+            border: 1px solid #ddd;
+        }
+        .border-primary {
+            border-color: #3b82f6;
+        }
+        .p-4 {
+            padding: 16px;
+        }
+        .mt-4 {
+            margin-top: 16px;
+        }
+        .text-lg {
+            font-size: 1.125rem;
+        }
+        .text-primary {
+            color: #3b82f6;
+        }
+        .step-row.editing {
+            background-color: #fef3c7 !important;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.875rem;
+        }
+        .flex-wrap {
+            flex-wrap: wrap;
+        }
+        .justify-center {
+            justify-content: center;
+        }
+        .mt-8 {
+            margin-top: 32px;
+        }
+        .border-gray-200 {
+            border-color: #e5e7eb;
         }
     </style>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        accent: '#8b5cf6',
+                        danger: '#ef4444',
+                        warning: '#f59e0b',
+                    },
+                    fontFamily: {
+                        sans: ['Segoe UI', 'Tahoma', 'Geneva', 'Verdana', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>创建测试用例</h1>
-        </div>
-        
-        <div class="content">
-            <form id="caseForm">
-                <div class="project-selector">
-                    <div class="form-group">
-                        <label for="projectSelect">选择项目 *</label>
-                        <select id="projectSelect" name="project_id" required>
-                            <option value="">请选择项目</option>
-                        </select>
+<body class="bg-gray-100 min-h-screen py-8 px-4">
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <!-- 导航栏 -->
+            <nav class="bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <i class="fa fa-robot text-2xl"></i>
+                        <h1 class="text-2xl font-bold">UI自动化测试平台</h1>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <a href="/" class="btn bg-white text-primary hover:bg-gray-100">
+                            <i class="fa fa-home"></i>
+                            首页
+                        </a>
+                        <a href="/list_projects" class="btn bg-white/20 text-white hover:bg-white/30">
+                            <i class="fa fa-folder"></i>
+                            项目管理
+                        </a>
+                        <a href="/run-history" class="btn bg-white/20 text-white hover:bg-white/30">
+                            <i class="fa fa-history"></i>
+                            运行历史记录
+                        </a>
                     </div>
                 </div>
-                
-                <div class="section">
-                    <div class="section-title">1. 基本信息</div>
-                    <div class="form-group">
-                        <label for="caseTitle">用例标题 *</label>
-                        <input type="text" id="caseTitle" name="caseTitle" required placeholder="请输入用例标题">
+            </nav>
+            
+            <!-- 页面标题 -->
+            <div class="bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-6 text-center">
+                <h1 class="text-2xl font-bold">创建测试用例</h1>
+                <p class="mt-2 text-blue-100">定义测试步骤和验证逻辑</p>
+            </div>
+            
+            <!-- 标题和描述编辑按钮 -->
+            <div class="p-6 border-b">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 id="currentCaseTitle" class="text-xl font-bold text-gray-800">未设置标题</h2>
+                        <p id="currentCaseDescription" class="text-gray-600 mt-1">未设置描述</p>
                     </div>
-                    <div class="form-group">
-                        <label for="caseDescription">用例描述</label>
-                        <textarea id="caseDescription" name="caseDescription" placeholder="请输入测试用例的详细描述..."></textarea>
-                    </div>
+                    <button type="button" class="btn btn-primary" onclick="openTitleModal()">
+                        <i class="fa fa-pencil"></i>
+                        编辑标题和描述
+                    </button>
                 </div>
-                
-                <div class="section">
-                    <div class="section-title">2. 前置条件</div>
-                    <div class="form-group">
-                        <label for="precondition">前置条件</label>
-                        <textarea id="precondition" name="precondition" placeholder="请输入测试用例的前置条件，如：已登录系统、已打开特定页面等..."></textarea>
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">3. 操作步骤</div>
-                    <button type="button" class="btn btn-success" onclick="showStepForm()">+ 添加步骤</button>
-                    
-                    <div id="stepForm" class="step-form">
-                        <h4>添加/编辑操作步骤</h4>
-                        <div class="step-form-row">
-                            <div>
-                                <label for="stepAction">操作方式 *</label>
-                                <select id="stepAction" onchange="updateStepFormFields()">
-                                    <option value="">请选择操作方式</option>
-                                    <option value="input">输入</option>
-                                    <option value="click">点击</option>
-                                    <option value="swipe">滑动</option>
-                                    <option value="navigate">导航</option>
-                                    <option value="extract_text">提取文本</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="stepPageName">页面名称</label>
-                                <input type="text" id="stepPageName" placeholder="请输入页面名称">
-                            </div>
-                        </div>
-                        <div id="locatorFields" class="step-form-row">
-                            <div>
-                                <label for="stepLocatorMethod">元素定位方法 *</label>
-                                <select id="stepLocatorMethod">
-                                    <option value="css">CSS选择器</option>
-                                    <option value="xpath">XPath</option>
-                                    <option value="id">ID</option>
-                                    <option value="name">Name</option>
-                                    <option value="class">Class</option>
-                                    <option value="text">文本</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="stepElementName">元素定位值 *</label>
-                                <input type="text" id="stepElementName" placeholder="请输入元素的定位值（如ID、class、name等）">
-                            </div>
-                        </div>
-                        
-                        <div id="inputValueField" class="step-form-row" style="display: none;">
-                            <div>
-                                <label for="stepInputValue">输入值/预期结果</label>
-                                <input type="text" id="stepInputValue" placeholder="请输入要输入的值或预期的文本结果">
-                            </div>
-                        </div>
-                        
-                        <div id="verifyTypeField" class="step-form-row" style="display: none;">
-                            <div>
-                                <label for="stepVerifyType">验证方式</label>
-                                <select id="stepVerifyType">
-                                    <option value="equals">等于</option>
-                                    <option value="contains">包含</option>
-                                    <option value="partial">部分等于</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div id="swipeFields" class="step-form-row" style="display: none;">
-                            <div>
-                                <label for="stepSwipeX">X轴偏移量</label>
-                                <input type="text" id="stepSwipeX" placeholder="请输入X轴偏移量">
-                            </div>
-                            <div>
-                                <label for="stepSwipeY">Y轴偏移量</label>
-                                <input type="text" id="stepSwipeY" placeholder="请输入Y轴偏移量">
-                            </div>
-                        </div>
-                        
-                        <div id="urlField" class="step-form-row" style="display: none;">
-                            <div>
-                                <label for="stepUrl">URL地址</label>
-                                <input type="text" id="stepUrl" placeholder="请输入URL地址">
-                            </div>
-                        </div>
-                        
-                        <div class="step-form-row full-width">
-                            <div>
-                                <label for="stepDescription">步骤描述</label>
-                                <input type="text" id="stepDescription" placeholder="请输入步骤描述">
-                            </div>
-                        </div>
-                        <div style="text-align: right; margin-top: 10px;">
-                            <button type="button" class="btn" onclick="saveStep()">保存步骤</button>
-                            <button type="button" class="btn btn-secondary" onclick="hideStepForm()">取消</button>
+            </div>
+            
+            <!-- 主要内容 -->
+            <div class="p-6">
+                <form id="caseForm">
+                    <!-- 项目选择器 -->
+                    <div class="project-selector">
+                        <div class="form-group">
+                            <label for="projectSelect">选择项目 *</label>
+                            <select id="projectSelect" name="project_id" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="">请选择项目</option>
+                            </select>
                         </div>
                     </div>
                     
-                    <table class="steps-table" id="stepsTable">
-                        <thead>
-                            <tr>
-                                <th style="width: 50px;">序号</th>
-                                <th style="width: 100px;">操作方式</th>
-                                <th style="width: 120px;">页面名称</th>
-                                <th style="width: 120px;">元素定位方法</th>
-                                <th style="width: 150px;">元素定位值</th>
-                                <th style="width: 200px;">输入值</th>
-                                <th style="width: 250px;">历史提取文本</th>
-                                <th>步骤描述</th>
-                                <th style="width: 150px;">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="stepsTableBody">
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="section">
-                    <div class="section-title">4. 预期结果</div>
-                    <div class="form-group">
-                        <label for="expectedResult">预期结果</label>
-                        <textarea id="expectedResult" name="expectedResult" placeholder="请输入测试用例的预期结果，如：页面跳转成功、显示特定提示信息等..."></textarea>
+                    <!-- 基本信息 -->
+                    <div class="section">
+                        <div class="section-title">
+                            <i class="fa fa-info-circle text-primary"></i>
+                            1. 基本信息
+                        </div>
+                        <div class="form-group">
+                            <label for="precondition">前置条件</label>
+                            <textarea id="precondition" name="precondition" placeholder="请输入测试用例的前置条件，如：已登录系统、已打开特定页面等..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="navigation">
-                    <button type="submit" class="btn btn-success">创建用例</button>
-                    <a href="/list_projects" class="btn btn-secondary">返回项目列表</a>
-                </div>
-            </form>
+                    
+
+                    
+                    <!-- 操作步骤 -->
+                    <div class="section">
+                        <div class="section-title">
+                            <i class="fa fa-list-ol text-primary"></i>
+                            3. 操作步骤
+                        </div>
+                        <button type="button" class="btn btn-secondary mb-4" onclick="showStepForm()">
+                            <i class="fa fa-plus"></i>
+                            添加步骤
+                        </button>
+                        
+                        <!-- 步骤表单 -->
+                        <div id="stepForm" class="step-form">
+                            <h4 class="text-lg font-semibold text-primary mb-4">添加/编辑操作步骤</h4>
+                            <div class="step-form-row">
+                                <div>
+                                    <label for="stepAction">操作方式 *</label>
+                                    <select id="stepAction" onchange="updateStepFormFields()" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="">请选择操作方式</option>
+                                        <option value="input">输入</option>
+                                        <option value="click">点击</option>
+                                        <option value="swipe">滑动</option>
+                                        <option value="navigate">导航</option>
+                                        <option value="extract_text">提取文本</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="stepPageName">页面名称</label>
+                                    <input type="text" id="stepPageName" placeholder="请输入页面名称" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <!-- 元素定位字段 -->
+                            <div id="locatorFields" class="step-form-row">
+                                <div>
+                                    <label for="stepLocatorMethod">元素定位方法 *</label>
+                                    <select id="stepLocatorMethod" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="css">CSS选择器</option>
+                                        <option value="xpath">XPath</option>
+                                        <option value="id">ID</option>
+                                        <option value="name">Name</option>
+                                        <option value="class">Class</option>
+                                        <option value="text">文本</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="stepElementName">元素定位值 *</label>
+                                    <input type="text" id="stepElementName" placeholder="请输入元素的定位值（如ID、class、name等）" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <!-- 输入值/预期结果字段 -->
+                            <div id="inputValueField" class="step-form-row" style="display: none;">
+                                <div>
+                                    <label for="stepInputValue">输入值/预期结果</label>
+                                    <input type="text" id="stepInputValue" placeholder="请输入要输入的值或预期的文本结果" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <!-- 验证方式字段 -->
+                            <div id="verifyTypeField" class="step-form-row" style="display: none;">
+                                <div>
+                                    <label for="stepVerifyType">验证方式</label>
+                                    <select id="stepVerifyType" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="equals">等于</option>
+                                        <option value="contains">包含</option>
+                                        <option value="partial">部分等于</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- 滑动字段 -->
+                            <div id="swipeFields" class="step-form-row" style="display: none;">
+                                <div>
+                                    <label for="stepSwipeX">X轴偏移量</label>
+                                    <input type="text" id="stepSwipeX" placeholder="请输入X轴偏移量" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label for="stepSwipeY">Y轴偏移量</label>
+                                    <input type="text" id="stepSwipeY" placeholder="请输入Y轴偏移量" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <!-- URL字段 -->
+                            <div id="urlField" class="step-form-row" style="display: none;">
+                                <div>
+                                    <label for="stepUrl">URL地址</label>
+                                    <input type="text" id="stepUrl" placeholder="请输入URL地址" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <!-- 步骤描述 -->
+                            <div class="step-form-row full-width">
+                                <div>
+                                    <label for="stepDescription">步骤描述</label>
+                                    <input type="text" id="stepDescription" placeholder="请输入步骤描述" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <!-- 操作按钮 -->
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button type="button" class="btn btn-primary" onclick="saveStep()">
+                                    <i class="fa fa-save"></i>
+                                    保存步骤
+                                </button>
+                                <button type="button" class="btn btn-outline" onclick="hideStepForm()">
+                                    <i class="fa fa-times"></i>
+                                    取消
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 步骤表格 -->
+                        <table class="steps-table" id="stepsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">序号</th>
+                                    <th style="width: 120px;">操作方式</th>
+                                    <th style="width: 140px;">页面名称</th>
+                                    <th style="width: 140px;">元素定位方法</th>
+                                    <th style="width: 180px;">元素定位值</th>
+                                    <th style="width: 200px;">输入值</th>
+                                    <th>步骤描述</th>
+                                    <th style="width: 120px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stepsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 预期结果 -->
+                    <div class="section">
+                        <div class="section-title">
+                            <i class="fa fa-bullseye text-primary"></i>
+                            4. 预期结果
+                        </div>
+                        <div class="form-group">
+                            <label for="expectedResult">预期结果</label>
+                            <textarea id="expectedResult" name="expectedResult" placeholder="请输入测试用例的预期结果，如：页面跳转成功、显示特定提示信息等..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 导航按钮 -->
+                    <div class="navigation">
+                        <button type="submit" class="btn btn-secondary">
+                            <i class="fa fa-check"></i>
+                            保存
+                        </button>
+                        <a href="/list_projects" class="btn btn-outline">
+                            <i class="fa fa-arrow-left"></i>
+                            返回项目列表
+                        </a>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -515,11 +598,21 @@
     let editingStepIndex = -1;
     let currentProjectId = null;
     let currentCaseId = null;
+    let caseTitle = '';
+    let caseDescription = '';
 
     async function loadProjects() {
         try {
+            console.log('开始加载项目数据...');
             const response = await fetch('/api/projects');
+            console.log('API响应状态:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
+            console.log('项目数据:', data);
             
             const projectSelect = document.getElementById('projectSelect');
             projectSelect.innerHTML = '<option value="">请选择项目</option>';
@@ -531,13 +624,15 @@
                     option.textContent = project.name;
                     projectSelect.appendChild(option);
                 });
+                console.log('项目加载成功，共加载', data.projects.length, '个项目');
             } else {
+                console.log('暂无项目数据');
                 alert('暂无项目，请先创建项目');
                 window.location.href = '/list_projects';
             }
         } catch (error) {
             console.error('加载项目失败:', error);
-            alert('加载项目失败');
+            alert('加载项目失败: ' + error.message);
         }
     }
 
@@ -554,8 +649,10 @@
                 
                 // 填充表单数据
                 document.getElementById('projectSelect').value = testCase.project_id;
-                document.getElementById('caseTitle').value = testCase.name;
-                document.getElementById('caseDescription').value = testCase.description || '';
+                caseTitle = testCase.name;
+                caseDescription = testCase.description || '';
+                document.getElementById('currentCaseTitle').textContent = caseTitle || '未设置标题';
+                document.getElementById('currentCaseDescription').textContent = caseDescription || '未设置描述';
                 document.getElementById('precondition').value = testCase.precondition || '';
                 document.getElementById('expectedResult').value = testCase.expected_result || '';
                 
@@ -737,13 +834,10 @@
                 <td>${step.locator_method || '-'}</td>
                 <td>${step.element_name || '-'}</td>
                 <td>${displayValue}</td>
-                <td class="history-extracted-text" data-step-index="${index}">
-                    ${step.action === 'extract_text' ? '<span class="loading-history">加载中...</span>' : '-'}
-                </td>
                 <td>${step.description || '-'}</td>
                 <td>
                     <div class="action-buttons">
-                        <button type="button" class="btn btn-sm" onclick="editStep(${index})">编辑</button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="editStep(${index})">编辑</button>
                         <button type="button" class="btn btn-sm btn-danger" onclick="deleteStep(${index})">删除</button>
                     </div>
                 </td>
@@ -751,94 +845,10 @@
             tbody.appendChild(row);
         });
         
-        // 加载历史提取文本
-        if (currentCaseId) {
-            loadHistoricalExtractedText();
-        }
+
     }
     
-    // 加载历史提取文本
-    async function loadHistoricalExtractedText() {
-        try {
-            const response = await fetch(`/api/cases/${currentCaseId}/run-history`);
-            const data = await response.json();
-            
-            if (data.success && data.history) {
-                // 按步骤索引关联历史记录
-                const historyCells = document.querySelectorAll('.history-extracted-text');
-                const stepRows = document.querySelectorAll('.step-row');
-                
-                historyCells.forEach((cell, index) => {
-                    const step = steps[index];
-                    const stepRow = stepRows[index];
-                    
-                    if (step.action === 'extract_text') {
-                        // 为每个提取文本步骤找到最相关的历史记录
-                        let relevantHistory = null;
-                        
-                        // 遍历历史记录，找到最新的相关记录
-                        data.history.forEach(record => {
-                            if (record.extracted_text) {
-                                // 检查是否有验证失败的错误信息，并且该错误与当前步骤相关
-                                const isRelevant = !record.error || 
-                                    (record.error.includes('文本验证失败') && 
-                                     (record.error.includes(step.input_value || '') || 
-                                      record.error.includes(step.description || '')));
-                                
-                                // 如果找到相关记录，并且是最新的，则使用它
-                                if (isRelevant && 
-                                    (!relevantHistory || new Date(record.created_at) > new Date(relevantHistory.created_at))) {
-                                    relevantHistory = record;
-                                }
-                            }
-                        });
-                        
-                        if (relevantHistory) {
-                            let errorHtml = '';
-                            // 检查是否有验证失败的错误信息
-                            if (relevantHistory.status === 'failed' && relevantHistory.error) {
-                                errorHtml = `
-                                    <div class="error-message">
-                                        ${relevantHistory.error.substring(0, 100)}${relevantHistory.error.length > 100 ? '...' : ''}
-                                    </div>
-                                `;
-                                // 添加错误行样式
-                                stepRow.classList.add('error');
-                            } else {
-                                // 移除错误行样式
-                                stepRow.classList.remove('error');
-                            }
-                            
-                            cell.innerHTML = `
-                                <div class="extracted-text-preview" title="${relevantHistory.extracted_text}">
-                                    ${relevantHistory.extracted_text.substring(0, 50)}${relevantHistory.extracted_text.length > 50 ? '...' : ''}
-                                </div>
-                                <div class="extracted-time">${formatDateTime(relevantHistory.created_at)}</div>
-                                ${errorHtml}
-                            `;
-                        } else {
-                            cell.textContent = '暂无历史记录';
-                            // 移除错误行样式
-                            stepRow.classList.remove('error');
-                        }
-                    } else {
-                        // 非提取文本步骤，清空历史提取文本单元格
-                        cell.textContent = '';
-                        stepRow.classList.remove('error');
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('加载历史提取文本失败:', error);
-            // 加载失败时显示错误信息
-            const historyCells = document.querySelectorAll('.history-extracted-text');
-            historyCells.forEach(cell => {
-                if (cell.querySelector('.loading-history')) {
-                    cell.textContent = '加载失败';
-                }
-            });
-        }
-    }
+
     
     // 格式化日期时间
     function formatDateTime(dateTimeStr) {
@@ -863,7 +873,6 @@
         document.getElementById('stepSwipeX').value = step.swipe_x || '';
         document.getElementById('stepSwipeY').value = step.swipe_y || '';
         document.getElementById('stepUrl').value = step.url || '';
-        document.getElementById('stepVerifyType').value = step.verify_type || 'equals';
         document.getElementById('stepDescription').value = step.description || '';
         
         updateStepFormFields();
@@ -878,15 +887,39 @@
         }
     }
 
+    // 模态框相关函数
+    function openTitleModal() {
+        document.getElementById('modalCaseTitle').value = caseTitle;
+        document.getElementById('modalCaseDescription').value = caseDescription;
+        document.getElementById('titleModal').classList.remove('hidden');
+    }
+
+    function closeTitleModal() {
+        document.getElementById('titleModal').classList.add('hidden');
+    }
+
+    // 标题表单提交
     document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('titleForm')) {
+            document.getElementById('titleForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                caseTitle = document.getElementById('modalCaseTitle').value;
+                caseDescription = document.getElementById('modalCaseDescription').value;
+                
+                document.getElementById('currentCaseTitle').textContent = caseTitle || '未设置标题';
+                document.getElementById('currentCaseDescription').textContent = caseDescription || '未设置描述';
+                
+                closeTitleModal();
+            });
+        }
+        console.log('DOM加载完成，开始初始化页面...');
+        
         document.getElementById('caseForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             console.log('=== 开始提交表单 ===');
 
             const projectId = document.getElementById('projectSelect').value;
-            const caseTitle = document.getElementById('caseTitle').value;
-            const caseDescription = document.getElementById('caseDescription').value;
             const precondition = document.getElementById('precondition').value;
             const expectedResult = document.getElementById('expectedResult').value;
 
@@ -956,6 +989,8 @@
                                 stepData.swipe_y = step.swipe_y || '0';
                             } else if (step.action === 'navigate') {
                                 stepData.url = step.url || '';
+                            } else if (step.action === 'extract_text') {
+                                stepData.input_value = step.input_value || '';
                             }
                             
                             await fetch('/api/steps', {
@@ -1038,22 +1073,56 @@
             }
         });
 
+        // 加载项目数据
+        console.log('调用loadProjects函数...');
         loadProjects();
         
+        // 处理URL参数
+        console.log('处理URL参数...');
         const urlParams = new URLSearchParams(window.location.search);
         const projectId = urlParams.get('project_id');
         if (projectId) {
+            console.log('URL中包含project_id参数:', projectId);
             setTimeout(() => {
                 document.getElementById('projectSelect').value = projectId;
+                console.log('已设置项目选择器值为:', projectId);
             }, 500);
         }
         
         // 检查是否有case_id参数，如果有则加载测试用例
         const caseId = urlParams.get('case_id');
         if (caseId) {
+            console.log('URL中包含case_id参数:', caseId);
             loadTestCase(caseId);
         }
+        
+        console.log('页面初始化完成');
     });
 </script>
+    <!-- 标题和描述编辑模态框 -->
+    <div id="titleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">编辑用例标题和描述</h3>
+                <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeTitleModal()">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="titleForm">
+                <div class="form-group mb-4">
+                    <label for="modalCaseTitle" class="block text-sm font-medium text-gray-700 mb-1">用例标题 *</label>
+                    <input type="text" id="modalCaseTitle" required placeholder="请输入用例标题" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div class="form-group mb-4">
+                    <label for="modalCaseDescription" class="block text-sm font-medium text-gray-700 mb-1">用例描述</label>
+                    <textarea id="modalCaseDescription" placeholder="请输入测试用例的详细描述..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" class="btn btn-outline" onclick="closeTitleModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

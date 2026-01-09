@@ -33,12 +33,21 @@
         .header .nav a {
             color: white;
             text-decoration: none;
-            margin-right: 24px;
+            margin-right: 12px;
             font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
         }
         
         .header .nav a:hover {
-            text-decoration: underline;
+            text-decoration: none;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .header .nav a[style*="font-weight: bold"] {
+            background-color: rgba(255, 255, 255, 0.4);
         }
         
         .container {
@@ -168,7 +177,7 @@
             padding: 4px 12px;
             border: 1px solid #d9d9d9;
             border-radius: 4px;
-            background-color: white;
+            background-color: #f0f0f0;
             cursor: pointer;
             font-size: 12px;
         }
@@ -176,15 +185,113 @@
         .action-buttons button:hover {
             border-color: #1890ff;
             color: #1890ff;
+            background-color: #e6f7ff;
+        }
+        
+        .action-buttons .detail-btn {
+            border-color: #1890ff;
+            color: white;
+            background-color: #1890ff;
+        }
+        
+        .action-buttons .detail-btn:hover {
+            background-color: #40a9ff;
+            border-color: #40a9ff;
         }
         
         .action-buttons .delete-btn {
             border-color: #ff4d4f;
-            color: #ff4d4f;
+            color: white;
+            background-color: #ff4d4f;
         }
         
         .action-buttons .delete-btn:hover {
-            background-color: #fff2f0;
+            background-color: #ff7875;
+            border-color: #ff7875;
+        }
+        
+        /* 详情模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .detail-section {
+            margin-bottom: 16px;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+            display: block;
+            font-size: 14px;
+        }
+        
+        .detail-value {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .detail-value pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f9f9f9;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #e8e8e8;
+            max-height: 300px;
+            overflow-y: auto;
         }
         
         .empty-state {
@@ -222,7 +329,7 @@
             padding: 4px 12px;
             border: 1px solid #d9d9d9;
             border-radius: 4px;
-            background-color: white;
+            background-color: #f0f0f0;
             cursor: pointer;
             font-size: 12px;
         }
@@ -230,11 +337,13 @@
         .pagination button:hover {
             border-color: #1890ff;
             color: #1890ff;
+            background-color: #e6f7ff;
         }
         
         .pagination button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            background-color: #fafafa;
         }
         
         .pagination .page-info {
@@ -248,8 +357,8 @@
         <h1>测试平台</h1>
         <div class="nav">
             <a href="/">首页</a>
-            <a href="/projects">项目管理</a>
-            <a href="/cases">测试用例</a>
+            <a href="/list_projects">项目管理</a>
+            <a href="/list_projects">测试用例</a>
             <a href="/run-history" style="font-weight: bold;">运行历史</a>
         </div>
     </div>
@@ -274,6 +383,19 @@
         </div>
     </div>
     
+    <!-- 详情模态框 -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>运行记录详情</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="detailContent">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+    
     <script>
         let currentPage = 1;
         const pageSize = 20;
@@ -288,10 +410,21 @@
             const searchText = document.getElementById('searchInput').value;
             const statusFilter = document.getElementById('statusFilter').value;
             
+            // 获取URL中的case_id参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const caseId = urlParams.get('case_id');
+            
             const container = document.getElementById('historyContainer');
             container.innerHTML = '<div class="loading">加载中...</div>';
             
-            fetch('/api/run-history')
+            // 构建API请求URL
+            let apiUrl = `/api/run-history?page=${currentPage}&page_size=${pageSize}`;
+            if (caseId) {
+                apiUrl += `&case_id=${caseId}`;
+            }
+            
+            // 发送分页参数到后端
+            fetch(apiUrl)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -308,13 +441,10 @@
                             history = history.filter(item => item.status === statusFilter);
                         }
                         
-                        // 分页
-                        const totalPages = Math.ceil(history.length / pageSize);
-                        const startIndex = (currentPage - 1) * pageSize;
-                        const endIndex = startIndex + pageSize;
-                        const paginatedHistory = history.slice(startIndex, endIndex);
+                        // 计算总页数（基于后端返回的总数）
+                        const totalPages = Math.ceil(data.total / pageSize);
                         
-                        renderHistoryTable(paginatedHistory, totalPages);
+                        renderHistoryTable(history, totalPages);
                     } else {
                         container.innerHTML = '<div class="empty-state"><i>📋</i><p>获取历史记录失败</p></div>';
                     }
@@ -364,7 +494,7 @@
                         <td>${item.duration}</td>
                         <td>
                             <div class="text-preview" title="${item.extracted_text}">
-                                ${item.extracted_text || '-' || item.extracted_text.substring(0, 50) + '...'}
+                                ${item.extracted_text ? (item.extracted_text.length > 50 ? item.extracted_text.substring(0, 50) + '...' : item.extracted_text) : '-'}
                             </div>
                         </td>
                         <td>
@@ -375,6 +505,7 @@
                         <td>${formatDateTime(item.created_at)}</td>
                         <td>
                             <div class="action-buttons">
+                                <button onclick="viewRunHistoryDetails(${item.id})" class="detail-btn">详情</button>
                                 <button onclick="deleteRunHistory(${item.id})" class="delete-btn">删除</button>
                             </div>
                         </td>
@@ -444,6 +575,82 @@
                 minute: '2-digit',
                 second: '2-digit'
             });
+        }
+        
+        // 查看运行历史记录详情
+        function viewRunHistoryDetails(recordId) {
+            const modal = document.getElementById('detailModal');
+            const content = document.getElementById('detailContent');
+            content.innerHTML = '<div class="loading">加载中...</div>';
+            
+            // 显示模态框
+            modal.style.display = 'block';
+            
+            // 发送请求获取详情
+            fetch(`/api/run-history/${recordId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const record = data.record;
+                        content.innerHTML = `
+                            <div class="detail-section">
+                                <span class="detail-label">ID</span>
+                                <span class="detail-value">${record.id}</span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">测试用例</span>
+                                <span class="detail-value">${record.case_name}</span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">状态</span>
+                                <span class="detail-value">
+                                    <span class="status-badge status-${record.status}">
+                                        ${record.status === 'passed' ? '通过' : '失败'}
+                                    </span>
+                                </span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">耗时(秒)</span>
+                                <span class="detail-value">${record.duration}</span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">提取文本</span>
+                                <span class="detail-value">
+                                    ${record.extracted_text ? `<pre>${record.extracted_text}</pre>` : '<span style="color: #999;">-</span>'}
+                                </span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">错误信息</span>
+                                <span class="detail-value">
+                                    ${record.error ? `<pre>${record.error}</pre>` : '<span style="color: #999;">-</span>'}
+                                </span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">运行时间</span>
+                                <span class="detail-value">${formatDateTime(record.created_at)}</span>
+                            </div>
+                        `;
+                    } else {
+                        content.innerHTML = '<div style="color: #ff4d4f;">获取详情失败</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading run history details:', error);
+                    content.innerHTML = '<div style="color: #ff4d4f;">网络错误，请重试</div>';
+                });
+        }
+        
+        // 关闭模态框
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('detailModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
         }
     </script>
 </body>
