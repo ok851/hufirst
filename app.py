@@ -830,6 +830,9 @@ def api_run_case(case_id):
                 
                 uat_logger.log_automation_step(action, selector_value or input_value, description)
                 
+                # 详细的调试日志，跟踪 action 值和执行的方法
+                uat_logger.debug(f"执行步骤: ID={step.get('id')}, Action={action}, SelectorType={selector_type}, SelectorValue={selector_value}, InputValue={input_value}")
+                
                 if action == 'navigate':
                     # 获取URL并进行有效性检查
                     url = None

@@ -535,7 +535,7 @@
                         stepItem.innerHTML = `
                             <div class="step-number">${index + 1}</div>
                             <div class="step-content">
-                                <h4>${actionText}</h4>
+                                <h4>${step.description || actionText}</h4>
                                 <div class="step-details">
                                     ${step.selector_type ? `<div><strong>定位方式:</strong> ${escapeHtml(step.selector_type)}</div>` : ''}
                                     ${step.selector_value ? `<div><strong>选择器:</strong> ${escapeHtml(step.selector_value)}</div>` : ''}

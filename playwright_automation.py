@@ -1127,98 +1127,89 @@ class PlaywrightAutomation:
         
         # 方式1: 使用Playwright的fill方法
         try:
-            # 等待元素可见和可交互
+            # 等待元素可见
             await self.page.wait_for_selector(full_selector, state='visible', timeout=5000)
-            await self.page.wait_for_selector(full_selector, state='enabled', timeout=5000)
             # 填充输入框
             await self.page.fill(full_selector, text, timeout=5000)
             uat_logger.info(f"成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
             fill_success = True
         except Exception as e:
-            uat_logger.warning(f"常规填充失败: {str(e)}, 尝试使用type方法")
+            uat_logger.warning(f"常规填充失败: {str(e)}, 尝试使用force fill方法")
             
-            # 方式2: 使用type方法
+            # 方式2: 使用force fill方法
             try:
-                await self.page.type(full_selector, text, timeout=5000)
-                uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                await self.page.fill(full_selector, text, timeout=5000, force=True)
+                uat_logger.info(f"使用force fill方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
                 fill_success = True
             except Exception as e2:
-                uat_logger.warning(f"type方法失败: {str(e2)}, 尝试使用JavaScript")
+                uat_logger.warning(f"force fill方法失败: {str(e2)}, 尝试使用type方法")
                 
-                # 方式3: 使用JavaScript直接设置值（避免触发表单提交事件）
+                # 方式3: 使用type方法
                 try:
-                    # 检查元素是否存在并设置值
-                    if selector_type == "css":
-                        element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
-                        if element_exists:
-                            # 使用JavaScript设置值并触发输入相关事件，但避免触发可能导致页面刷新的事件
-                            await self.page.evaluate("""(selector, text) => {
-                                const element = document.querySelector(selector);
-                                if (element) {
-                                    // 临时禁用表单提交相关事件
-                                    const form = element.closest('form');
-                                    let originalSubmitHandler = null;
-                                    if (form && form.onsubmit) {
-                                        originalSubmitHandler = form.onsubmit;
-                                        form.onsubmit = function(e) { e.preventDefault(); };
-                                    }
-                                    
-                                    // 设置值
-                                    element.value = text;
-                                    
-                                    // 触发输入相关事件，但不触发可能导致提交的事件
-                                    element.dispatchEvent(new Event('input', {bubbles: true}));
-                                    element.dispatchEvent(new Event('change', {bubbles: true}));
-                                    
-                                    // 恢复原始提交处理程序
-                                    if (originalSubmitHandler) {
-                                        form.onsubmit = originalSubmitHandler;
-                                    }
-                                }
-                            }""", selector, text)
-                            uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 文本: {text}")
-                            fill_success = True
-                        else:
-                            uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
-                    else:  # xpath
-                        # 使用XPath查找元素
-                        element_exists = await self.page.evaluate("""(xpath) => {
-                            const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                            return result.singleNodeValue !== null;
-                        }""", selector)
-                        if element_exists:
-                            # 使用JavaScript设置值并触发输入相关事件，但避免触发可能导致页面刷新的事件
-                            await self.page.evaluate("""(xpath, text) => {
-                                const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                                const element = result.singleNodeValue;
-                                if (element) {
-                                    // 临时禁用表单提交相关事件
-                                    const form = element.closest('form');
-                                    let originalSubmitHandler = null;
-                                    if (form && form.onsubmit) {
-                                        originalSubmitHandler = form.onsubmit;
-                                        form.onsubmit = function(e) { e.preventDefault(); };
-                                    }
-                                    
-                                    // 设置值
-                                    element.value = text;
-                                    
-                                    // 触发输入相关事件，但不触发可能导致提交的事件
-                                    element.dispatchEvent(new Event('input', {bubbles: true}));
-                                    element.dispatchEvent(new Event('change', {bubbles: true}));
-                                    
-                                    // 恢复原始提交处理程序
-                                    if (originalSubmitHandler) {
-                                        form.onsubmit = originalSubmitHandler;
-                                    }
-                                }
-                            }""", selector, text)
-                            uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
-                            fill_success = True
-                        else:
-                            uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                    await self.page.type(full_selector, text, timeout=5000)
+                    uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                    fill_success = True
                 except Exception as e3:
-                    uat_logger.error(f"JavaScript填充失败: {str(e3)}")
+                    uat_logger.warning(f"type方法失败: {str(e3)}, 尝试使用force type方法")
+                    
+                    # 方式4: 使用force type方法
+                    try:
+                        await self.page.type(full_selector, text, timeout=5000, force=True)
+                        uat_logger.info(f"使用force type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                        fill_success = True
+                    except Exception as e4:
+                        uat_logger.warning(f"force type方法失败: {str(e4)}, 尝试使用JavaScript")
+                        
+                        # 方式5: 使用JavaScript直接设置值
+                        try:
+                            # 检查元素是否存在并设置值
+                            if selector_type == "css":
+                                element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                                if element_exists:
+                                    # 使用JavaScript设置值并触发输入相关事件
+                                    await self.page.evaluate("""(selector, text) => {
+                                        const element = document.querySelector(selector);
+                                        if (element) {
+                                            // 设置值
+                                            element.value = text;
+                                            
+                                            // 触发输入相关事件
+                                            element.dispatchEvent(new Event('input', {bubbles: true}));
+                                            element.dispatchEvent(new Event('change', {bubbles: true}));
+                                            element.dispatchEvent(new Event('blur', {bubbles: true}));
+                                        }
+                                    }""", selector, text)
+                                    uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 文本: {text}")
+                                    fill_success = True
+                                else:
+                                    uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                            else:  # xpath
+                                # 使用XPath查找元素
+                                element_exists = await self.page.evaluate("""(xpath) => {
+                                    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                    return result.singleNodeValue !== null;
+                                }""", selector)
+                                if element_exists:
+                                    # 使用JavaScript设置值并触发输入相关事件
+                                    await self.page.evaluate("""(xpath, text) => {
+                                        const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                        const element = result.singleNodeValue;
+                                        if (element) {
+                                            // 设置值
+                                            element.value = text;
+                                            
+                                            // 触发输入相关事件
+                                            element.dispatchEvent(new Event('input', {bubbles: true}));
+                                            element.dispatchEvent(new Event('change', {bubbles: true}));
+                                            element.dispatchEvent(new Event('blur', {bubbles: true}));
+                                        }
+                                    }""", selector, text)
+                                    uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                                    fill_success = True
+                                else:
+                                    uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                        except Exception as e5:
+                            uat_logger.error(f"JavaScript填充失败: {str(e5)}")
         
         if not fill_success:
             raise Exception(f"无法填充元素: {selector}, 选择器类型: {selector_type}, 所有填充方式均失败")
@@ -1263,33 +1254,355 @@ class PlaywrightAutomation:
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        text_content = await self.page.inner_text('body')
-        return text_content
+        # 使用更高效的方法获取页面文本
+        try:
+            # 首先尝试使用JavaScript直接获取所有文本，这是最快的方法
+            text_content = await self.page.evaluate(
+                "() => document.body.innerText || document.body.textContent || document.documentElement.innerText || document.documentElement.textContent || ''"
+            )
+            
+            if text_content and text_content.strip():
+                return text_content.strip()
+            
+            # 如果JavaScript方法失败，使用Playwright的text_content方法
+            body_element = self.page.locator('body')
+            text_content = await body_element.text_content(timeout=5000)
+            
+            return text_content if text_content else ""
+        except Exception as e:
+            print(f"获取页面文本时出错: {e}")
+            return ""
     
     async def extract_element_text(self, selector: str) -> str:
         """提取特定元素的文本"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
+        # 高效的文本提取，按成功率和性能排序
         try:
-            # 使用locator()定位元素，内置自动等待
+            # 1. 使用JavaScript直接提取，最快的方法
+            text = await self.page.evaluate(f'''
+                (selector) => {{
+                    const el = document.querySelector(selector);
+                    if (!el) return '';
+                    
+                    // 优先处理表单元素
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {{
+                        return el.value || el.getAttribute('value') || el.textContent || el.innerText || '';
+                    }}
+                    
+                    // 处理其他元素，优先使用textContent获取所有文本
+                    return el.textContent || el.innerText || el.getAttribute('value') || '';
+                }}
+            ''', selector)
+            
+            if text and text.strip():
+                return text.strip()
+            
+            # 2. 如果JavaScript方法失败，使用Playwright的locator方法
             element = self.page.locator(selector)
-            # 等待元素可见
-            await element.wait_for(state='visible', timeout=10000)
-            # 使用inner_text()提取可见文本
-            text = await element.inner_text()
-            return text if text else ""
+            
+            # 等待元素可见且可交互
+            try:
+                await element.wait_for(state='visible', timeout=5000)
+                await element.wait_for(state='enabled', timeout=5000)
+            except Exception as e:
+                print(f"元素不可见或不可交互: {e}")
+                return ""
+            
+            # 尝试获取元素类型并使用最适合的方法
+            try:
+                tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+                
+                if tag_name in ["input", "textarea"]:
+                    # 对于输入框，尝试多种获取值的方法
+                    try:
+                        text = await element.input_value()
+                        if text and text.strip():
+                            return text.strip()
+                    except:
+                        pass
+                    
+                    try:
+                        text = await element.get_attribute("value")
+                        if text and text.strip():
+                            return text.strip()
+                    except:
+                        pass
+                else:
+                    # 对于非输入框元素
+                    try:
+                        text = await element.text_content(timeout=5000)
+                        if text and text.strip():
+                            return text.strip()
+                    except:
+                        pass
+                    
+                    try:
+                        text = await element.inner_text(timeout=5000)
+                        if text and text.strip():
+                            return text.strip()
+                    except:
+                        pass
+            except:
+                # 如果无法获取标签名，尝试通用方法
+                try:
+                    text = await element.text_content(timeout=5000)
+                    if text and text.strip():
+                        return text.strip()
+                except:
+                    pass
+                
+                try:
+                    text = await element.inner_text(timeout=5000)
+                    if text and text.strip():
+                        return text.strip()
+                except:
+                    pass
         except Exception as e:
             print(f"提取元素文本时出错: {e}")
+            
+        # 如果所有方法都失败，返回空字符串
+        return ""
+    
+    async def _validate_selector(self, selector: str):
+        """验证定位器的有效性和唯一性"""
+        try:
+            # 执行inspector验证
+            elements = await self.page.evaluate(f'''
+                (selector) => {{
+                    const els = document.querySelectorAll(selector);
+                    return {{
+                        count: els.length,
+                        sampleHtml: els.length > 0 ? els[0].innerHTML.substring(0, 200) : ''
+                    }};
+                }}
+            ''', selector)
+            
+            print(f"定位器验证结果: 匹配 {elements['count']} 个元素")
+            if elements['sampleHtml']:
+                print(f"第一个匹配元素的HTML片段: {elements['sampleHtml']}")
+        except Exception as e:
+            print(f"定位器验证失败: {e}")
+    
+    async def _wait_for_text_non_empty(self, element, selector: str, timeout: int = 10000):
+        """等待元素文本非空状态"""
+        try:
+            # 尝试等待文本非空
+            await self.page.wait_for(f'''
+                () => {{
+                    const el = document.querySelector('{selector}');
+                    if (!el) return false;
+                    
+                    // 检查是否为输入元素
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {{
+                        return el.value && el.value.trim() !== '';
+                    }}
+                    
+                    // 检查其他元素
+                    return (el.innerText && el.innerText.trim() !== '') || 
+                           (el.textContent && el.textContent.trim() !== '');
+                }}
+            ''', timeout=timeout)
+        except Exception:
+            # 超时后继续执行，不抛出异常
+            pass
+    
+    async def _extract_from_shadow_dom(self, selector: str) -> str:
+        """从Shadow DOM中提取文本"""
+        try:
+            # 尝试使用JavaScript穿透Shadow DOM
+            text = await self.page.evaluate(f'''
+                (selector) => {{
+                    // 递归查找元素，支持Shadow DOM
+                    function findElement(root, selector) {{
+                        // 先在当前根节点查找
+                        let el = root.querySelector(selector);
+                        if (el) return el;
+                        
+                        // 查找所有Shadow DOM
+                        const shadowHosts = root.querySelectorAll('*');
+                        for (let host of shadowHosts) {{
+                            if (host.shadowRoot) {{
+                                el = findElement(host.shadowRoot, selector);
+                                if (el) return el;
+                            }}
+                        }}
+                        return null;
+                    }}
+                    
+                    // 开始查找
+                    const element = findElement(document, selector);
+                    if (!element) return '';
+                    
+                    // 提取文本
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {{
+                        return element.value || element.getAttribute('value') || '';
+                    }}
+                    return element.innerText || element.textContent || '';
+                }}
+            ''', selector)
+            print(f"Shadow DOM提取结果: '{text}'")
+            return text if text else ""
+        except Exception as e:
+            print(f"Shadow DOM提取时出错: {e}")
+            # 尝试使用更简单的方法
             try:
-                # 尝试使用text_content()获取所有文本
-                element = self.page.locator(selector)
-                await element.wait_for(timeout=5000)
-                text = await element.text_content()
+                # 使用更简单的JavaScript提取方法
+                text = await self.page.evaluate(f'''
+                    (selector) => {{
+                        // 直接尝试使用querySelector穿透Shadow DOM
+                        // 注意：这在某些浏览器中可能不支持
+                        const el = document.querySelector(selector);
+                        if (!el) return '';
+                        
+                        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {{
+                            return el.value || el.getAttribute('value') || '';
+                        }}
+                        return el.innerText || el.textContent || '';
+                    }}
+                ''', selector)
+                print(f"降级Shadow DOM提取结果: '{text}'")
                 return text if text else ""
             except Exception as e2:
-                print(f"使用text_content提取时出错: {e2}")
+                print(f"降级Shadow DOM提取时出错: {e2}")
                 return ""
+    
+    async def _extract_from_iframe(self, selector: str) -> str:
+        """从iframe中提取文本"""
+        try:
+            # 递归函数：从frame及其子frame中提取文本
+            async def extract_from_frame(frame):
+                try:
+                    # 尝试在当前frame中查找元素
+                    element = frame.locator(selector)
+                    await element.wait_for(timeout=5000)
+                    
+                    # 提取文本
+                    extraction_methods = []
+                    
+                    try:
+                        # 尝试使用inner_text()提取可见文本
+                        text = await element.inner_text()
+                        extraction_methods.append(("inner_text", text))
+                        print(f"iframe中inner_text提取结果: '{text}'")
+                        if text:
+                            return text
+                    except:
+                        pass
+                    
+                    try:
+                        # 尝试使用text_content()提取所有文本
+                        text = await element.text_content()
+                        extraction_methods.append(("text_content", text))
+                        print(f"iframe中text_content提取结果: '{text}'")
+                        if text:
+                            return text
+                    except:
+                        pass
+                    
+                    try:
+                        # 尝试使用input_value()提取输入框值
+                        text = await element.input_value()
+                        extraction_methods.append(("input_value", text))
+                        print(f"iframe中input_value提取结果: '{text}'")
+                        if text:
+                            return text
+                    except:
+                        pass
+                    
+                    try:
+                        # 尝试使用get_attribute("value")提取属性值
+                        text = await element.get_attribute("value")
+                        extraction_methods.append(("get_attribute('value')", text))
+                        print(f"iframe中get_attribute('value')提取结果: '{text}'")
+                        if text:
+                            return text
+                    except:
+                        pass
+                    
+                    # 提取方法结果对比验证
+                    if extraction_methods:
+                        print("iframe中提取方法结果对比:")
+                        for method, result in extraction_methods:
+                            print(f"  {method}: '{result}'")
+                        
+                        # 选择非空结果
+                        for method, result in extraction_methods:
+                            if result:
+                                print(f"选择iframe中最优提取方法: {method}")
+                                return result
+                                
+                except:
+                    pass
+                
+                # 递归处理子frame
+                try:
+                    child_frames = frame.child_frames()
+                    for child_frame in child_frames:
+                        try:
+                            child_text = await extract_from_frame(child_frame)
+                            if child_text:
+                                return child_text
+                        except Exception as e:
+                            print(f"处理子frame时出错: {e}")
+                            pass
+                except Exception as e:
+                    print(f"获取子frame时出错: {e}")
+                    pass
+                
+                return ""
+            
+            # 从主页面开始递归提取
+            main_frame_text = await extract_from_frame(self.page.main_frame())
+            if main_frame_text:
+                return main_frame_text
+            
+            # 额外尝试：使用frame_locator方法
+            try:
+                # 尝试通过CSS选择器定位iframe
+                iframe_selector = "iframe"
+                await self.page.wait_for_selector(iframe_selector, timeout=5000)
+                iframe = self.page.frame_locator(iframe_selector)
+                element = iframe.locator(selector)
+                await element.wait_for(timeout=5000)
+                
+                # 尝试提取文本
+                try:
+                    text = await element.inner_text()
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                try:
+                    text = await element.text_content()
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                try:
+                    text = await element.input_value()
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                try:
+                    text = await element.get_attribute("value")
+                    if text:
+                        return text
+                except:
+                    pass
+                    
+            except:
+                pass
+            
+            return ""
+        except Exception as e:
+            print(f"iframe提取时出错: {e}")
+            return ""
     
     async def extract_all_texts(self, selector: str) -> List[str]:
         """批量提取多个元素的文本"""
@@ -1314,18 +1627,105 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
-            # 使用frame_locator()定位iframe
+            # 1. 增强等待机制：等待iframe加载完成
+            await self.page.wait_for_selector(iframe_selector, timeout=15000)
+            
+            # 2. 使用frame_locator()定位iframe
             iframe = self.page.frame_locator(iframe_selector)
-            # 在iframe中定位元素
+            
+            # 3. 等待iframe中的元素可见
+            await iframe.locator(element_selector).wait_for(state='visible', timeout=10000)
+            
+            # 4. 在iframe中定位元素
             element = iframe.locator(element_selector)
-            # 等待元素可见
-            await element.wait_for(state='visible', timeout=10000)
-            # 提取文本
-            text = await element.inner_text()
-            return text if text else ""
+            
+            # 5. 尝试获取元素标签名，判断元素类型
+            try:
+                tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+                
+                # 对于输入框类型，使用多种方法获取值
+                if tag_name in ["input", "textarea"]:
+                    # 首先尝试input_value()
+                    try:
+                        text = await element.input_value()
+                        if text:
+                            return text
+                    except:
+                        pass
+                    
+                    # 然后尝试get_attribute("value")作为补充
+                    try:
+                        text = await element.get_attribute("value")
+                        return text if text else ""
+                    except:
+                        pass
+                    
+                    return ""
+            except:
+                pass
+            
+            # 6. 对于非输入框元素，根据可见性选择提取方法
+            try:
+                # 尝试使用inner_text()提取可见文本
+                text = await element.inner_text()
+                if text:
+                    return text
+            except:
+                pass
+            
+            try:
+                # 尝试使用text_content()提取所有文本（包括隐藏文本）
+                text = await element.text_content()
+                return text if text else ""
+            except:
+                pass
+            
+            return ""
         except Exception as e:
             print(f"从iframe提取文本时出错: {e}")
-            return ""
+            try:
+                # 7. 降级方案：再次尝试
+                await self.page.wait_for_selector(iframe_selector, timeout=10000)
+                iframe = self.page.frame_locator(iframe_selector)
+                await iframe.locator(element_selector).wait_for(timeout=8000)
+                element = iframe.locator(element_selector)
+                
+                # 尝试text_content()
+                try:
+                    text = await element.text_content()
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                # 尝试inner_text()
+                try:
+                    text = await element.inner_text()
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                # 尝试input_value()
+                try:
+                    text = await element.input_value()
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                # 尝试get_attribute("value")
+                try:
+                    text = await element.get_attribute("value")
+                    if text:
+                        return text
+                except:
+                    pass
+                
+                return ""
+            except Exception as e2:
+                print(f"iframe降级方案提取时出错: {e2}")
+                return ""
     
     async def extract_text_from_image(self, selector: str) -> str:
         """从图片中提取文本（OCR）"""
@@ -1801,7 +2201,7 @@ class PlaywrightAutomation:
         
         # 遍历所有步骤，收集填充值和非填充步骤
         for step in steps:
-            if step['action'] == 'fill':
+            if step['action'] in ['fill', 'input']:
                 selector = step.get('selector')
                 if selector:
                     # 更新该选择器的最新填充值
@@ -1831,7 +2231,7 @@ class PlaywrightAutomation:
                 uat_logger.info(f"跳过悬停步骤: {step.get('selector')}")
                 continue
             
-            if step['action'] == 'fill':
+            if step['action'] in ['fill', 'input']:
                 selector = step.get('selector')
                 if selector:
                     # 如果该选择器已经处理过，跳过
@@ -2080,7 +2480,7 @@ class PlaywrightAutomation:
                         except Exception as e:
                             uat_logger.warning(f"点击后等待时出错: {str(e)}")
                             # 发生错误时也继续执行
-                elif action == "fill":
+                elif action in ["fill", "input"]:
                     selector = step.get("selector")
                     text = step.get("text")
                     
@@ -2534,7 +2934,7 @@ class PlaywrightAutomation:
                     # 根据不同的操作类型添加相应的参数
                     if step["action"] == "click":
                         exec_step["selector"] = step["selector_value"]
-                    elif step["action"] == "fill":
+                    elif step["action"] in ["fill", "input"]:
                         exec_step["selector"] = step["selector_value"]
                         exec_step["text"] = step["input_value"]
                     elif step["action"] == "submit":
@@ -2572,12 +2972,12 @@ class PlaywrightAutomation:
                 success_count = sum(1 for r in case_results if r.get("status") == "success")
                 error_count = sum(1 for r in case_results if r.get("status") == "error")
                 
-                # 提取文本（从所有步骤中收集）
+                # 提取文本（从所有步骤中收集，使用最后一个提取的文本）
                 extracted_text = ""
                 for r in case_results:
                     if r.get("extracted_text"):
                         extracted_text = r.get("extracted_text")
-                        break  # 只使用第一个提取的文本
+                # 移除了 break，现在会使用最后一个提取的文本
                 
                 case_status = "success" if error_count == 0 else "error"
                 
@@ -3553,3 +3953,136 @@ def sync_execute_multiple_test_cases(case_ids: List[int], db):
     async def run():
         return await automation.execute_multiple_test_cases(case_ids, db)
     return worker.execute(run)
+
+
+# 网络爬虫文本提取功能
+try:
+    from crawler_text_extractor_adapter import extract_text_from_page, extract_all_page_text, extract_multiple_elements
+    
+    async def crawl_extract_text(self, url: str, selector: str = None) -> str:
+        """
+        使用网络爬虫技术提取文本内容
+        
+        Args:
+            url: 目标URL
+            selector: CSS选择器，可选
+            
+        Returns:
+            提取到的文本内容
+        """
+        if selector:
+            return await extract_text_from_page(url, selector)
+        else:
+            return await extract_all_page_text(url)
+    
+    async def crawl_extract_multiple_elements(self, url: str, selectors: List[str]) -> Dict[str, str]:
+        """
+        使用网络爬虫技术提取多个元素的文本内容
+        
+        Args:
+            url: 目标URL
+            selectors: 选择器列表
+            
+        Returns:
+            包含各选择器对应文本的字典
+        """
+        return await extract_multiple_elements(url, selectors)
+    
+    # 将方法绑定到Automation类
+    from playwright.async_api import async_playwright
+    import sys
+    # 通过globals获取PlaywrightAutomation类
+    if 'PlaywrightAutomation' in globals():
+        PlaywrightAutomation.crawl_extract_text = crawl_extract_text
+        PlaywrightAutomation.crawl_extract_multiple_elements = crawl_extract_multiple_elements
+    else:
+        # 如果类未定义，稍后绑定
+        def bind_crawler_methods():
+            if hasattr(sys.modules[__name__], 'PlaywrightAutomation'):
+                cls = getattr(sys.modules[__name__], 'PlaywrightAutomation')
+                cls.crawl_extract_text = crawl_extract_text
+                cls.crawl_extract_multiple_elements = crawl_extract_multiple_elements
+        bind_crawler_methods()
+    
+except ImportError:
+    uat_logger.warning("未能导入网络爬虫文本提取模块，将使用原版方法")
+    # 如果无法导入爬虫模块，保持原有功能不变
+    pass
+
+
+# 高性能文本提取功能
+try:
+    from high_performance_text_extractor import HighPerformanceTextExtractor
+    
+    def init_high_performance_extractor(self):
+        """初始化高性能文本提取器"""
+        if not hasattr(self, '_high_perf_extractor'):
+            self._high_perf_extractor = HighPerformanceTextExtractor(self)
+        return self._high_perf_extractor
+    
+    async def extract_element_text_fast(self, selector: str, use_cache: bool = True) -> str:
+        """
+        快速提取元素文本
+        
+        Args:
+            selector: CSS选择器
+            use_cache: 是否使用缓存
+            
+        Returns:
+            提取到的文本内容
+        """
+        extractor = self.init_high_performance_extractor()
+        return await extractor.extract_element_text_fast(selector, use_cache)
+    
+    async def extract_element_text_with_fallback(self, selector: str, timeout: int = 5000) -> str:
+        """
+        带降级策略的文本提取
+        
+        Args:
+            selector: CSS选择器
+            timeout: 超时时间（毫秒）
+            
+        Returns:
+            提取到的文本内容
+        """
+        extractor = self.init_high_performance_extractor()
+        return await extractor.extract_element_text_with_fallback(selector, timeout)
+    
+    async def extract_multiple_elements_batch(self, selectors: List[str]) -> Dict[str, str]:
+        """
+        批量提取多个元素的文本
+        
+        Args:
+            selectors: 选择器列表
+            
+        Returns:
+            包含各选择器对应文本的字典
+        """
+        extractor = self.init_high_performance_extractor()
+        return await extractor.extract_multiple_elements_batch(selectors)
+    
+    async def extract_text_by_priority(self, selector: str, extraction_priority: List[str] = None) -> str:
+        """
+        按优先级提取文本
+        
+        Args:
+            selector: CSS选择器
+            extraction_priority: 提取方法优先级列表
+            
+        Returns:
+            提取到的文本内容
+        """
+        extractor = self.init_high_performance_extractor()
+        return await extractor.extract_text_by_priority(selector, extraction_priority)
+    
+    # 将方法绑定到PlaywrightAutomation类
+    PlaywrightAutomation.init_high_performance_extractor = init_high_performance_extractor
+    PlaywrightAutomation.extract_element_text_fast = extract_element_text_fast
+    PlaywrightAutomation.extract_element_text_with_fallback = extract_element_text_with_fallback
+    PlaywrightAutomation.extract_multiple_elements_batch = extract_multiple_elements_batch
+    PlaywrightAutomation.extract_text_by_priority = extract_text_by_priority
+    
+except ImportError:
+    uat_logger.warning("未能导入高性能文本提取模块，将使用优化后的基础方法")
+    # 如果无法导入高性能提取模块，保持优化后的基础功能
+    pass
