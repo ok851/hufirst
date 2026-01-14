@@ -99,15 +99,15 @@
             <h2 class="text-4xl font-bold mb-4">欢迎使用UI自动化测试平台</h2>
             <p class="text-xl mb-8">高效、便捷的自动化测试解决方案</p>
             <div class="flex justify-center gap-4">
-                <a href="/list_projects" class="btn btn-secondary">
-                    <i class="fas fa-folder-plus"></i>
-                    管理项目
-                </a>
-                <a href="/create_case_v2" class="btn btn-accent">
-                    <i class="fas fa-plus-circle"></i>
-                    创建用例
-                </a>
-            </div>
+                    <a href="/list_projects" class="btn btn-secondary">
+                        <i class="fas fa-folder-plus"></i>
+                        管理项目
+                    </a>
+                    <a href="/create_project" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i>
+                        新建项目
+                    </a>
+                </div>
         </div>
     </section>
 
@@ -191,11 +191,133 @@
         </div>
     </section>
 
+    <!-- 新建项目模态框 -->
+    <div id="createProjectModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-4 rounded-t-lg">
+                <h3 class="text-xl font-bold flex justify-between items-center">
+                    <span>新建项目</span>
+                    <button type="button" onclick="closeCreateProjectModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </h3>
+            </div>
+            <div class="p-6">
+                <form id="createProjectForm">
+                    <div class="mb-4">
+                        <label for="projectName" class="block text-gray-700 font-medium mb-2">项目名称</label>
+                        <input type="text" id="projectName" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="请输入项目名称" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="projectDescription" class="block text-gray-700 font-medium mb-2">项目描述</label>
+                        <textarea id="projectDescription" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="请输入项目描述"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-4">
+                        <button type="button" onclick="closeCreateProjectModal()" class="btn btn-outline">取消</button>
+                        <button type="submit" class="btn btn-primary">创建项目</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- 底部 -->
     <footer class="bg-gray-800 text-white py-8 px-4">
         <div class="container mx-auto text-center">
             <p>&copy; 2026 UI自动化测试平台. 保留胡的所有权利</p>
         </div>
     </footer>
+
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 绑定新建项目按钮点击事件
+            const createProjectBtn = document.querySelector('a[href="/create_project"]');
+            if (createProjectBtn) {
+                createProjectBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    openCreateProjectModal();
+                });
+            }
+
+            // 绑定表单提交事件
+            const createProjectForm = document.getElementById('createProjectForm');
+            if (createProjectForm) {
+                createProjectForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    createProject();
+                });
+            }
+        });
+
+        // 打开新建项目模态框
+        function openCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.remove('hidden');
+            // 清空表单
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectDescription').value = '';
+        }
+
+        // 关闭新建项目模态框
+        function closeCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.add('hidden');
+        }
+
+        // 创建项目
+        function createProject() {
+            const projectName = document.getElementById('projectName').value.trim();
+            const projectDescription = document.getElementById('projectDescription').value.trim();
+
+            // 表单验证
+            if (!projectName) {
+                alert('项目名称不能为空');
+                return;
+            }
+
+            // 显示加载状态
+            const submitBtn = document.querySelector('#createProjectForm button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 创建中...';
+            submitBtn.disabled = true;
+
+            // 调用API创建项目
+            fetch('/api/projects', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: projectName,
+                    description: projectDescription
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 恢复按钮状态
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+
+                if (data.success) {
+                    // 显示成功消息
+                    alert('项目创建成功！');
+                    // 关闭模态框
+                    closeCreateProjectModal();
+                    // 跳转到项目管理页面
+                    window.location.href = '/list_projects';
+                } else {
+                    // 显示错误消息
+                    alert('项目创建失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                // 恢复按钮状态
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                // 显示错误消息
+                alert('项目创建失败: ' + error.message);
+                console.error('创建项目失败:', error);
+            });
+        }
+    </script>
 </body>
 </html>

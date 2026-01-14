@@ -398,6 +398,7 @@
     
     <script>
         let currentPage = 1;
+        let totalPages = 1;
         const pageSize = 20;
         
         // 页面加载时获取运行历史记录
@@ -442,7 +443,7 @@
                         }
                         
                         // 计算总页数（基于后端返回的总数）
-                        const totalPages = Math.ceil(data.total / pageSize);
+                        totalPages = Math.ceil(data.total / pageSize);
                         
                         renderHistoryTable(history, totalPages);
                     } else {

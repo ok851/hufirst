@@ -321,6 +321,76 @@
             margin-bottom: 15px;
             font-size: 14px;
         }
+        /* iframe开关样式优化 */
+        .iframe-switch-container {
+            margin-bottom: 16px;
+        }
+        .iframe-switch-container label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #374151;
+        }
+        .iframe-switch-container input[type="checkbox"] {
+            position: relative;
+            width: 40px;
+            height: 20px;
+            appearance: none;
+            background-color: #e5e7eb;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .iframe-switch-container input[type="checkbox"]:checked {
+            background-color: #3b82f6;
+        }
+        .iframe-switch-container input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background-color: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .iframe-switch-container input[type="checkbox"]:checked::before {
+            transform: translateX(20px);
+        }
+        .iframe-selector-field {
+            margin-top: 12px;
+            padding: 16px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        .iframe-selector-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+        .iframe-selector-field input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .iframe-selector-field input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .iframe-selector-field input::placeholder {
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body>
@@ -398,6 +468,16 @@
                 <label for="stepDescription">步骤描述</label>
                 <textarea id="stepDescription" placeholder="描述此步骤的目的"></textarea>
             </div>
+            <div class="iframe-switch-container">
+                <label>
+                    <input type="checkbox" id="stepIframeSwitch" class="rounded">
+                    <span>是否进入iframe</span>
+                </label>
+                <div id="stepIframeSelectorField" style="display: none;" class="iframe-selector-field">
+                    <label for="stepIframeSelector">iframe选择器</label>
+                    <input type="text" id="stepIframeSelector" placeholder="例如: #myFrame 或 iframe[src='...']">
+                </div>
+            </div>
             <div class="modal-footer">
                 <button onclick="closeCreateStepModal()" class="btn btn-secondary">取消</button>
                 <button onclick="createStep()" class="btn btn-primary">保存</button>
@@ -447,6 +527,16 @@
             <div class="form-group">
                 <label for="editStepDescription">步骤描述</label>
                 <textarea id="editStepDescription" placeholder="描述此步骤的目的"></textarea>
+            </div>
+            <div class="iframe-switch-container">
+                <label>
+                    <input type="checkbox" id="editStepIframeSwitch" class="rounded">
+                    <span>是否进入iframe</span>
+                </label>
+                <div id="editStepIframeSelectorField" style="display: none;" class="iframe-selector-field">
+                    <label for="editStepIframeSelector">iframe选择器</label>
+                    <input type="text" id="editStepIframeSelector" placeholder="例如: #myFrame 或 iframe[src='...']">
+                </div>
             </div>
             <div class="modal-footer">
                 <button onclick="closeEditStepModal()" class="btn btn-secondary">取消</button>
@@ -546,6 +636,8 @@
                                     ${step.selector_value ? `<div><strong>选择器:</strong> ${escapeHtml(step.selector_value)}</div>` : ''}
                                     ${step.input_value ? `<div><strong>输入值:</strong> ${escapeHtml(step.input_value)}</div>` : ''}
                                     ${step.description ? `<div><strong>描述:</strong> ${escapeHtml(step.description)}</div>` : ''}
+                                    ${step.enter_iframe ? `<div><strong>进入iframe:</strong> 是</div>` : ''}
+                                    ${step.iframe_selector ? `<div><strong>iframe选择器:</strong> ${escapeHtml(step.iframe_selector)}</div>` : ''}
                                 </div>
                             </div>
                             <div class="step-actions">
@@ -584,6 +676,9 @@
             document.getElementById('stepSelectorValue').value = '';
             document.getElementById('stepInputValue').value = '';
             document.getElementById('stepDescription').value = '';
+            document.getElementById('stepIframeSwitch').checked = false;
+            document.getElementById('stepIframeSelector').value = '';
+            document.getElementById('stepIframeSelectorField').style.display = 'none';
             toggleActionFields();
         }
         
@@ -599,6 +694,9 @@
             document.getElementById('editStepSelectorValue').value = step.selector_value || '';
             document.getElementById('editStepInputValue').value = step.input_value || '';
             document.getElementById('editStepDescription').value = step.description || '';
+            document.getElementById('editStepIframeSwitch').checked = step.enter_iframe || false;
+            document.getElementById('editStepIframeSelector').value = step.iframe_selector || '';
+            document.getElementById('editStepIframeSelectorField').style.display = (step.enter_iframe || false) ? 'block' : 'none';
             toggleEditActionFields();
         }
         
@@ -669,6 +767,31 @@
                 document.querySelector('label[for="editStepInputValue"]').textContent = '附加信息 (可选)';
             }
         }
+        
+        // 处理iframe开关的显示/隐藏逻辑
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为创建步骤模态框的iframe开关添加事件监听
+            const stepIframeSwitch = document.getElementById('stepIframeSwitch');
+            if (stepIframeSwitch) {
+                stepIframeSwitch.addEventListener('change', function() {
+                    const stepIframeSelectorField = document.getElementById('stepIframeSelectorField');
+                    if (stepIframeSelectorField) {
+                        stepIframeSelectorField.style.display = this.checked ? 'block' : 'none';
+                    }
+                });
+            }
+            
+            // 为编辑步骤模态框的iframe开关添加事件监听
+            const editStepIframeSwitch = document.getElementById('editStepIframeSwitch');
+            if (editStepIframeSwitch) {
+                editStepIframeSwitch.addEventListener('change', function() {
+                    const editStepIframeSelectorField = document.getElementById('editStepIframeSelectorField');
+                    if (editStepIframeSelectorField) {
+                        editStepIframeSelectorField.style.display = this.checked ? 'block' : 'none';
+                    }
+                });
+            }
+        });
         
         // 可视化选择功能
         let isSelecting = false;
@@ -856,6 +979,8 @@
             const selectorValue = document.getElementById('stepSelectorValue').value.trim();
             const inputValue = document.getElementById('stepInputValue').value.trim();
             const description = document.getElementById('stepDescription').value.trim();
+            const enterIframe = document.getElementById('stepIframeSwitch').checked;
+            const iframeSelector = document.getElementById('stepIframeSelector').value.trim();
             
             if (!action) {
                 alert('请选择操作类型');
@@ -874,7 +999,9 @@
                         selector_type: selectorType,
                         selector_value: selectorValue,
                         input_value: inputValue,
-                        description: description
+                        description: description,
+                        enter_iframe: enterIframe,
+                        iframe_selector: iframeSelector
                     })
                 });
                 
@@ -913,6 +1040,8 @@
             const selectorValue = document.getElementById('editStepSelectorValue').value.trim();
             const inputValue = document.getElementById('editStepInputValue').value.trim();
             const description = document.getElementById('editStepDescription').value.trim();
+            const enterIframe = document.getElementById('editStepIframeSwitch').checked;
+            const iframeSelector = document.getElementById('editStepIframeSelector').value.trim();
             
             if (!action) {
                 alert('请选择操作类型');
@@ -930,7 +1059,9 @@
                         selector_type: selectorType,
                         selector_value: selectorValue,
                         input_value: inputValue,
-                        description: description
+                        description: description,
+                        enter_iframe: enterIframe,
+                        iframe_selector: iframeSelector
                     })
                 });
                 

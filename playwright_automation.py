@@ -997,19 +997,27 @@ class PlaywrightAutomation:
         else:
             uat_logger.info(f"执行导航操作: {url}")
     
-    async def click_element(self, selector: str, selector_type: str = "css"):
+    async def click_element(self, selector: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None):
         """点击元素"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"🔍 [CLICK_DEBUG] 开始点击元素，选择器: {selector}, 选择器类型: {selector_type}")
+        uat_logger.info(f"🔍 [CLICK_DEBUG] 开始点击元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
         
         # 构建完整的选择器
         full_selector = selector
         if selector_type == "xpath":
             full_selector = f"xpath={selector}"
         
-        if self.page is not None:
+        # 确定操作上下文
+        target_context = self.page
+        if iframe_context:
+            target_context = iframe_context
+        elif iframe_selector:
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            target_context = self.page.frame_locator(iframe_selector)
+        
+        if target_context is not None:
             element_clicked = False
             
             # 获取当前页面URL和状态
@@ -1023,22 +1031,39 @@ class PlaywrightAutomation:
             # 方式1: 使用Playwright的click方法，等待元素可点击
             try:
                 uat_logger.info(f"🔍 [CLICK_DEBUG] 尝试方式1: Playwright click方法")
-                # 等待元素可见且可交互
-                await self.page.wait_for_selector(full_selector, state='visible', timeout=5000)
-                # 等待元素可点击
-                await self.page.wait_for_selector(full_selector, state='enabled', timeout=5000)
-                # 使用更健壮的点击方式
-                await self.page.click(full_selector, timeout=5000)
-                uat_logger.info(f"✅ [CLICK_DEBUG] 方式1成功点击元素: {selector}, 选择器类型: {selector_type}")
-                element_clicked = True
+                # 根据上下文类型执行不同的操作
+                if hasattr(target_context, 'wait_for_selector'):
+                    # 等待元素可见且可交互
+                    await target_context.wait_for_selector(full_selector, state='visible', timeout=5000)
+                    # 等待元素可点击
+                    await target_context.wait_for_selector(full_selector, state='enabled', timeout=5000)
+                    # 使用更健壮的点击方式
+                    await target_context.click(full_selector, timeout=5000)
+                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式1成功点击元素: {selector}, 选择器类型: {selector_type}")
+                    element_clicked = True
+                else:
+                    # 如果是frame_locator对象，需要使用其locator方法
+                    element = target_context.locator(full_selector)
+                    await element.wait_for(state='visible', timeout=5000)
+                    await element.wait_for(state='enabled', timeout=5000)
+                    await element.click(timeout=5000)
+                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式1成功点击元素: {selector}, 选择器类型: {selector_type}")
+                    element_clicked = True
             except Exception as e:
                 uat_logger.warning(f"⚠️ [CLICK_DEBUG] 方式1失败: {str(e)}, 尝试方式2: force click")
                 
                 # 方式2: 使用force参数强制点击
                 try:
-                    await self.page.click(full_selector, force=True, timeout=5000)
-                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式2成功点击元素: {selector}, 选择器类型: {selector_type}")
-                    element_clicked = True
+                    if hasattr(target_context, 'click'):
+                        await target_context.click(full_selector, force=True, timeout=5000)
+                        uat_logger.info(f"✅ [CLICK_DEBUG] 方式2成功点击元素: {selector}, 选择器类型: {selector_type}")
+                        element_clicked = True
+                    else:
+                        # 如果是frame_locator对象，需要使用其locator方法
+                        element = target_context.locator(full_selector)
+                        await element.click(timeout=5000, force=True)
+                        uat_logger.info(f"✅ [CLICK_DEBUG] 方式2成功点击元素: {selector}, 选择器类型: {selector_type}")
+                        element_clicked = True
                 except Exception as e2:
                     uat_logger.warning(f"⚠️ [CLICK_DEBUG] 方式2失败: {str(e2)}, 尝试方式3: JavaScript点击")
                     
@@ -1047,39 +1072,61 @@ class PlaywrightAutomation:
                         uat_logger.info(f"🔍 [CLICK_DEBUG] 尝试方式3: JavaScript点击")
                         # 检查元素是否存在并点击
                         if selector_type == "css":
-                            element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
-                            if element_exists:
-                                # 使用JavaScript点击，正常触发所有事件
-                                await self.page.evaluate("""(selector) => {
-                                    const element = document.querySelector(selector);
-                                    if (element) {
-                                        // 直接使用click()，触发所有相关事件
-                                        element.click();
-                                    }
-                                }""", selector)
-                                uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
-                                element_clicked = True
+                            if hasattr(target_context, 'evaluate'):
+                                element_exists = await target_context.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                                if element_exists:
+                                    # 使用JavaScript点击，正常触发所有事件
+                                    await target_context.evaluate("""(selector) => {
+                                        const element = document.querySelector(selector);
+                                        if (element) {
+                                            // 直接使用click()，触发所有相关事件
+                                            element.click();
+                                        }
+                                    }""", selector)
+                                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
+                                    element_clicked = True
+                                else:
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
                             else:
-                                uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
+                                # 如果是frame_locator对象，使用其locator方法
+                                element = target_context.locator(selector)
+                                count = await element.count()
+                                if count > 0:
+                                    await element.click(timeout=5000, force=True)
+                                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
+                                    element_clicked = True
+                                else:
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法点击: {selector}")
                         else:  # xpath
-                            element_exists = await self.page.evaluate("""(xpath) => {
-                                const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                                return result.singleNodeValue !== null;
-                            }""", selector)
-                            if element_exists:
-                                # 使用JavaScript点击，正常触发所有事件
-                                await self.page.evaluate("""(xpath) => {
+                            if hasattr(target_context, 'evaluate'):
+                                element_exists = await target_context.evaluate("""(xpath) => {
                                     const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                                    const element = result.singleNodeValue;
-                                    if (element) {
-                                        // 直接使用click()，触发所有相关事件
-                                        element.click();
-                                    }
+                                    return result.singleNodeValue !== null;
                                 }""", selector)
-                                uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
-                                element_clicked = True
+                                if element_exists:
+                                    # 使用JavaScript点击，正常触发所有事件
+                                    await target_context.evaluate("""(xpath) => {
+                                        const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                        const element = result.singleNodeValue;
+                                        if (element) {
+                                            // 直接使用click()，触发所有相关事件
+                                            element.click();
+                                        }
+                                    }""", selector)
+                                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
+                                    element_clicked = True
+                                else:
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
                             else:
-                                uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
+                                # 如果是frame_locator对象，使用其locator方法
+                                element = target_context.locator(f"xpath={selector}")
+                                count = await element.count()
+                                if count > 0:
+                                    await element.click(timeout=5000, force=True)
+                                    uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
+                                    element_clicked = True
+                                else:
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法点击: {selector}")
                     except Exception as e3:
                         uat_logger.error(f"❌ [CLICK_DEBUG] 方式3失败: {str(e3)}")
                         
@@ -1142,7 +1189,7 @@ class PlaywrightAutomation:
             }
             self.recorded_steps.append(step)
     
-    async def fill_input(self, selector: str, text: str, selector_type: str = "css"):
+    async def fill_input(self, selector: str, text: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None):
         """填充输入框"""
         if self.page is None:
             raise Exception("浏览器未启动")
@@ -1152,41 +1199,78 @@ class PlaywrightAutomation:
         if selector_type == "xpath":
             full_selector = f"xpath={selector}"
         
+        # 确定操作上下文
+        target_context = self.page
+        if iframe_context:
+            target_context = iframe_context
+        elif iframe_selector:
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            target_context = self.page.frame_locator(iframe_selector)
+        
         # 尝试多种填充方式，增加成功概率
         fill_success = False
         
         # 方式1: 使用Playwright的fill方法
         try:
             # 等待元素可见
-            await self.page.wait_for_selector(full_selector, state='visible', timeout=5000)
-            # 填充输入框
-            await self.page.fill(full_selector, text, timeout=5000)
-            uat_logger.info(f"成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
-            fill_success = True
+            if hasattr(target_context, 'wait_for_selector'):
+                await target_context.wait_for_selector(full_selector, state='visible', timeout=5000)
+                # 填充输入框
+                await target_context.fill(full_selector, text, timeout=5000)
+                uat_logger.info(f"成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                fill_success = True
+            else:
+                # 如果是frame_locator对象，需要使用其locator方法
+                element = target_context.locator(full_selector)
+                await element.wait_for(state='visible', timeout=5000)
+                await element.fill(text, timeout=5000)
+                uat_logger.info(f"成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                fill_success = True
         except Exception as e:
             uat_logger.warning(f"常规填充失败: {str(e)}, 尝试使用force fill方法")
             
             # 方式2: 使用force fill方法
             try:
-                await self.page.fill(full_selector, text, timeout=5000, force=True)
-                uat_logger.info(f"使用force fill方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
-                fill_success = True
+                if hasattr(target_context, 'fill'):
+                    await target_context.fill(full_selector, text, timeout=5000, force=True)
+                    uat_logger.info(f"使用force fill方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                    fill_success = True
+                else:
+                    # 如果是frame_locator对象，需要使用其locator方法
+                    element = target_context.locator(full_selector)
+                    await element.fill(text, timeout=5000, force=True)
+                    uat_logger.info(f"使用force fill方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                    fill_success = True
             except Exception as e2:
                 uat_logger.warning(f"force fill方法失败: {str(e2)}, 尝试使用type方法")
                 
                 # 方式3: 使用type方法
                 try:
-                    await self.page.type(full_selector, text, timeout=5000)
-                    uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
-                    fill_success = True
+                    if hasattr(target_context, 'type'):
+                        await target_context.type(full_selector, text, timeout=5000)
+                        uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                        fill_success = True
+                    else:
+                        # 如果是frame_locator对象，需要使用其locator方法
+                        element = target_context.locator(full_selector)
+                        await element.type(text, timeout=5000)
+                        uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                        fill_success = True
                 except Exception as e3:
                     uat_logger.warning(f"type方法失败: {str(e3)}, 尝试使用force type方法")
                     
                     # 方式4: 使用force type方法
                     try:
-                        await self.page.type(full_selector, text, timeout=5000, force=True)
-                        uat_logger.info(f"使用force type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
-                        fill_success = True
+                        if hasattr(target_context, 'type'):
+                            await target_context.type(full_selector, text, timeout=5000, force=True)
+                            uat_logger.info(f"使用force type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                            fill_success = True
+                        else:
+                            # 如果是frame_locator对象，需要使用其locator方法
+                            element = target_context.locator(full_selector)
+                            await element.type(text, timeout=5000, force=True)
+                            uat_logger.info(f"使用force type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
+                            fill_success = True
                     except Exception as e4:
                         uat_logger.warning(f"force type方法失败: {str(e4)}, 尝试使用JavaScript")
                         
@@ -1194,34 +1278,46 @@ class PlaywrightAutomation:
                         try:
                             # 检查元素是否存在并设置值
                             if selector_type == "css":
-                                element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
-                                if element_exists:
-                                    # 使用JavaScript设置值并触发输入相关事件
-                                    await self.page.evaluate("""(selector, text) => {
-                                        const element = document.querySelector(selector);
-                                        if (element) {
-                                            // 设置值
-                                            element.value = text;
-                                            
-                                            // 触发输入相关事件
-                                            element.dispatchEvent(new Event('input', {bubbles: true}));
-                                            element.dispatchEvent(new Event('change', {bubbles: true}));
-                                            element.dispatchEvent(new Event('blur', {bubbles: true}));
-                                        }
-                                    }""", selector, text)
-                                    uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 文本: {text}")
-                                    fill_success = True
+                                if hasattr(target_context, 'evaluate'):
+                                    element_exists = await target_context.evaluate("(selector) => document.querySelector(selector) !== null", selector)
+                                    if element_exists:
+                                        # 使用JavaScript设置值并触发输入相关事件
+                                        await target_context.evaluate("""(selector, text) => {
+                                            const element = document.querySelector(selector);
+                                            if (element) {
+                                                // 设置值
+                                                element.value = text;
+                                                
+                                                // 触发输入相关事件
+                                                element.dispatchEvent(new Event('input', {bubbles: true}));
+                                                element.dispatchEvent(new Event('change', {bubbles: true}));
+                                                element.dispatchEvent(new Event('blur', {bubbles: true}));
+                                            }
+                                        }""", selector, text)
+                                        uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 文本: {text}")
+                                        fill_success = True
+                                    else:
+                                        uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
                                 else:
-                                    uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                                    # 如果是frame_locator对象，使用其locator方法
+                                    element = target_context.locator(selector)
+                                    count = await element.count()
+                                    if count > 0:
+                                        await element.fill(text, timeout=5000, force=True)
+                                        uat_logger.info(f"使用frame_locator方法成功填充元素: {selector}, 文本: {text}")
+                                        fill_success = True
+                                    else:
+                                        uat_logger.error(f"元素不存在，无法使用frame_locator方法填充: {selector}")
                             else:  # xpath
                                 # 使用XPath查找元素
-                                element_exists = await self.page.evaluate("""(xpath) => {
+                                if hasattr(target_context, 'evaluate'):
+                                    element_exists = await target_context.evaluate("""(xpath) => {
                                     const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                                     return result.singleNodeValue !== null;
                                 }""", selector)
                                 if element_exists:
                                     # 使用JavaScript设置值并触发输入相关事件
-                                    await self.page.evaluate("""(xpath, text) => {
+                                    await target_context.evaluate("""(xpath, text) => {
                                         const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                                         const element = result.singleNodeValue;
                                         if (element) {
@@ -1303,7 +1399,7 @@ class PlaywrightAutomation:
             print(f"获取页面文本时出错: {e}")
             return ""
     
-    async def extract_element_text(self, selector: str, selector_type: str = "css") -> str:
+    async def extract_element_text(self, selector: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None) -> str:
         """提取特定元素的文本，支持多种定位方式
         参数:
             selector: 定位器字符串
@@ -1313,6 +1409,8 @@ class PlaywrightAutomation:
                 - text: 文本内容
                 - role: 语义角色 (直接使用角色名，如 "button", "heading")
                 - testid: 测试ID (data-testid属性值)
+            iframe_selector: iframe选择器（可选）
+            iframe_context: iframe上下文（可选）
         """
         if self.page is None:
             raise Exception("浏览器未启动")
@@ -1322,22 +1420,31 @@ class PlaywrightAutomation:
         try:
             element = None
             
-            # 根据不同定位方式获取元素
-            if selector_type == "css":
-                # CSS选择器
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用CSS选择器: {selector}")
-                element = self.page.locator(selector)
-                element = element.first
-            elif selector_type == "xpath":
-                # XPath选择器
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用XPath选择器: {selector}")
-                element = self.page.locator(f"xpath={selector}")
-                element = element.first
-            elif selector_type == "text":
-                # 文本内容选择器
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用文本选择器: {selector}")
-                element = self.page.locator(f"text={selector}")
-                element = element.first
+            # 确定目标上下文
+            target_context = self.page
+            if iframe_selector:
+                target_context = self.page.frame_locator(iframe_selector)
+            elif iframe_context:
+                target_context = iframe_context
+            
+            # 根据上下文类型和定位方式获取元素
+            if hasattr(target_context, 'locator'):
+                # 对于page或frame_locator对象，使用locator方法
+                if selector_type == "css":
+                    # CSS选择器
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用CSS选择器: {selector}")
+                    element = target_context.locator(selector)
+                    element = element.first
+                elif selector_type == "xpath":
+                    # XPath选择器
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用XPath选择器: {selector}")
+                    element = target_context.locator(f"xpath={selector}")
+                    element = element.first
+                elif selector_type == "text":
+                    # 文本内容选择器
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用文本选择器: {selector}")
+                    element = target_context.locator(f"text={selector}")
+                    element = element.first
             elif selector_type == "role":
                 # 语义角色选择器
                 uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用角色选择器: {selector}")
@@ -4823,14 +4930,14 @@ def sync_navigate_to(url: str):
         return await automation.navigate_to(url)
     return worker.execute(run)
 
-def sync_click_element(selector: str, selector_type: str = "css"):
+def sync_click_element(selector: str, selector_type: str = "css", iframe_selector: str = None):
     async def run():
-        return await automation.click_element(selector, selector_type)
+        return await automation.click_element(selector, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
-def sync_fill_input(selector: str, text: str, selector_type: str = "css"):
+def sync_fill_input(selector: str, text: str, selector_type: str = "css", iframe_selector: str = None):
     async def run():
-        return await automation.fill_input(selector, text, selector_type)
+        return await automation.fill_input(selector, text, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
 def sync_scroll_page(direction: str = "down", pixels: int = 500):
@@ -4843,9 +4950,9 @@ def sync_get_page_text():
         return await automation.get_page_text()
     return worker.execute(run)
 
-def sync_extract_element_text(selector: str, selector_type: str = "css"):
+def sync_extract_element_text(selector: str, selector_type: str = "css", iframe_selector: str = None):
     async def run():
-        return await automation.extract_element_text(selector, selector_type)
+        return await automation.extract_element_text(selector, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
 def sync_extract_element_json(selector: str, selector_type: str = "css"):

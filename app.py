@@ -868,6 +868,8 @@ def api_create_step():
     swipe_x = data.get('swipe_x', '')
     swipe_y = data.get('swipe_y', '')
     url = data.get('url', '')
+    enter_iframe = data.get('enter_iframe', False)
+    iframe_selector = data.get('iframe_selector', '')
     
     if not case_id:
         return jsonify({'error': '用例ID不能为空'}), 400
@@ -876,7 +878,7 @@ def api_create_step():
     
     step_id = db.create_test_step(case_id, action, selector_type, selector_value, 
                                   input_value, description, step_order, page_name,
-                                  swipe_x, swipe_y, url)
+                                  swipe_x, swipe_y, url, enter_iframe, iframe_selector)
     return jsonify({'success': True, 'step_id': step_id})
 
 # API: 更新测试步骤
@@ -891,9 +893,11 @@ def api_update_step(step_id):
     input_value = data.get('input_value')
     description = data.get('description')
     step_order = data.get('step_order')
+    enter_iframe = data.get('enter_iframe')
+    iframe_selector = data.get('iframe_selector')
     
     success = db.update_test_step(step_id, action, selector_type, selector_value,
-                                   input_value, description, step_order)
+                                   input_value, description, step_order, enter_iframe, iframe_selector)
     
     if success:
         return jsonify({'success': True})
@@ -978,11 +982,14 @@ def api_run_case(case_id):
                 selector_value = step.get('selector_value', '')
                 input_value = step.get('input_value', '')
                 description = step.get('description', '')
-                
+                # 添加iframe相关字段
+                enter_iframe = step.get('enter_iframe', False)
+                iframe_selector = step.get('iframe_selector', '')
+                                        
                 uat_logger.log_automation_step(action, selector_value or input_value, description)
-                
+                                        
                 # 详细的调试日志，跟踪 action 值和执行的方法
-                uat_logger.debug(f"执行步骤: ID={step.get('id')}, Action={action}, SelectorType={selector_type}, SelectorValue={selector_value}, InputValue={input_value}")
+                uat_logger.debug(f"执行步骤: ID={step.get('id')}, Action={action}, SelectorType={selector_type}, SelectorValue={selector_value}, InputValue={input_value}, EnterIframe={enter_iframe}, IframeSelector={iframe_selector}")
                 
                 if action == 'navigate':
                     # 获取URL并进行有效性检查
@@ -1023,17 +1030,17 @@ def api_run_case(case_id):
                         uat_logger.warning("导航步骤缺少有效的URL")
                 elif action == 'click':
                     if selector_value:
-                        sync_click_element(selector_value, selector_type)
+                        sync_click_element(selector_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 点击后等待页面响应
                         sync_wait_for_timeout(2000)
                 elif action == 'input':
                     if selector_value and input_value:
-                        sync_fill_input(selector_value, input_value, selector_type)
+                        sync_fill_input(selector_value, input_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 输入后等待页面响应
                         sync_wait_for_timeout(1000)
                 elif action == 'fill':
                     if selector_value and input_value:
-                        sync_fill_input(selector_value, input_value, selector_type)
+                        sync_fill_input(selector_value, input_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 填充后等待页面响应
                         sync_wait_for_timeout(1000)
                 elif action == 'hover':
@@ -1068,7 +1075,7 @@ def api_run_case(case_id):
                             full_selector = f'xpath={full_selector}'
                         # 提取元素文本（添加异常处理）
                         try:
-                            current_extracted = sync_extract_element_text(selector_value, selector_type)
+                            current_extracted = sync_extract_element_text(selector_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                             uat_logger.info(f"提取到文本: {current_extracted[:100]}...")
                             # 保存到extracted_text变量，而不是覆盖
                             extracted_text = current_extracted

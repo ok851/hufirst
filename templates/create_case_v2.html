@@ -6,50 +6,252 @@
     <title>创建测试用例 - UI自动化测试平台</title>
     <!-- 内联基础样式，确保即使CDN失败也能有基本布局 -->
     <style>
+        /* 基础样式重置 */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+        
+        /* 全局样式 */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f3f4f6;
             color: #333;
         }
+        
+        /* 容器样式 */
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-        .bg-white {
-            background-color: white;
+        
+        .max-w-7xl {
+            max-width: 80rem;
         }
-        .p-6 {
-            padding: 24px;
+        
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
         }
-        .rounded-lg {
-            border-radius: 8px;
+        
+        /* 间距工具类 */
+        .mb-1 {
+            margin-bottom: 4px;
         }
-        .shadow-md {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .text-xl {
-            font-size: 1.25rem;
-        }
-        .font-semibold {
-            font-weight: 600;
-        }
+        
         .mb-4 {
             margin-bottom: 16px;
         }
+        
+        .mb-6 {
+            margin-bottom: 24px;
+        }
+        
+        .mb-8 {
+            margin-bottom: 32px;
+        }
+        
+        .mt-4 {
+            margin-top: 16px;
+        }
+        
+        .mt-8 {
+            margin-top: 32px;
+        }
+        
+        .pt-4 {
+            padding-top: 16px;
+        }
+        
+        .px-4 {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        
+        .px-6 {
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+        
+        .py-4 {
+            padding-top: 16px;
+            padding-bottom: 16px;
+        }
+        
+        .py-6 {
+            padding-top: 24px;
+            padding-bottom: 24px;
+        }
+        
+        .py-8 {
+            padding-top: 32px;
+            padding-bottom: 32px;
+        }
+        
+        .p-4 {
+            padding: 16px;
+        }
+        
+        .p-6 {
+            padding: 24px;
+        }
+        
+        /* 布局工具类 */
+        .flex {
+            display: flex;
+        }
+        
+        .flex-wrap {
+            flex-wrap: wrap;
+        }
+        
+        .justify-between {
+            justify-content: space-between;
+        }
+        
+        .justify-center {
+            justify-content: center;
+        }
+        
+        .items-center {
+            align-items: center;
+        }
+        
+        .gap-2 {
+            gap: 8px;
+        }
+        
+        .gap-4 {
+            gap: 16px;
+        }
+        
+        .grid {
+            display: grid;
+        }
+        
+        .grid-cols-1 {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+        
+        .md\:grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        
+        .block {
+            display: block;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* 背景和边框样式 */
+        .bg-white {
+            background-color: white;
+        }
+        
+        .bg-gradient-to-r {
+            background: linear-gradient(to right, #3b82f6, #2563eb);
+        }
+        
+        .bg-blue-50 {
+            background-color: #dbeafe;
+        }
+        
+        .rounded-lg {
+            border-radius: 8px;
+        }
+        
+        .rounded-xl {
+            border-radius: 12px;
+        }
+        
+        .shadow-md {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .border {
+            border: 1px solid #ddd;
+        }
+        
+        .border-t {
+            border-top: 1px solid #ddd;
+        }
+        
+        .border-l-4 {
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .border-primary {
+            border-color: #3b82f6;
+        }
+        
+        .border-gray-200 {
+            border-color: #e5e7eb;
+        }
+        
+        .overflow-hidden {
+            overflow: hidden;
+        }
+        
+        /* 文本样式 */
+        .text-xl {
+            font-size: 1.25rem;
+        }
+        
+        .text-2xl {
+            font-size: 1.5rem;
+        }
+        
+        .text-lg {
+            font-size: 1.125rem;
+        }
+        
+        .text-sm {
+            font-size: 0.875rem;
+        }
+        
+        .font-semibold {
+            font-weight: 600;
+        }
+        
+        .font-bold {
+            font-weight: 700;
+        }
+        
+        .text-white {
+            color: white;
+        }
+        
+        .text-gray-700 {
+            color: #374151;
+        }
+        
+        .text-primary {
+            color: #3b82f6;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        /* 表单样式 */
         .form-group {
             margin-bottom: 16px;
         }
+        
         .form-group label {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
         }
+        
         .form-group input,
         .form-group textarea,
         .form-group select {
@@ -58,6 +260,28 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        
+        .resize-vertical {
+            resize: vertical;
+        }
+        
+        .focus\:outline-none:focus {
+            outline: none;
+        }
+        
+        .focus\:ring-2:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        
+        .focus\:ring-primary:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        
+        .focus\:border-transparent:focus {
+            border-color: transparent;
+        }
+        
+        /* 按钮样式 */
         .btn {
             display: inline-block;
             padding: 8px 16px;
@@ -66,94 +290,56 @@
             font-weight: 500;
             cursor: pointer;
         }
+        
         .btn-primary {
             background-color: #3b82f6;
             color: white;
         }
+        
         .btn-secondary {
             background-color: #10b981;
             color: white;
         }
+        
         .btn-danger {
             background-color: #ef4444;
             color: white;
         }
+        
         .btn-outline {
             background-color: white;
             color: #333;
             border: 1px solid #ddd;
         }
-        .grid {
-            display: grid;
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.875rem;
         }
-        .grid-cols-1 {
-            grid-template-columns: repeat(1, minmax(0, 1fr));
-        }
-        .md\:grid-cols-2 {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .gap-4 {
-            gap: 16px;
-        }
-        .mt-4 {
-            margin-top: 16px;
-        }
-        .mb-6 {
-            margin-bottom: 24px;
-        }
+        
+        /* 表格样式 */
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 16px;
         }
+        
         th, td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
+        
         th {
             background-color: #3b82f6;
             color: white;
         }
+        
         tr:hover {
             background-color: #f5f5f5;
         }
-        .flex {
-            display: flex;
-        }
-        .justify-between {
-            justify-content: space-between;
-        }
-        .items-center {
-            align-items: center;
-        }
-        .gap-2 {
-            gap: 8px;
-        }
-        .bg-gradient-to-r {
-            background: linear-gradient(to right, #3b82f6, #2563eb);
-        }
-        .text-white {
-            color: white;
-        }
-        .px-6 {
-            padding-left: 24px;
-            padding-right: 24px;
-        }
-        .py-4 {
-            padding-top: 16px;
-            padding-bottom: 16px;
-        }
-        .py-6 {
-            padding-top: 24px;
-            padding-bottom: 24px;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .border-l-4 {
-            border-left: 4px solid #3b82f6;
-        }
+        
+        /* 项目选择器样式 */
         .project-selector {
             background-color: #dbeafe;
             border-left: 4px solid #3b82f6;
@@ -161,6 +347,8 @@
             border-radius: 8px;
             margin-bottom: 24px;
         }
+        
+        /* 步骤表单样式 */
         .step-form {
             background-color: #dbeafe;
             border: 1px solid #3b82f6;
@@ -168,9 +356,27 @@
             padding: 16px;
             margin-top: 16px;
         }
+        
         .step-form.active {
             display: block;
         }
+        
+        .step-form-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .step-form-row.full-width {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+        
+        .step-row.editing {
+            background-color: #fef3c7 !important;
+        }
+        
+        /* 导航样式 */
         .navigation {
             display: flex;
             justify-content: center;
@@ -179,6 +385,8 @@
             padding-top: 16px;
             border-top: 1px solid #ddd;
         }
+        
+        /* 区域样式 */
         .section {
             background-color: white;
             border-radius: 8px;
@@ -187,6 +395,7 @@
             margin-bottom: 24px;
             border-left: 4px solid #3b82f6;
         }
+        
         .section-title {
             font-size: 1.25rem;
             font-weight: 600;
@@ -195,145 +404,106 @@
             padding-bottom: 8px;
             border-bottom: 1px solid #eee;
         }
-        .step-form-row {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 16px;
+        
+        /* iframe开关样式优化 */
+        .iframe-switch-container {
             margin-bottom: 16px;
         }
-        .step-form-row.full-width {
-            grid-template-columns: repeat(1, minmax(0, 1fr));
-        }
-        .max-w-7xl {
-            max-width: 80rem;
-        }
-        .mx-auto {
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .bg-white {
-            background-color: white;
-        }
-        .rounded-xl {
-            border-radius: 12px;
-        }
-        .shadow-lg {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-        .overflow-hidden {
-            overflow: hidden;
-        }
-        .text-2xl {
-            font-size: 1.5rem;
-        }
-        .font-bold {
-            font-weight: 700;
-        }
-        .min-h-screen {
-            min-height: 100vh;
-        }
-        .py-8 {
-            padding-top: 32px;
-            padding-bottom: 32px;
-        }
-        .px-4 {
-            padding-left: 16px;
-            padding-right: 16px;
-        }
-        .gap-2 {
+        
+        .iframe-switch-container label {
+            display: flex;
+            align-items: center;
             gap: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #374151;
         }
-        .gap-4 {
-            gap: 16px;
+        
+        .iframe-switch-container input[type="checkbox"] {
+            position: relative;
+            width: 40px;
+            height: 20px;
+            appearance: none;
+            background-color: #e5e7eb;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
+        
+        .iframe-switch-container input[type="checkbox"]:checked {
+            background-color: #3b82f6;
+        }
+        
+        .iframe-switch-container input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background-color: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .iframe-switch-container input[type="checkbox"]:checked::before {
+            transform: translateX(20px);
+        }
+        
+        .iframe-selector-field {
+            margin-top: 12px;
+            padding: 16px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .iframe-selector-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+        
+        .iframe-selector-field input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .iframe-selector-field input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .iframe-selector-field input::placeholder {
+            color: #9ca3af;
+        }
+        
+        /* 交互样式 */
         .hover\:bg-gray-100:hover {
             background-color: #f3f4f6;
         }
+        
         .hover\:bg-white\/30:hover {
             background-color: rgba(255, 255, 255, 0.3);
         }
-        .mb-8 {
-            margin-bottom: 32px;
+        
+        /* 屏幕尺寸相关 */
+        .min-h-screen {
+            min-height: 100vh;
         }
-        .pt-4 {
-            padding-top: 16px;
-        }
-        .border-t {
-            border-top: 1px solid #ddd;
-        }
-        .block {
-            display: block;
-        }
-        .hidden {
-            display: none;
-        }
-        .text-sm {
-            font-size: 0.875rem;
-        }
-        .text-gray-700 {
-            color: #374151;
-        }
-        .mb-1 {
-            margin-bottom: 4px;
-        }
-        .focus\:outline-none:focus {
-            outline: none;
-        }
-        .focus\:ring-2:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
-        }
-        .focus\:ring-primary:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
-        }
-        .focus\:border-transparent:focus {
-            border-color: transparent;
-        }
-        .resize-vertical {
-            resize: vertical;
-        }
-        .bg-blue-50 {
-            background-color: #dbeafe;
-        }
-        .border {
-            border: 1px solid #ddd;
-        }
-        .border-primary {
-            border-color: #3b82f6;
-        }
-        .p-4 {
-            padding: 16px;
-        }
-        .mt-4 {
-            margin-top: 16px;
-        }
-        .text-lg {
-            font-size: 1.125rem;
-        }
-        .text-primary {
-            color: #3b82f6;
-        }
-        .step-row.editing {
-            background-color: #fef3c7 !important;
-        }
+        
+        /* 动作按钮样式 */
         .action-buttons {
             display: flex;
             gap: 8px;
-        }
-        .btn-sm {
-            padding: 4px 8px;
-            font-size: 0.875rem;
-        }
-        .flex-wrap {
-            flex-wrap: wrap;
-        }
-        .justify-center {
-            justify-content: center;
-        }
-        .mt-8 {
-            margin-top: 32px;
-        }
-        .border-gray-200 {
-            border-color: #e5e7eb;
         }
     </style>
     <!-- Tailwind CSS CDN -->
@@ -379,982 +549,589 @@
                             <i class="fa fa-folder"></i>
                             项目管理
                         </a>
-                        <a href="/run-history" class="btn bg-white/20 text-white hover:bg-white/30">
-                            <i class="fa fa-history"></i>
-                            运行历史记录
-                        </a>
                     </div>
                 </div>
             </nav>
             
-            <!-- 页面标题 -->
-            <div class="bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-6 text-center">
-                <h1 class="text-2xl font-bold">创建测试用例</h1>
-                <p class="mt-2 text-blue-100">定义测试步骤和验证逻辑</p>
-            </div>
-            
-            <!-- 标题和描述编辑按钮 -->
-            <div class="p-6 border-b">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h2 id="currentCaseTitle" class="text-xl font-bold text-gray-800">未设置标题</h2>
-                        <p id="currentCaseDescription" class="text-gray-600 mt-1">未设置描述</p>
+            <!-- 主要内容 -->
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">创建测试用例</h2>
+                </div>
+                
+                <!-- 测试用例基本信息 -->
+                <div class="section mb-8">
+                    <div class="section-title">
+                        用例基本信息
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="openTitleModal()">
-                        <i class="fa fa-pencil"></i>
-                        编辑标题和描述
+                    <form id="caseForm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="form-group">
+                                <label for="caseTitle">用例标题</label>
+                                <input type="text" id="caseTitle" placeholder="请输入测试用例标题" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div class="form-group">
+                                <label for="caseDescription">用例描述</label>
+                                <textarea id="caseDescription" placeholder="请输入测试用例描述" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-vertical"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 测试步骤管理 -->
+                <div class="section">
+                    <div class="section-title">
+                        测试步骤管理
+                    </div>
+                    
+                    <!-- 添加步骤按钮 -->
+                    <div class="flex justify-end mb-6">
+                        <button type="button" onclick="openAddStepModal()" class="btn btn-primary">
+                            <i class="fa fa-plus"></i>
+                            添加测试步骤
+                        </button>
+                    </div>
+                    
+                    <!-- 步骤列表 -->
+                    <div class="overflow-x-auto">
+                        <table id="stepsTable">
+                            <thead>
+                                <tr>
+                                    <th>步骤序号</th>
+                                    <th>操作方式</th>
+                                    <th>元素定位</th>
+                                    <th>操作值</th>
+                                    <th>是否进入iframe</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- 步骤将通过JavaScript动态添加 -->
+                                <tr>
+                                    <td colspan="6" class="text-center py-8 text-gray-500">
+                                        <i class="fa fa-info-circle text-2xl mb-2"></i>
+                                        <p>暂无测试步骤，请点击"添加测试步骤"按钮添加</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- 保存按钮 -->
+                <div class="flex justify-center mt-8">
+                    <button type="button" onclick="saveCase()" class="btn btn-primary text-lg px-8 py-3">
+                        <i class="fa fa-save"></i>
+                        保存测试用例
                     </button>
                 </div>
             </div>
-            
-            <!-- 主要内容 -->
-            <div class="p-6">
-                <form id="caseForm">
-                    <!-- 项目选择器 -->
-                    <div class="project-selector">
-                        <div class="form-group flex items-center justify-between">
-                            <label for="projectSelect">选择项目 *</label>
-                            <button type="button" id="refreshProjectsBtn" class="btn btn-sm btn-outline">
-                                <i class="fa fa-refresh"></i>
-                                刷新
-                            </button>
-                        </div>
-                        <div class="relative">
-                            <select id="projectSelect" name="project_id" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                <option value="">请选择项目</option>
-                            </select>
-                            <div id="projectLoading" style="display: none;" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                                <i class="fa fa-spinner fa-spin"></i>
-                            </div>
-                        </div>
-                        <div id="projectError" class="text-red-500 text-sm mt-1" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <!-- 添加步骤模态框 -->
+    <div id="addStepModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="modal-header bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-4">
+                <h3 class="text-xl font-bold">添加测试步骤</h3>
+                <button type="button" onclick="closeAddStepModal()" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="modal-body p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="action">操作方式</label>
+                        <select id="action" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">-- 选择操作方式 --</option>
+                            <option value="navigate">导航</option>
+                            <option value="click">点击</option>
+                            <option value="input">输入</option>
+                            <option value="extract_text">提取文本</option>
+                        </select>
                     </div>
-                    <!-- 用例名称和描述编辑提示 -->
-                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                        <h3 class="font-medium text-blue-800 mb-2">用例名称和描述</h3>
-                        <p class="text-blue-700 mb-3">点击页面顶部的"编辑标题和描述"按钮来设置测试用例的名称和描述。</p>
+                    <div class="form-group">
+                        <label for="elementName">元素定位</label>
+                        <input type="text" id="elementName" placeholder="例如: #username 或 .password" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                     </div>
-
-
-                    <!-- 导航按钮 -->
-                    <div class="navigation">
-                        <button type="submit" class="btn btn-secondary">
-                            <i class="fa fa-check"></i>
-                            保存
-                        </button>
-                        <a href="/list_projects" class="btn btn-outline">
-                            <i class="fa fa-arrow-left"></i>
-                            返回项目列表
-                        </a>
+                </div>
+                
+                <!-- 操作值字段 (根据操作类型动态显示) -->
+                <div id="valueFields" class="mt-4 hidden">
+                    <div class="form-group">
+                        <label for="actionValue">操作值</label>
+                        <input type="text" id="actionValue" placeholder="请输入操作值" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                     </div>
-                </form>
+                </div>
+                
+                <!-- iframe开关 -->
+                <div class="iframe-switch-container">
+                    <label>
+                        <input type="checkbox" id="iframeSwitch">
+                        <span>是否进入iframe</span>
+                    </label>
+                    <div id="iframeSelectorField" style="display: none;" class="iframe-selector-field">
+                        <label for="iframeSelector">iframe选择器</label>
+                        <input type="text" id="iframeSelector" placeholder="例如: #myFrame 或 iframe[src='...']">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-gray-50 px-6 py-4 flex justify-end gap-4">
+                <button type="button" onclick="closeAddStepModal()" class="btn btn-outline">取消</button>
+                <button type="button" onclick="addStep()" class="btn btn-primary">保存步骤</button>
             </div>
         </div>
     </div>
-
-<script>
-    let steps = [];
-    let editingStepIndex = -1;
-    let currentProjectId = null;
-    let currentCaseId = null;
-    let caseTitle = '';
-    let caseDescription = '';
-
-
-    async function loadProjects() {
-        // 显示加载状态
-        const projectSelect = document.getElementById('projectSelect');
-        const projectLoading = document.getElementById('projectLoading');
-        const projectError = document.getElementById('projectError');
-        const refreshBtn = document.getElementById('refreshProjectsBtn');
-        
-        if (projectSelect && projectLoading && projectError) {
-            // 禁用选择器和刷新按钮
-            projectSelect.disabled = true;
-            if (refreshBtn) refreshBtn.disabled = true;
-            
-            // 显示加载动画，隐藏错误信息
-            projectLoading.style.display = 'block';
-            projectError.style.display = 'none';
-            
-            try {
-                console.log('开始加载项目数据...');
-                const response = await fetch('/api/projects');
-                console.log('API响应状态:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log('项目数据:', data);
-                
-                // 清空现有选项
-                projectSelect.innerHTML = '<option value="">请选择项目</option>';
-                
-                if (data && data.projects && data.projects.length > 0) {
-                    data.projects.forEach(project => {
-                        const option = document.createElement('option');
-                        option.value = project.id;
-                        option.textContent = project.name;
-                        projectSelect.appendChild(option);
-                    });
-                    console.log('项目加载成功，共加载', data.projects.length, '个项目');
-                } else {
-                    console.log('暂无项目数据');
-                    // 不直接跳转，而是显示提示
-                    projectError.textContent = '暂无项目数据，请先创建项目';
-                    projectError.style.display = 'block';
-                }
-            } catch (error) {
-                console.error('加载项目失败:', error);
-                projectError.textContent = '加载项目失败: ' + error.message;
-                projectError.style.display = 'block';
-            } finally {
-                // 隐藏加载动画，启用选择器和刷新按钮
-                projectLoading.style.display = 'none';
-                projectSelect.disabled = false;
-                if (refreshBtn) refreshBtn.disabled = false;
-            }
-        }
-    }
-
-    async function loadTestCase(caseId) {
-        try {
-            console.log('加载测试用例详情:', caseId);
-            
-            // 获取用例基本信息
-            const caseResponse = await fetch(`/api/cases/${caseId}`);
-            const caseData = await caseResponse.json();
-            
-            if (caseData.test_case) {
-                const testCase = caseData.test_case;
-                
-                // 填充表单数据
-                document.getElementById('projectSelect').value = testCase.project_id;
-                caseTitle = testCase.name;
-                caseDescription = testCase.description || '';
-                document.getElementById('currentCaseTitle').textContent = caseTitle || '未设置标题';
-                document.getElementById('currentCaseDescription').textContent = caseDescription || '未设置描述';
-                
-                // 获取用例步骤
-                const stepsResponse = await fetch(`/api/cases/${caseId}/steps`);
-                const stepsData = await stepsResponse.json();
-                
-                if (stepsData.steps && stepsData.steps.length > 0) {
-                    steps = [];
-                    stepsData.steps.forEach(step => {
-                        steps.push({
-                            action: step.action,
-                            page_name: step.page_name || '',
-                            locator_method: step.selector_type || 'css',
-                            element_name: step.selector_value || '',
-                            input_value: step.input_value || '',
-                            swipe_x: step.swipe_x || '',
-                            swipe_y: step.swipe_y || '',
-                            url: step.url || '',
-                            description: step.description || ''
-                        });
-                    });
-                    renderSteps();
-                }
-                
-                currentCaseId = caseId;
-                console.log('测试用例加载成功');
-            }
-        } catch (error) {
-            console.error('加载测试用例失败:', error);
-            alert('加载测试用例失败: ' + error.message);
-        }
-    }
-
-    function showStepForm() {
-        const stepForm = document.getElementById('stepForm');
-        if (stepForm) {
-            stepForm.classList.add('active');
-            clearStepForm();
-            // 初始化表单字段显示，包括可视化选择按钮
-            updateStepFormFields();
-        }
-    }
-
-    function hideStepForm() {
-        const stepForm = document.getElementById('stepForm');
-        if (stepForm) {
-            stepForm.classList.remove('active');
-            editingStepIndex = -1;
-            clearStepForm();
-        }
-    }
-
-    function clearStepForm() {
-        // 保留当前的操作方式，不重置stepAction的值
-        const elementsToClear = [
-            { id: 'stepPageName', value: '' },
-            { id: 'stepLocatorMethod', value: 'css' },
-            { id: 'stepElementName', value: '' },
-            { id: 'stepInputValue', value: '' },
-            { id: 'stepSwipeX', value: '' },
-            { id: 'stepSwipeY', value: '' },
-            { id: 'stepUrl', value: '' },
-            { id: 'stepDescription', value: '' }
-        ];
-        
-        elementsToClear.forEach(elementInfo => {
-            const element = document.getElementById(elementInfo.id);
-            if (element) {
-                element.value = elementInfo.value;
-            }
-        });
-        // 不调用updateStepFormFields，避免重置字段可见性
-    }
-
-    function updateStepFormFields() {
-        const action = document.getElementById('stepAction')?.value || '';
-        console.log('updateStepFormFields called with action:', action);
-        
-        // 默认隐藏除可视化选择字段外的所有字段
-        const fields = [
-            'inputValueField', 
-            'swipeFields', 
-            'urlField', 
-            'locatorFields', 
-            'verifyTypeField'
-        ];
-        
-        fields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.style.display = 'none';
-            }
-        });
-        
-        // 显示/隐藏开始选择按钮 - 对所有需要元素定位的操作都显示
-        const startSelectBtn = document.getElementById('startSelectBtn');
-        const stopSelectBtn = document.getElementById('stopSelectBtn');
-        if (startSelectBtn && stopSelectBtn) {
-            if (action === 'extract_text' || action === 'click' || action === 'input') {
-                startSelectBtn.style.display = 'inline-block';
-                console.log('显示开始选择按钮');
-            } else {
-                startSelectBtn.style.display = 'none';
-                stopSelectBtn.style.display = 'none';
-                console.log('隐藏开始选择按钮');
-            }
-        }
-        
-        // 根据操作类型显示相应字段
-        if (action === 'input' || action === 'click' || action === 'extract_text') {
-            console.log('显示定位字段');
-            const locatorFields = document.getElementById('locatorFields');
-            if (locatorFields) {
-                locatorFields.style.display = 'grid';
-            }
-            
-            if (action === 'input' || action === 'extract_text') {
-                console.log('显示输入值字段');
-                const inputValueField = document.getElementById('inputValueField');
-                if (inputValueField) {
-                    inputValueField.style.display = 'grid';
-                }
-                
-                if (action === 'extract_text') {
-                    console.log('显示验证方式字段');
-                    const verifyTypeField = document.getElementById('verifyTypeField');
-                    if (verifyTypeField) {
-                        verifyTypeField.style.display = 'grid';
-                    }
-                }
-            }
-        } else if (action === 'swipe') {
-            console.log('显示滑动字段');
-            const swipeFields = document.getElementById('swipeFields');
-            if (swipeFields) {
-                swipeFields.style.display = 'grid';
-            }
-        } else if (action === 'navigate') {
-            console.log('显示URL字段');
-            const urlField = document.getElementById('urlField');
-            if (urlField) {
-                urlField.style.display = 'grid';
-            }
-        }
-    }
     
-    // 可视化选择功能
-    let isSelecting = false;
-    
-    function startVisualSelection() {
-        isSelecting = true;
-        
-        // 更新UI状态，只在元素存在时操作
-        const startSelectBtn = document.getElementById('startSelectBtn');
-        const stopSelectBtn = document.getElementById('stopSelectBtn');
-        const selectionStatus = document.getElementById('selectionStatus');
-        
-        if (startSelectBtn) {
-            startSelectBtn.style.display = 'none';
-        }
-        if (stopSelectBtn) {
-            stopSelectBtn.style.display = 'block';
-        }
-        if (selectionStatus) {
-            selectionStatus.style.display = 'block';
-        }
-        
-        // 查找当前用例中的导航步骤，获取URL
-        const navigateStep = steps.find(step => step.action === 'navigate');
-        // 导航URL可能存储在url属性或input_value属性中，同时检查两者
-        const targetUrl = navigateStep ? (navigateStep.url || navigateStep.input_value || '') : '';
-        console.log('提取到的导航URL:', targetUrl, 'from step:', navigateStep);
-        
-        // 调用后端API启动可视化选择，并传递导航URL
-        console.log('正在启动可视化选择，目标URL:', targetUrl);
-        fetch('/api/start_visual_selection', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: targetUrl })
-        })
-        .then(response => {
-            console.log('启动选择响应状态:', response.status);
-            console.log('响应类型:', response.headers.get('content-type'));
-            if (!response.ok) {
-                throw new Error('启动选择失败，状态码: ' + response.status);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                console.log('可视化选择已启动');
-                // 开始监听元素选择事件
-                startListeningForSelection();
-            } else {
-                alert('启动可视化选择失败: ' + data.error);
-                stopVisualSelection();
-            }
-        })
-        .catch(error => {
-            console.error('启动可视化选择时出错:', error);
-            alert('启动可视化选择时发生错误: ' + error.message);
-            stopVisualSelection();
-        });
-    }
-    
-    function stopVisualSelection() {
-        isSelecting = false;
-        
-        // 更新UI状态，只在元素存在时操作
-        const startSelectBtn = document.getElementById('startSelectBtn');
-        const stopSelectBtn = document.getElementById('stopSelectBtn');
-        const selectionStatus = document.getElementById('selectionStatus');
-        
-        if (startSelectBtn) {
-            startSelectBtn.style.display = 'block';
-        }
-        if (stopSelectBtn) {
-            stopSelectBtn.style.display = 'none';
-        }
-        if (selectionStatus) {
-            selectionStatus.style.display = 'none';
-        }
-        
-        // 调用后端API停止可视化选择
-        fetch('/api/stop_visual_selection', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('可视化选择已停止');
-                // 停止监听元素选择事件
-                stopListeningForSelection();
-            }
-        })
-        .catch(error => {
-            console.error('停止可视化选择时出错:', error);
-        });
-    }
-    
-    function startListeningForSelection() {
-        // 启动轮询，检查是否有元素被选择
-        const pollInterval = setInterval(() => {
-            if (!isSelecting) {
-                clearInterval(pollInterval);
-                return;
-            }
-            
-            fetch('/api/check_selected_element')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.selected_element) {
-                    // 元素已被选择，填充到表单
-                    fillElementToForm(data.selected_element);
-                    stopVisualSelection();
-                    clearInterval(pollInterval);
-                }
-            })
-            .catch(error => {
-                console.error('检查选择元素时出错:', error);
-            });
-        }, 1000); // 每秒轮询一次
-    }
-    
-    function stopListeningForSelection() {
-        // 停止轮询
-    }
-    
-    function fillElementToForm(elementInfo) {
-        // 填充元素信息到表单，只在元素存在时操作
-        const elementsToFill = [
-            { id: 'stepLocatorMethod', value: elementInfo.selector_type || 'css' },
-            { id: 'stepElementName', value: elementInfo.selector_value || '' }
-        ];
-        
-        if (elementInfo.page_name) {
-            elementsToFill.push({ id: 'stepPageName', value: elementInfo.page_name });
-        }
-        
-        if (elementInfo.text_content) {
-            elementsToFill.push({ id: 'stepInputValue', value: elementInfo.text_content });
-        }
-        
-        elementsToFill.forEach(elementInfo => {
-            const element = document.getElementById(elementInfo.id);
-            if (element) {
-                element.value = elementInfo.value;
-            }
-        });
-        
-        console.log('元素信息已填充到表单:', elementInfo);
-        showCustomAlert('元素选择成功，已自动填充到表单！');
-    }
-    
-    // 自定义模态对话框功能
-    function showCustomAlert(message) {
-        // 检查是否已存在模态对话框，如果不存在则创建
-        let modal = document.getElementById('customAlertModal');
-        if (!modal) {
-            // 创建模态对话框HTML结构
-            const modalHTML = `
-                <div id="customAlertModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
-                        <div class="mb-4 text-gray-700">${message}</div>
-                        <button id="customAlertClose" class="btn btn-primary">
-                            确定
-                        </button>
+    <!-- 编辑步骤模态框 -->
+    <div id="editStepModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="modal-header bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-4">
+                <h3 class="text-xl font-bold">编辑测试步骤</h3>
+                <button type="button" onclick="closeEditStepModal()" class="text-white hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="modal-body p-6">
+                <input type="hidden" id="editStepId">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="editAction">操作方式</label>
+                        <select id="editAction" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">-- 选择操作方式 --</option>
+                            <option value="navigate">导航</option>
+                            <option value="click">点击</option>
+                            <option value="input">输入</option>
+                            <option value="extract_text">提取文本</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editElementName">元素定位</label>
+                        <input type="text" id="editElementName" placeholder="例如: #username 或 .password" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                     </div>
                 </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-            modal = document.getElementById('customAlertModal');
-            
-            // 添加关闭按钮事件
-            document.getElementById('customAlertClose').addEventListener('click', function() {
-                modal.classList.add('hidden');
-                setTimeout(() => {
-                    modal.remove();
-                }, 300);
-            });
-            
-            // 添加点击背景关闭事件
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.classList.add('hidden');
-                    setTimeout(() => {
-                        modal.remove();
-                    }, 300);
-                }
-            });
-        } else {
-            // 更新现有模态对话框的消息
-            modal.querySelector('div').textContent = message;
-            modal.classList.remove('hidden');
-        }
-    }
+                
+                <!-- 编辑操作值字段 -->
+                <div id="editValueFields" class="mt-4 hidden">
+                    <div class="form-group">
+                        <label for="editActionValue">操作值</label>
+                        <input type="text" id="editActionValue" placeholder="请输入操作值" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+                
+                <!-- 编辑iframe开关 -->
+                <div class="iframe-switch-container">
+                    <label>
+                        <input type="checkbox" id="editIframeSwitch">
+                        <span>是否进入iframe</span>
+                    </label>
+                    <div id="editIframeSelectorField" style="display: none;" class="iframe-selector-field">
+                        <label for="editIframeSelector">iframe选择器</label>
+                        <input type="text" id="editIframeSelector" placeholder="例如: #myFrame 或 iframe[src='...']">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-gray-50 px-6 py-4 flex justify-end gap-4">
+                <button type="button" onclick="closeEditStepModal()" class="btn btn-outline">取消</button>
+                <button type="button" onclick="updateStep()" class="btn btn-primary">保存更改</button>
+            </div>
+        </div>
+    </div>
     
-    // 监听定位方法选择变化，自动生成XPath框架
-    function generateXPathFramework(locatorType, elementNameInput) {
-        if (locatorType === 'xpath' && !elementNameInput.value) {
-            // 生成Playwright标准的XPath选择器框架
-            const xpathFramework = 'xpath=//';
-            elementNameInput.value = xpathFramework;
-        }
-    }
-    
-    function saveStep() {
-        const action = document.getElementById('stepAction')?.value || '';
-        const pageName = document.getElementById('stepPageName')?.value || '';
-        const locatorMethod = document.getElementById('stepLocatorMethod')?.value || 'css';
-        const elementName = document.getElementById('stepElementName')?.value || '';
-        const inputValue = document.getElementById('stepInputValue')?.value || '';
-        const swipeX = document.getElementById('stepSwipeX')?.value || '';
-        const swipeY = document.getElementById('stepSwipeY')?.value || '';
-        const url = document.getElementById('stepUrl')?.value || '';
-        const description = document.getElementById('stepDescription')?.value || '';
-
-        if (!action) {
-            alert('请选择操作方式');
-            return;
-        }
-
-        // 添加点击/输入/提取文本操作时元素定位值的必填验证
-        if ((action === 'click' || action === 'input' || action === 'extract_text') && !elementName) {
-            alert('点击、输入或提取文本操作必须填写元素定位值');
-            return;
-        }
-
-        // 输入操作时输入值的验证
-        if (action === 'input' && !inputValue) {
-            alert('输入操作必须填写输入值');
-            return;
-        }
-
-        // 提取文本操作时预期结果的验证
-        if (action === 'extract_text' && !inputValue) {
-            alert('提取文本操作必须填写预期的文本结果');
-            return;
-        }
-
-        // 滑动操作时坐标的验证
-        if (action === 'swipe') {
-            if (!swipeX || !swipeY) {
-                alert('滑动操作必须填写X轴和Y轴偏移量');
+    <script>
+        // 全局变量
+        let steps = [];
+        let projectId = null;
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从URL获取project_id
+            const urlParams = new URLSearchParams(window.location.search);
+            projectId = urlParams.get('project_id');
+            if (!projectId) {
+                alert('缺少项目ID参数');
                 return;
             }
+            
+            // 绑定事件监听器
+            document.getElementById('action').addEventListener('change', updateValueFields);
+            document.getElementById('editAction').addEventListener('change', updateEditValueFields);
+            
+            // 绑定iframe开关事件
+            const iframeSwitch = document.getElementById('iframeSwitch');
+            const iframeSelectorField = document.getElementById('iframeSelectorField');
+            
+            if (iframeSwitch && iframeSelectorField) {
+                iframeSwitch.addEventListener('change', function() {
+                    if (iframeSwitch.checked) {
+                        iframeSelectorField.style.display = 'block';
+                    } else {
+                        iframeSelectorField.style.display = 'none';
+                    }
+                });
+            }
+            
+            const editIframeSwitch = document.getElementById('editIframeSwitch');
+            const editIframeSelectorField = document.getElementById('editIframeSelectorField');
+            
+            if (editIframeSwitch && editIframeSelectorField) {
+                editIframeSwitch.addEventListener('change', function() {
+                    if (editIframeSwitch.checked) {
+                        editIframeSelectorField.style.display = 'block';
+                    } else {
+                        editIframeSelectorField.style.display = 'none';
+                    }
+                });
+            }
+        });
+        
+        // 打开添加步骤模态框
+        function openAddStepModal() {
+            document.getElementById('addStepModal').classList.remove('hidden');
+            document.getElementById('action').value = '';
+            document.getElementById('elementName').value = '';
+            document.getElementById('actionValue').value = '';
+            document.getElementById('iframeSwitch').checked = false;
+            document.getElementById('iframeSelector').value = '';
+            document.getElementById('iframeSelectorField').style.display = 'none';
+            updateValueFields();
         }
-
-        // 导航操作时URL的验证
-        if (action === 'navigate' && !url) {
-            alert('导航操作必须填写URL地址');
-            return;
+        
+        // 关闭添加步骤模态框
+        function closeAddStepModal() {
+            document.getElementById('addStepModal').classList.add('hidden');
         }
-
-        const step = {
-            action: action,
-            page_name: pageName,
-            locator_method: locatorMethod,
-            element_name: elementName,
-            input_value: inputValue,
-            swipe_x: swipeX,
-            swipe_y: swipeY,
-            url: url,
-            description: description
-        };
-
-        if (editingStepIndex >= 0) {
-            steps[editingStepIndex] = step;
-            editingStepIndex = -1;
-        } else {
-            steps.push(step);
+        
+        // 打开编辑步骤模态框
+        function openEditStepModal(stepId) {
+            const step = steps.find(s => s.id === stepId);
+            if (!step) return;
+            
+            document.getElementById('editStepId').value = step.id;
+            document.getElementById('editAction').value = step.action;
+            document.getElementById('editElementName').value = step.elementName || '';
+            document.getElementById('editActionValue').value = step.value || '';
+            document.getElementById('editIframeSwitch').checked = step.enter_iframe || false;
+            document.getElementById('editIframeSelector').value = step.iframe_selector || '';
+            
+            if (step.enter_iframe) {
+                document.getElementById('editIframeSelectorField').style.display = 'block';
+            } else {
+                document.getElementById('editIframeSelectorField').style.display = 'none';
+            }
+            
+            updateEditValueFields();
+            document.getElementById('editStepModal').classList.remove('hidden');
         }
-
-        renderSteps();
-        hideStepForm();
-    }
-
-    function renderSteps() {
-        const tbody = document.getElementById('stepsTableBody');
-        if (tbody) {
-            tbody.innerHTML = '';
-
+        
+        // 关闭编辑步骤模态框
+        function closeEditStepModal() {
+            document.getElementById('editStepModal').classList.add('hidden');
+        }
+        
+        // 更新值字段显示
+        function updateValueFields() {
+            const action = document.getElementById('action').value;
+            const valueFields = document.getElementById('valueFields');
+            
+            if (['input', 'navigate'].includes(action)) {
+                valueFields.classList.remove('hidden');
+            } else {
+                valueFields.classList.add('hidden');
+            }
+        }
+        
+        // 更新编辑值字段显示
+        function updateEditValueFields() {
+            const action = document.getElementById('editAction').value;
+            const valueFields = document.getElementById('editValueFields');
+            
+            if (['input', 'navigate'].includes(action)) {
+                valueFields.classList.remove('hidden');
+            } else {
+                valueFields.classList.add('hidden');
+            }
+        }
+        
+        // 添加步骤
+        function addStep() {
+            const action = document.getElementById('action').value;
+            const elementName = document.getElementById('elementName').value;
+            const actionValue = document.getElementById('actionValue').value;
+            const enterIframe = document.getElementById('iframeSwitch').checked;
+            const iframeSelector = document.getElementById('iframeSelector').value;
+            
+            if (!action) {
+                alert('请选择操作方式');
+                return;
+            }
+            
+            // 为点击、输入和提取文本操作验证元素定位
+            if ((action === 'click' || action === 'input' || action === 'extract_text') && !elementName) {
+                alert('点击、输入或提取文本操作必须填写元素定位值');
+                return;
+            }
+            
+            // 为需要值的操作验证操作值
+            if (['input', 'navigate'].includes(action) && !actionValue) {
+                alert('此操作需要填写操作值');
+                return;
+            }
+            
+            // 为进入iframe操作验证iframe选择器
+            if (enterIframe && !iframeSelector) {
+                alert('进入iframe操作必须填写iframe选择器');
+                return;
+            }
+            
+            const newStep = {
+                id: Date.now().toString(),
+                action: action,
+                elementName: elementName,
+                value: actionValue,
+                enter_iframe: enterIframe,
+                iframe_selector: iframeSelector
+            };
+            
+            steps.push(newStep);
+            updateStepsTable();
+            closeAddStepModal();
+        }
+        
+        // 更新步骤
+        function updateStep() {
+            const stepId = document.getElementById('editStepId').value;
+            const action = document.getElementById('editAction').value;
+            const elementName = document.getElementById('editElementName').value;
+            const actionValue = document.getElementById('editActionValue').value;
+            const enterIframe = document.getElementById('editIframeSwitch').checked;
+            const iframeSelector = document.getElementById('editIframeSelector').value;
+            
+            if (!action) {
+                alert('请选择操作方式');
+                return;
+            }
+            
+            // 为点击、输入和提取文本操作验证元素定位
+            if ((action === 'click' || action === 'input' || action === 'extract_text') && !elementName) {
+                alert('点击、输入或提取文本操作必须填写元素定位值');
+                return;
+            }
+            
+            // 为需要值的操作验证操作值
+            if (['input', 'navigate'].includes(action) && !actionValue) {
+                alert('此操作需要填写操作值');
+                return;
+            }
+            
+            // 为进入iframe操作验证iframe选择器
+            if (enterIframe && !iframeSelector) {
+                alert('进入iframe操作必须填写iframe选择器');
+                return;
+            }
+            
+            const stepIndex = steps.findIndex(s => s.id === stepId);
+            if (stepIndex !== -1) {
+                steps[stepIndex] = {
+                    id: stepId,
+                    action: action,
+                    elementName: elementName,
+                    value: actionValue,
+                    enter_iframe: enterIframe,
+                    iframe_selector: iframeSelector
+                };
+                updateStepsTable();
+                closeEditStepModal();
+            }
+        }
+        
+        // 删除步骤
+        function deleteStep(stepId) {
+            if (confirm('确定要删除此步骤吗？')) {
+                steps = steps.filter(s => s.id !== stepId);
+                updateStepsTable();
+            }
+        }
+        
+        // 上移步骤
+        function moveStepUp(stepId) {
+            const stepIndex = steps.findIndex(s => s.id === stepId);
+            if (stepIndex > 0) {
+                [steps[stepIndex - 1], steps[stepIndex]] = [steps[stepIndex], steps[stepIndex - 1]];
+                updateStepsTable();
+            }
+        }
+        
+        // 下移步骤
+        function moveStepDown(stepId) {
+            const stepIndex = steps.findIndex(s => s.id === stepId);
+            if (stepIndex < steps.length - 1) {
+                [steps[stepIndex], steps[stepIndex + 1]] = [steps[stepIndex + 1], steps[stepIndex]];
+                updateStepsTable();
+            }
+        }
+        
+        // 更新步骤表格
+        function updateStepsTable() {
+            const tableBody = document.querySelector('#stepsTable tbody');
+            if (!tableBody) return;
+            
+            if (steps.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-gray-500">
+                            <i class="fa fa-info-circle text-2xl mb-2"></i>
+                            <p>暂无测试步骤，请点击"添加测试步骤"按钮添加</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tableBody.innerHTML = '';
             steps.forEach((step, index) => {
                 const row = document.createElement('tr');
-                row.className = 'step-row';
-                
-                let displayValue = '-';
-                if (step.action === 'input') {
-                    displayValue = step.input_value || '-';
-                } else if (step.action === 'swipe') {
-                    displayValue = `X: ${step.swipe_x || '0'}, Y: ${step.swipe_y || '0'}`;
-                } else if (step.action === 'navigate') {
-                    displayValue = step.url || '-';
-                } else if (step.action === 'extract_text') {
-                    displayValue = step.input_value || '-';
-                }
-                
                 row.innerHTML = `
                     <td>${index + 1}</td>
-                    <td>${step.action}</td>
-                    <td>${step.page_name || '-'}</td>
-                    <td>${step.locator_method || '-'}</td>
-                    <td>${step.element_name || '-'}</td>
-                    <td>${displayValue}</td>
-                    <td>${step.description || '-'}</td>
+                    <td>${getActionText(step.action)}</td>
+                    <td>${step.elementName || '-'}</td>
+                    <td>${step.value || '-'}</td>
+                    <td>${step.enter_iframe ? '是' : '否'}</td>
                     <td>
                         <div class="action-buttons">
-                            <button type="button" class="btn btn-sm btn-primary" onclick="editStep(${index})">编辑</button>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteStep(${index})">删除</button>
+                            <button type="button" onclick="moveStepUp('${step.id}')" class="btn btn-sm btn-outline" ${index === 0 ? 'disabled' : ''}>
+                                <i class="fa fa-arrow-up"></i>
+                            </button>
+                            <button type="button" onclick="moveStepDown('${step.id}')" class="btn btn-sm btn-outline" ${index === steps.length - 1 ? 'disabled' : ''}>
+                                <i class="fa fa-arrow-down"></i>
+                            </button>
+                            <button type="button" onclick="openEditStepModal('${step.id}')" class="btn btn-sm btn-primary">
+                                <i class="fa fa-edit"></i>
+                            </button>
+                            <button type="button" onclick="deleteStep('${step.id}')" class="btn btn-sm btn-danger">
+                                <i class="fa fa-trash"></i>
+                            </button>
                         </div>
                     </td>
                 `;
-                tbody.appendChild(row);
-            });
-        }
-    }
-    function formatDateTime(dateTimeStr) {
-        const date = new Date(dateTimeStr);
-        return date.toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    }
-
-    function editStep(index) {
-        const step = steps[index];
-        
-        const elementsToFill = [
-            { id: 'stepAction', value: step.action },
-            { id: 'stepPageName', value: step.page_name || '' },
-            { id: 'stepLocatorMethod', value: step.locator_method || 'css' },
-            { id: 'stepElementName', value: step.element_name || '' },
-            { id: 'stepInputValue', value: step.input_value || '' },
-            { id: 'stepSwipeX', value: step.swipe_x || '' },
-            { id: 'stepSwipeY', value: step.swipe_y || '' },
-            { id: 'stepUrl', value: step.url || '' },
-            { id: 'stepDescription', value: step.description || '' }
-        ];
-        
-        elementsToFill.forEach(function(elementInfo) {
-            const element = document.getElementById(elementInfo.id);
-            if (element) {
-                element.value = elementInfo.value;
-            }
-        });
-        
-        updateStepFormFields();
-        editingStepIndex = index;
-        
-        const stepForm = document.getElementById('stepForm');
-        if (stepForm) {
-            stepForm.classList.add('active');
-        }
-    }
-
-    function deleteStep(index) {
-        if (confirm('确定要删除这个步骤吗？')) {
-            steps.splice(index, 1);
-            renderSteps();
-        }
-    }
-
-    // 模态框相关函数
-    window.openTitleModal = function() {
-        console.log('openTitleModal函数被调用');
-        const modalCaseTitle = document.getElementById('modalCaseTitle');
-        const modalCaseDescription = document.getElementById('modalCaseDescription');
-        const titleModal = document.getElementById('titleModal');
-        
-        console.log('模态框元素检查:', {
-            modalCaseTitle: modalCaseTitle ? '找到' : '未找到',
-            modalCaseDescription: modalCaseDescription ? '找到' : '未找到',
-            titleModal: titleModal ? '找到' : '未找到'
-        });
-        
-        if (modalCaseTitle && modalCaseDescription && titleModal) {
-            modalCaseTitle.value = caseTitle;
-            modalCaseDescription.value = caseDescription;
-            titleModal.classList.remove('hidden');
-            console.log('模态框已显示');
-        } else {
-            console.error('模态框元素未找到');
-            alert('模态框元素未找到，请检查页面结构');
-        }
-    }
-
-    window.closeTitleModal = function() {
-        const titleModal = document.getElementById('titleModal');
-        if (titleModal) {
-            titleModal.classList.add('hidden');
-        }
-    }
-
-    // 标题表单提交
-    document.addEventListener('DOMContentLoaded', function() {
-        // 处理标题表单提交
-        if (document.getElementById('titleForm')) {
-            document.getElementById('titleForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                caseTitle = document.getElementById('modalCaseTitle').value;
-                caseDescription = document.getElementById('modalCaseDescription').value;
-                
-                document.getElementById('currentCaseTitle').textContent = caseTitle || '未设置标题';
-                document.getElementById('currentCaseDescription').textContent = caseDescription || '未设置描述';
-                
-                closeTitleModal();
+                tableBody.appendChild(row);
             });
         }
         
-        // 监听定位方法选择变化，自动生成XPath框架
-        const locatorMethodSelect = document.getElementById('stepLocatorMethod');
-        const elementNameInput = document.getElementById('stepElementName');
+        // 获取操作文本
+        function getActionText(action) {
+            const actionMap = {
+                'navigate': '导航',
+                'click': '点击',
+                'input': '输入',
+                'extract_text': '提取文本'
+            };
+            return actionMap[action] || action;
+        }
         
-        if (locatorMethodSelect && elementNameInput) {
-            // 定位方法变化事件
-            locatorMethodSelect.addEventListener('change', function() {
-                generateXPathFramework(this.value, elementNameInput);
-            });
+        // 保存测试用例
+        function saveCase() {
+            const caseTitle = document.getElementById('caseTitle').value;
+            const caseDescription = document.getElementById('caseDescription').value;
             
-            // 元素定位值输入框清空事件
-            elementNameInput.addEventListener('input', function() {
-                if (locatorMethodSelect.value === 'xpath' && !this.value) {
-                    generateXPathFramework('xpath', this);
-                }
-            });
-            
-            // 聚焦事件，确保光标位置正确
-            elementNameInput.addEventListener('focus', function() {
-                if (locatorMethodSelect.value === 'xpath' && this.value === 'xpath=//') {
-                    // 将光标定位到XPath框架的适当位置
-                    this.setSelectionRange(7, 7);
-                }
-            });
-        }
-        console.log('DOM加载完成，开始初始化页面...');
-        
-        document.getElementById('caseForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-        
-            console.log('=== 开始提交表单 ===');
-        
-            const projectId = document.getElementById('projectSelect').value;
-        
-            console.log('表单数据:', {
-                projectId: projectId,
-                caseTitle: caseTitle,
-                caseDescription: caseDescription,
-                stepsCount: steps.length
-            });
-        
-            if (!projectId) {
-                alert('请选择项目');
-                return;
-            }
-        
             if (!caseTitle) {
                 alert('请输入用例标题');
                 return;
             }
-        
-            try {
-                console.log('发送创建/更新用例请求...');
-                        
-                let response, data;
-                if (currentCaseId) {
-                    // 更新用例
-                    response = await fetch(`/api/cases/${currentCaseId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            name: caseTitle,
-                            url: '',
-                            description: caseDescription,
-                            precondition: '',
-                            expected_result: ''
-                        })
-                    });
-                    data = await response.json();
-                            
-                    if (data.success) {
-                        // 删除原有步骤
-                        await fetch(`/api/cases/${currentCaseId}/steps`, {
-                            method: 'DELETE'
-                        });
-                                
-                        // 添加新步骤
-                        for (let i = 0; i < steps.length; i++) {
-                            const step = steps[i];
-                            let stepData = {
-                                case_id: currentCaseId,
-                                action: step.action,
-                                selector_type: step.locator_method,
-                                selector_value: step.element_name || '',
-                                description: step.description || '',
-                                step_order: i + 1,
-                                page_name: step.page_name || ''
-                            };
-                                    
-                            if (step.action === 'input') {
-                                stepData.input_value = step.input_value || '';
-                            } else if (step.action === 'swipe') {
-                                stepData.swipe_x = step.swipe_x || '0';
-                                stepData.swipe_y = step.swipe_y || '0';
-                            } else if (step.action === 'navigate') {
-                                stepData.url = step.url || '';
-                            } else if (step.action === 'extract_text') {
-                                stepData.input_value = step.input_value || '';
-                            }
-                                    
-                            await fetch('/api/steps', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify(stepData)
-                            });
-                        }
-        
-                        alert('测试用例更新成功！');
-                        window.location.href = '/list_projects';
-                    } else {
-                        alert('更新失败: ' + (data.error || '未知错误'));
-                    }
-                } else {
-                    // 创建用例
-                    response = await fetch('/api/cases', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            project_id: parseInt(projectId),
-                            name: caseTitle,
-                            url: '',
-                            description: caseDescription,
-                            precondition: '',
-                            expected_result: ''
-                        })
-                    });
-        
-                    console.log('响应状态:', response.status);
-                    data = await response.json();
-                    console.log('响应数据:', data);
-        
-                    if (data.success) {
-                        const caseId = data.case_id;
-                                
-                        for (let i = 0; i < steps.length; i++) {
-                            const step = steps[i];
-                            let stepData = {
+            
+            if (!projectId) {
+                alert('项目ID不存在');
+                return;
+            }
+            
+            const caseData = {
+                project_id: projectId,
+                name: caseTitle,
+                description: caseDescription
+            };
+            
+            // 先保存测试用例
+            fetch('/api/cases', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(caseData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const caseId = data.case_id;
+                    
+                    // 如果有步骤，保存步骤
+                    if (steps.length > 0) {
+                        // 批量保存步骤
+                        const saveStepsPromises = steps.map((step, index) => {
+                            const stepData = {
                                 case_id: caseId,
                                 action: step.action,
-                                selector_type: step.locator_method,
-                                selector_value: step.element_name || '',
-                                description: step.description || '',
-                                step_order: i + 1,
-                                page_name: step.page_name || ''
+                                selector_type: 'css',
+                                selector_value: step.elementName,
+                                input_value: step.value,
+                                description: `${step.action}操作`,
+                                step_order: index + 1,
+                                enter_iframe: step.enter_iframe,
+                                iframe_selector: step.iframe_selector
                             };
-                                    
-                            if (step.action === 'input') {
-                                stepData.input_value = step.input_value || '';
-                            } else if (step.action === 'swipe') {
-                                stepData.swipe_x = step.swipe_x || '0';
-                                stepData.swipe_y = step.swipe_y || '0';
-                            } else if (step.action === 'navigate') {
-                                stepData.url = step.url || '';
-                            }
-                                    
-                            await fetch('/api/steps', {
+                            
+                            return fetch('/api/steps', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify(stepData)
-                            });
-                        }
-        
-                        alert('测试用例创建成功！用例ID: ' + caseId);
-                        window.location.href = '/list_projects';
+                            })
+                            .then(response => response.json());
+                        });
+                        
+                        // 等待所有步骤保存完成
+                        Promise.all(saveStepsPromises)
+                        .then(stepResults => {
+                            // 检查是否所有步骤都保存成功
+                            const allStepsSaved = stepResults.every(result => result.success);
+                            
+                            if (allStepsSaved) {
+                                alert('测试用例保存成功');
+                                // 重置表单
+                                document.getElementById('caseTitle').value = '';
+                                document.getElementById('caseDescription').value = '';
+                                steps = [];
+                                updateStepsTable();
+                                // 跳转到测试用例列表页面
+                                window.location.href = `/list_cases_v2/${projectId}`;
+                            } else {
+                                alert('测试用例保存成功，但部分步骤保存失败');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('保存步骤失败:', error);
+                            alert('测试用例保存成功，但步骤保存失败');
+                        });
                     } else {
-                        alert('创建失败: ' + (data.error || '未知错误'));
+                        // 没有步骤，直接保存成功
+                        alert('测试用例保存成功');
+                        // 重置表单
+                        document.getElementById('caseTitle').value = '';
+                        document.getElementById('caseDescription').value = '';
+                        steps = [];
+                        updateStepsTable();
+                        // 跳转到测试用例列表页面
+                        window.location.href = `/list_cases_v2/${projectId}`;
                     }
+                } else {
+                    alert('保存失败: ' + (data.error || '未知错误'));
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('创建测试用例时发生错误: ' + error.message);
-            }
-        });
-
-        // 加载项目数据
-        async function refreshProjects() {
-            console.log('调用loadProjects函数...');
-            try {
-                await loadProjects();
-                console.log('项目数据加载完成');
-            } catch (error) {
-                console.error('项目数据加载失败:', error);
-            }
+            })
+            .catch(error => {
+                console.error('保存失败:', error);
+                alert('保存失败，请稍后重试');
+            });
         }
-        
-        // 页面加载时调用，确保异步操作被正确处理
-        (async () => {
-            await refreshProjects();
-        })();
-        
-        // 添加项目列表刷新按钮点击事件（如果存在）
-        const refreshBtn = document.getElementById('refreshProjectsBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', refreshProjects);
-        }
-        
-        // 处理URL参数
-        console.log('处理URL参数...');
-        const urlParams = new URLSearchParams(window.location.search);
-        const projectId = urlParams.get('project_id');
-        if (projectId) {
-            console.log('URL中包含project_id参数:', projectId);
-            setTimeout(() => {
-                document.getElementById('projectSelect').value = projectId;
-                console.log('已设置项目选择器值为:', projectId);
-            }, 500);
-        }
-        
-        // 检查是否有case_id参数，如果有则加载测试用例
-        const caseId = urlParams.get('case_id');
-        if (caseId) {
-            console.log('URL中包含case_id参数:', caseId);
-            loadTestCase(caseId);
-        }
-        
-        // 为模态框关闭按钮添加事件监听器
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const cancelModalBtn = document.getElementById('cancelModalBtn');
-        
-        if (closeModalBtn) {
-            closeModalBtn.addEventListener('click', closeTitleModal);
-        }
-        
-        if (cancelModalBtn) {
-            cancelModalBtn.addEventListener('click', closeTitleModal);
-        }
-        
-        console.log('页面初始化完成');
-    });
-</script>
-    <!-- 标题和描述编辑模态框 -->
-    <div id="titleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-gray-800">编辑用例标题和描述</h3>
-                <button type="button" class="text-gray-400" id="closeModalBtn">
-                    <i class="fa fa-times text-xl"></i>
-                </button>
-            </div>
-            <form id="titleForm">
-                <div class="form-group mb-4">
-                    <label for="modalCaseTitle" class="block text-sm font-medium text-gray-700 mb-1">用例标题 *</label>
-                    <input type="text" id="modalCaseTitle" required placeholder="请输入用例标题" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                </div>
-                <div class="form-group mb-4">
-                    <label for="modalCaseDescription" class="block text-sm font-medium text-gray-700 mb-1">用例描述</label>
-                    <textarea id="modalCaseDescription" placeholder="请输入测试用例的详细描述..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <button type="button" class="btn btn-outline" id="cancelModalBtn">取消</button>
-                    <button type="submit" class="btn btn-primary">保存</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    </script>
 </body>
 </html>
