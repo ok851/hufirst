@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 import time
 from database import Database
-from playwright_automation import automation, sync_start_browser, sync_navigate_to, sync_scroll_page, sync_get_page_text, sync_extract_element_text, sync_get_page_title, sync_get_current_url, sync_get_all_links, sync_hover_element, sync_double_click_element, sync_right_click_element, sync_click_element, sync_fill_input, sync_get_page_elements, sync_extract_element_data, sync_get_page_data, sync_analyze_page_content, sync_close_browser, sync_execute_script_steps, sync_start_recording, sync_stop_recording, sync_wait_for_selector, sync_wait_for_element_visible, sync_take_screenshot, sync_execute_multiple_test_cases, worker, sync_enable_element_selection, sync_disable_element_selection, sync_get_selected_element, sync_wait_for_timeout  # 使用全局实例和同步包装器
+from playwright_automation import automation, sync_start_browser, sync_navigate_to, sync_scroll_page, sync_get_page_text, sync_extract_element_text, sync_extract_element_json, sync_get_page_title, sync_get_current_url, sync_get_all_links, sync_hover_element, sync_double_click_element, sync_right_click_element, sync_click_element, sync_fill_input, sync_get_page_elements, sync_extract_element_data, sync_get_page_data, sync_analyze_page_content, sync_close_browser, sync_execute_script_steps, sync_start_recording, sync_stop_recording, sync_wait_for_selector, sync_wait_for_element_visible, sync_take_screenshot, sync_execute_multiple_test_cases, worker, sync_enable_element_selection, sync_disable_element_selection, sync_get_selected_element, sync_wait_for_timeout  # 使用全局实例和同步包装器
 import asyncio
 import json
 import functools
@@ -122,7 +122,7 @@ def list_steps():
 @api_error_handler
 @log_api_request
 def api_create_case():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     name = data.get('name', '')
     description = data.get('description', '')
     target_url = data.get('target_url', '')
@@ -156,7 +156,7 @@ def api_get_test_case(case_id):
 @api_error_handler
 @log_api_request
 def api_update_test_case(case_id):
-    data = request.json
+    data = request.get_json(silent=True) or {}
     name = data.get('name')
     description = data.get('description')
     target_url = data.get('target_url')
@@ -185,7 +185,7 @@ def api_delete_test_case(case_id):
 @api_error_handler
 @log_api_request
 def api_start_recording():
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     url = data.get('url', '')
     
     try:
@@ -247,7 +247,7 @@ def api_stop_recording():
 @api_error_handler
 @log_api_request
 def api_execute_multiple_cases():
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     case_ids = data.get('case_ids', [])
     
     if not case_ids:
@@ -258,18 +258,107 @@ def api_execute_multiple_cases():
     
     uat_logger.info(f"开始执行多个测试用例，共 {len(case_ids)} 个用例")
     
-    # 执行多个测试用例
-    results = sync_execute_multiple_test_cases(case_ids, db)
+    results = None
     
-    # 记录执行结果
-    uat_logger.info(f"多个测试用例执行完成，成功: {results['successful_cases']}, 失败: {results['failed_cases']}")
-    
-    # 尝试关闭浏览器，但不影响结果返回
     try:
-        sync_close_browser()
-        uat_logger.info("多个测试用例执行完成，浏览器已关闭")
-    except Exception as close_error:
-        uat_logger.warning(f"关闭浏览器时出错: {close_error}")
+        # 执行多个测试用例，添加超时处理
+        import threading
+        import queue
+        
+        # 创建队列用于返回结果
+        result_queue = queue.Queue()
+        
+        def execute_test_cases():
+            """在子线程中执行测试用例"""
+            try:
+                result = sync_execute_multiple_test_cases(case_ids, db)
+                result_queue.put((True, result))
+            except Exception as e:
+                result_queue.put((False, str(e)))
+        
+        # 启动子线程执行测试用例
+        thread = threading.Thread(target=execute_test_cases)
+        thread.daemon = True
+        thread.start()
+        
+        # 等待测试用例执行完成，设置超时时间为300秒（5分钟）
+        thread.join(300)  # 300秒超时
+        
+        if thread.is_alive():
+            # 测试用例执行超时
+            uat_logger.error("测试用例执行超时，已超过300秒")
+            results = {
+                "total_cases": len(case_ids),
+                "successful_cases": 0,
+                "failed_cases": len(case_ids),
+                "case_results": [
+                    {
+                        "case_id": case_id,
+                        "case_name": "未知",
+                        "status": "error",
+                        "error": "测试用例执行超时"
+                    } for case_id in case_ids
+                ]
+            }
+        else:
+            # 获取测试用例执行结果
+            success, result = result_queue.get()
+            if success:
+                results = result
+            else:
+                uat_logger.error(f"测试用例执行出错: {result}")
+                results = {
+                    "total_cases": len(case_ids),
+                    "successful_cases": 0,
+                    "failed_cases": len(case_ids),
+                    "case_results": [
+                        {
+                            "case_id": case_id,
+                            "case_name": "未知",
+                            "status": "error",
+                            "error": f"执行出错: {result}"
+                        } for case_id in case_ids
+                    ]
+                }
+        
+        # 记录执行结果
+        uat_logger.info(f"多个测试用例执行完成，成功: {results['successful_cases']}, 失败: {results['failed_cases']}")
+        
+    except Exception as e:
+        uat_logger.error(f"执行测试用例时出错: {e}")
+        results = {
+            "total_cases": len(case_ids),
+            "successful_cases": 0,
+            "failed_cases": len(case_ids),
+            "case_results": [
+                {
+                    "case_id": case_id,
+                    "case_name": "未知",
+                    "status": "error",
+                    "error": f"系统错误: {str(e)}"
+                } for case_id in case_ids
+            ]
+        }
+    finally:
+        # 确保浏览器关闭，无论测试用例执行结果如何
+        try:
+            sync_close_browser()
+            uat_logger.info("多个测试用例执行完成，浏览器已关闭")
+        except Exception as close_error:
+            uat_logger.warning(f"关闭浏览器时出错: {close_error}")
+            # 如果常规关闭失败，尝试强制关闭
+            try:
+                uat_logger.info("尝试强制关闭浏览器")
+                # 使用更直接的方式关闭浏览器
+                if automation and automation.browser:
+                    # 直接调用浏览器的close方法
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(automation.browser.close())
+                    uat_logger.info("浏览器已强制关闭")
+            except Exception as force_close_error:
+                uat_logger.error(f"强制关闭浏览器时出错: {force_close_error}")
     
     response_data = {'success': True, 'results': results}
     return jsonify(response_data)
@@ -279,7 +368,7 @@ def api_execute_multiple_cases():
 @api_error_handler
 @log_api_request
 def api_navigate():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     url = data.get('url', '')
     
     if not url:
@@ -293,26 +382,42 @@ def api_navigate():
 @api_error_handler
 @log_api_request
 def api_scroll():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     direction = data.get('direction', 'down')
     pixels = data.get('pixels', 500)
     
     sync_scroll_page(direction, pixels)
     return jsonify({'success': True})
 
-# API: 提取页面文本
-@app.route('/api/extract_text', methods=['POST'])
+# API: 提取元素文本
+@app.route('/api/extract_element_text', methods=['POST'])
 @api_error_handler
 @log_api_request
-def api_extract_text():
-    data = request.json
-    selector = data.get('selector', 'body')
+def api_extract_element_text():
+    data = request.get_json(silent=True) or {}
+    selector = data.get('selector', '')
+    selector_type = data.get('selector_type', 'css')
     
     if selector == 'body':
         text = sync_get_page_text()
     else:
-        text = sync_extract_element_text(selector)
+        text = sync_extract_element_text(selector, selector_type)
     return jsonify({'success': True, 'text': text})
+
+# API: 提取元素JSON数据
+@app.route('/api/extract_element_json', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_extract_element_json():
+    data = request.get_json(silent=True) or {}
+    selector = data.get('selector', '')
+    selector_type = data.get('selector_type', 'css')
+    
+    if not selector:
+        return jsonify({'success': False, 'error': '选择器不能为空'}), 400
+    
+    json_data = sync_extract_element_json(selector, selector_type)
+    return jsonify({'success': True, 'json': json_data})
 
 # API: 获取页面标题
 @app.route('/api/page_title', methods=['GET'])
@@ -338,12 +443,58 @@ def api_links():
     links = sync_get_all_links()
     return jsonify({'success': True, 'links': links})
 
+# API: 启动可视化选择
+@app.route('/api/start_visual_selection', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_start_visual_selection():
+    try:
+        # 获取请求数据，使用silent=True避免解析失败时返回400错误
+        data = request.get_json(silent=True) or {}
+        target_url = data.get('url', '')
+        
+        # 启动可视化选择功能，并传递目标URL
+        sync_enable_element_selection(target_url)
+        return jsonify({'success': True, 'message': '可视化选择已启动'})
+    except Exception as e:
+        uat_logger.error(f"启动可视化选择失败: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# API: 停止可视化选择
+@app.route('/api/stop_visual_selection', methods=['POST'])
+@api_error_handler
+@log_api_request
+def api_stop_visual_selection():
+    try:
+        # 停止可视化选择功能
+        sync_disable_element_selection()
+        return jsonify({'success': True, 'message': '可视化选择已停止'})
+    except Exception as e:
+        uat_logger.error(f"停止可视化选择失败: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# API: 检查选择的元素
+@app.route('/api/check_selected_element', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_check_selected_element():
+    try:
+        # 获取选择的元素
+        selected_element = sync_get_selected_element()
+        if selected_element:
+            return jsonify({'success': True, 'selected_element': selected_element})
+        else:
+            return jsonify({'success': True, 'selected_element': None})
+    except Exception as e:
+        uat_logger.error(f"检查选择元素失败: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 # API: 提取元素数据
 @app.route('/api/extract_element_data', methods=['POST'])
 @api_error_handler
 @log_api_request
 def api_extract_element_data():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     
     if not selector:
@@ -365,7 +516,7 @@ def api_page_data():
 @api_error_handler
 @log_api_request
 def api_analyze_content():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', 'body')
     
     analysis = automation.analyze_page_content(selector)
@@ -376,7 +527,7 @@ def api_analyze_content():
 @api_error_handler
 @log_api_request
 def api_hover_element():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     
     if not selector:
@@ -390,7 +541,7 @@ def api_hover_element():
 @api_error_handler
 @log_api_request
 def api_double_click():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     
     if not selector:
@@ -404,7 +555,7 @@ def api_double_click():
 @api_error_handler
 @log_api_request
 def api_click_element():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     
     if not selector:
@@ -418,7 +569,7 @@ def api_click_element():
 @api_error_handler
 @log_api_request
 def api_fill_input():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     text = data.get('text', '')
     
@@ -433,7 +584,7 @@ def api_fill_input():
 @api_error_handler
 @log_api_request
 def api_right_click():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     
     if not selector:
@@ -447,7 +598,7 @@ def api_right_click():
 @api_error_handler
 @log_api_request
 def api_wait_for_selector():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     timeout = data.get('timeout', 30000)
     
@@ -462,7 +613,7 @@ def api_wait_for_selector():
 @api_error_handler
 @log_api_request
 def api_wait_for_element_visible():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
     timeout = data.get('timeout', 30000)
     
@@ -552,7 +703,7 @@ def api_get_selected_element():
 @api_error_handler
 @log_api_request
 def api_create_project():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     name = data.get('name', '')
     description = data.get('description', '')
     
@@ -585,7 +736,7 @@ def api_get_project(project_id):
 @api_error_handler
 @log_api_request
 def api_update_project(project_id):
-    data = request.json
+    data = request.get_json(silent=True) or {}
     name = data.get('name')
     description = data.get('description')
     
@@ -623,7 +774,7 @@ def api_get_project_cases(project_id):
 @api_error_handler
 @log_api_request
 def api_create_case_v2():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     project_id = data.get('project_id')
     name = data.get('name', '')
     url = data.get('url', '')
@@ -654,7 +805,7 @@ def api_get_case_v2(case_id):
 @api_error_handler
 @log_api_request
 def api_update_case_v2(case_id):
-    data = request.json
+    data = request.get_json(silent=True) or {}
     name = data.get('name')
     url = data.get('url')
     description = data.get('description')
@@ -705,7 +856,7 @@ def api_get_step(step_id):
 @api_error_handler
 @log_api_request
 def api_create_step():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     case_id = data.get('case_id')
     action = data.get('action', '')
     selector_type = data.get('selector_type', '')
@@ -733,7 +884,7 @@ def api_create_step():
 @api_error_handler
 @log_api_request
 def api_update_step(step_id):
-    data = request.json
+    data = request.get_json(silent=True) or {}
     action = data.get('action')
     selector_type = data.get('selector_type')
     selector_value = data.get('selector_value')
@@ -917,11 +1068,14 @@ def api_run_case(case_id):
                             full_selector = f'xpath={full_selector}'
                         # 提取元素文本（添加异常处理）
                         try:
-                            extracted_text = sync_extract_element_text(full_selector)
-                            uat_logger.info(f"提取到文本: {extracted_text[:100]}...")
+                            current_extracted = sync_extract_element_text(selector_value, selector_type)
+                            uat_logger.info(f"提取到文本: {current_extracted[:100]}...")
+                            # 保存到extracted_text变量，而不是覆盖
+                            extracted_text = current_extracted
                         except Exception as extract_error:
                             uat_logger.warning(f"提取文本失败: {extract_error}")
-                            extracted_text = ""
+                            # 仅在提取失败时才将当前提取结果设为空，不影响之前的提取结果
+                            current_extracted = ""
                         
                         # 检查是否需要验证文本
                         expected_text = input_value or description
@@ -950,27 +1104,33 @@ def api_run_case(case_id):
                         sync_wait_for_timeout(1000)
                     else:
                         # 提取整个页面文本
-                        extracted_text = sync_get_page_text()
-                        uat_logger.info(f"提取到页面文本: {extracted_text[:100]}...")
+                        try:
+                            current_extracted = sync_get_page_text()
+                            uat_logger.info(f"提取到页面文本: {current_extracted[:100]}...")
+                            # 保存到extracted_text变量
+                            extracted_text = current_extracted
+                        except Exception as extract_error:
+                            uat_logger.warning(f"提取页面文本失败: {extract_error}")
+                            current_extracted = ""
                         
                         # 检查是否需要验证文本
                         expected_text = input_value or description
                         verify_type = step.get('verify_type', 'equals')
                         
                         if expected_text:
-                            uat_logger.info(f"验证页面文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
+                            uat_logger.info(f"验证页面文本 - 提取: {current_extracted[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
                             
                             # 根据验证方式执行不同的验证逻辑
                             if verify_type == 'equals':
-                                if extracted_text != expected_text:
+                                if current_extracted != expected_text:
                                     uat_logger.error("页面文本验证失败: 提取的文本与预期结果不相等")
                                     raise Exception(f"页面文本验证失败: 提取的文本与预期结果不相等")
                             elif verify_type == 'contains':
-                                if expected_text not in extracted_text:
+                                if expected_text not in current_extracted:
                                     uat_logger.error("页面文本验证失败: 提取的文本不包含预期内容")
                                     raise Exception(f"页面文本验证失败: 提取的文本不包含预期内容")
                             elif verify_type == 'partial':
-                                if expected_text not in extracted_text:
+                                if expected_text not in current_extracted:
                                     uat_logger.error("页面文本验证失败: 提取的文本不包含预期的部分内容")
                                     raise Exception(f"页面文本验证失败: 提取的文本不包含预期的部分内容")
                             

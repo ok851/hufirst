@@ -21,10 +21,19 @@ class PlaywrightAutomation:
     async def start_browser(self, headless=False):
         """启动浏览器"""
         try:
-            if self.browser is None:
+            # 确保浏览器相关对象都已正确重置
+            if self.browser is None or not self.browser.is_connected():
                 uat_logger.info(f"启动浏览器，headless={headless}")
                 
-                # 1. 使用Windows API直接获取真实的屏幕尺寸（不依赖浏览器）
+                # 1. 确保playwright实例已正确关闭和重置
+                if self.playwright:
+                    try:
+                        await self.playwright.stop()
+                    except:
+                        pass
+                    self.playwright = None
+                
+                # 2. 使用Windows API直接获取真实的屏幕尺寸（不依赖浏览器）
                 self.playwright = await async_playwright().start()
                 
                 # 调用Windows API获取真实屏幕尺寸
@@ -144,14 +153,16 @@ class PlaywrightAutomation:
                         'aria-labelledby', 'aria-describedby', 'aria-controls'
                     ];
                     let hasStableAttr = false;
-                    for (const attr of stableAttrs) {
-                        const value = element.getAttribute(attr);
-                        if (value && value.length > 0 && !value.includes(' ')) {
-                            elementSelector = `${tagName}[${attr}="${value}"]`;
-                            hasStableAttr = true;
-                            break;
+                        for (const attr of stableAttrs) {
+                            const value = element.getAttribute(attr);
+                            if (value && value.length > 0) {
+                                // 支持包含空格的值，使用转义双引号
+                                const safeValue = value.replace(/"/g, '&quot;');
+                                elementSelector = `${tagName}[${attr}="${safeValue}"]`;
+                                hasStableAttr = true;
+                                break;
+                            }
                         }
-                    }
                     
                     if (!hasStableAttr) {
                         elementSelector = tagName;
@@ -183,44 +194,63 @@ class PlaywrightAutomation:
                             ];
                             
                             const stableClasses = allClasses.filter(c => {
-                                // 过滤掉动态类名
-                                const isDynamic = dynamicClassPatterns.some(p => p.test(c));
-                                // 过滤掉只有数字或特殊字符的类名
-                                const isInvalid = /^[0-9_\-]+$/.test(c);
-                                return !isDynamic && !isInvalid;
-                            });
+                                    // 过滤掉动态类名
+                                    const isDynamic = dynamicClassPatterns.some(p => p.test(c));
+                                    // 过滤掉只有数字或特殊字符的类名
+                                    const isInvalid = /^[0-9_\-\.\s]+$/.test(c);
+                                    // 过滤掉太短的类名（可能是动态生成的）
+                                    const isTooShort = c.length < 3;
+                                    return !isDynamic && !isInvalid && !isTooShort;
+                                });
                             if (stableClasses.length) {
                                 elementSelector += '.' + stableClasses.slice(0, 3).join('.');
                             }
                         }
                     }
                     
-                    // 元素类型特定属性处理
-                    if (tagName === 'input') {
-                        // 对于表单输入元素，添加更多识别属性
-                        const type = element.type;
-                        elementSelector += `[type="${type}"]`;
-                        
-                        // 添加name或placeholder属性
-                        if (element.name && element.name.length > 0) {
-                            elementSelector += `[name="${element.name}"]`;
-                        } else if (element.placeholder && element.placeholder.length > 0) {
-                            elementSelector += `[placeholder="${element.placeholder}"]`;
-                        }
-                    } else if (tagName === 'textarea' || tagName === 'select') {
-                        // 对于其他表单元素
-                        if (element.name && element.name.length > 0) {
-                            elementSelector += `[name="${element.name}"]`;
-                        } else if (element.placeholder && element.placeholder.length > 0) {
-                            elementSelector += `[placeholder="${element.placeholder}"]`;
-                        } else if (element.title && element.title.length > 0) {
-                            elementSelector += `[title="${element.title}"]`;
-                        }
-                    } else if (tagName === 'img') {
-                        // 对于图片，使用更精确的定位
-                        if (element.alt && element.alt.length > 0) {
-                            elementSelector += `[alt="${element.alt}"]`;
-                        } else if (element.src && element.src.length > 0) {
+                    // 元素类型特定属性处理，增强对动态表单元素的支持
+                        if (tagName === 'input') {
+                            // 对于表单输入元素，添加更多识别属性
+                            const type = element.type;
+                            elementSelector += `[type="${type}"]`;
+                            
+                            // 优化表单元素识别顺序，优先使用更多稳定属性
+                            if (element.name && element.name.length > 0) {
+                                elementSelector += `[name="${element.name}"]`;
+                            } else if (element.placeholder && element.placeholder.length > 0) {
+                                elementSelector += `[placeholder="${element.placeholder}"]`;
+                            } else if (element.value && element.value.length > 0 && !element.value.match(/^[0-9]+$/)) {
+                                // 仅对非数字的静态值使用value属性
+                                elementSelector += `[value="${element.value}"]`;
+                            } else if (element.getAttribute('aria-label')) {
+                                elementSelector += `[aria-label="${element.getAttribute('aria-label')}"]`;
+                            }
+                        } else if (tagName === 'textarea' || tagName === 'select') {
+                            // 对于其他表单元素，增强识别能力
+                            if (element.name && element.name.length > 0) {
+                                elementSelector += `[name="${element.name}"]`;
+                            } else if (element.placeholder && element.placeholder.length > 0) {
+                                elementSelector += `[placeholder="${element.placeholder}"]`;
+                            } else if (element.title && element.title.length > 0) {
+                                elementSelector += `[title="${element.title}"]`;
+                            } else if (element.getAttribute('aria-label')) {
+                                elementSelector += `[aria-label="${element.getAttribute('aria-label')}"]`;
+                            }
+                        } else if (tagName === 'button') {
+                            // 增强按钮元素的识别，优化动态按钮处理
+                            if (element.textContent && element.textContent.trim().length > 0) {
+                                const text = element.textContent.trim().substring(0, 25).replace(/"/g, '&quot;');
+                                elementSelector += `:contains("${text}")`;
+                            } else if (element.getAttribute('aria-label')) {
+                                elementSelector += `[aria-label="${element.getAttribute('aria-label')}"]`;
+                            } else if (element.type) {
+                                elementSelector += `[type="${element.type}"]`;
+                            }
+                        } else if (tagName === 'img') {
+                            // 对于图片，使用更精确的定位
+                            if (element.alt && element.alt.length > 0) {
+                                elementSelector += `[alt="${element.alt}"]`;
+                            } else if (element.src && element.src.length > 0) {
                             // 对于图片，使用部分src路径
                             const srcParts = element.src.split('/');
                             const filename = srcParts[srcParts.length - 1];
@@ -939,7 +969,7 @@ class PlaywrightAutomation:
                         
                         setTimeout(checkStability, checkInterval);
                     })
-                """)
+                    """)
         else:
             uat_logger.error("页面对象为None，无法导航")
             raise Exception("无法创建页面对象")
@@ -1273,98 +1303,299 @@ class PlaywrightAutomation:
             print(f"获取页面文本时出错: {e}")
             return ""
     
-    async def extract_element_text(self, selector: str) -> str:
-        """提取特定元素的文本"""
+    async def extract_element_text(self, selector: str, selector_type: str = "css") -> str:
+        """提取特定元素的文本，支持多种定位方式
+        参数:
+            selector: 定位器字符串
+            selector_type: 定位器类型，支持以下选项:
+                - css: CSS选择器
+                - xpath: XPath选择器
+                - text: 文本内容
+                - role: 语义角色 (直接使用角色名，如 "button", "heading")
+                - testid: 测试ID (data-testid属性值)
+        """
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        # 高效的文本提取，按成功率和性能排序
+        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 开始提取文本，选择器: {selector}, 选择器类型: {selector_type}")
+        
         try:
-            # 1. 使用JavaScript直接提取，最快的方法
-            text = await self.page.evaluate(f'''
-                (selector) => {{
-                    const el = document.querySelector(selector);
-                    if (!el) return '';
-                    
-                    // 优先处理表单元素
-                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {{
-                        return el.value || el.getAttribute('value') || el.textContent || el.innerText || '';
-                    }}
-                    
-                    // 处理其他元素，优先使用textContent获取所有文本
-                    return el.textContent || el.innerText || el.getAttribute('value') || '';
-                }}
-            ''', selector)
+            element = None
             
-            if text and text.strip():
-                return text.strip()
+            # 根据不同定位方式获取元素
+            if selector_type == "css":
+                # CSS选择器
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用CSS选择器: {selector}")
+                element = self.page.locator(selector)
+                element = element.first
+            elif selector_type == "xpath":
+                # XPath选择器
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用XPath选择器: {selector}")
+                element = self.page.locator(f"xpath={selector}")
+                element = element.first
+            elif selector_type == "text":
+                # 文本内容选择器
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用文本选择器: {selector}")
+                element = self.page.locator(f"text={selector}")
+                element = element.first
+            elif selector_type == "role":
+                # 语义角色选择器
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用角色选择器: {selector}")
+                # 使用Playwright的专用role定位器
+                if "," in selector:
+                    # 处理带参数的角色，只使用角色名部分
+                    role_name = selector.split(",")[0]
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 角色选择器包含参数，只使用角色名: {role_name}")
+                    element = self.page.get_by_role(role_name)
+                else:
+                    element = self.page.get_by_role(selector)
+                element = element.first
+            elif selector_type == "testid":
+                # 测试ID选择器，使用Playwright的专用testid定位器
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用testid选择器: {selector}")
+                element = self.page.get_by_test_id(selector)
+                element = element.first
+            elif selector.startswith("//") or selector.startswith("/"):
+                # 自动识别XPath
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 自动识别为XPath选择器: {selector}")
+                element = self.page.locator(f"xpath={selector}")
+                element = element.first
+            else:
+                # 默认使用CSS选择器
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 默认使用CSS选择器: {selector}")
+                element = self.page.locator(selector)
+                element = element.first
             
-            # 2. 如果JavaScript方法失败，使用Playwright的locator方法
-            element = self.page.locator(selector)
-            
-            # 等待元素可见且可交互
-            try:
-                await element.wait_for(state='visible', timeout=5000)
-                await element.wait_for(state='enabled', timeout=5000)
-            except Exception as e:
-                print(f"元素不可见或不可交互: {e}")
+            # 确保元素已正确获取
+            if element is None:
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 未成功获取元素")
                 return ""
             
-            # 尝试获取元素类型并使用最适合的方法
+            # 添加宽松的等待机制
             try:
-                tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
-                
-                if tag_name in ["input", "textarea"]:
-                    # 对于输入框，尝试多种获取值的方法
-                    try:
-                        text = await element.input_value()
-                        if text and text.strip():
-                            return text.strip()
-                    except:
-                        pass
-                    
-                    try:
-                        text = await element.get_attribute("value")
-                        if text and text.strip():
-                            return text.strip()
-                    except:
-                        pass
-                else:
-                    # 对于非输入框元素
-                    try:
-                        text = await element.text_content(timeout=5000)
-                        if text and text.strip():
-                            return text.strip()
-                    except:
-                        pass
-                    
-                    try:
-                        text = await element.inner_text(timeout=5000)
-                        if text and text.strip():
-                            return text.strip()
-                    except:
-                        pass
-            except:
-                # 如果无法获取标签名，尝试通用方法
-                try:
-                    text = await element.text_content(timeout=5000)
-                    if text and text.strip():
-                        return text.strip()
-                except:
-                    pass
-                
-                try:
-                    text = await element.inner_text(timeout=5000)
-                    if text and text.strip():
-                        return text.strip()
-                except:
-                    pass
-        except Exception as e:
-            print(f"提取元素文本时出错: {e}")
+                # 尝试等待元素存在（不要求可见）
+                await element.wait_for(state="attached", timeout=5000)
+            except Exception:
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 等待元素存在超时，尝试继续提取")
             
-        # 如果所有方法都失败，返回空字符串
-        return ""
+            # 检查元素是否存在
+            try:
+                count = await element.count()
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 找到元素数量: {count}")
+                if count == 0:
+                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 未找到元素")
+                    return ""
+            except Exception as e:
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 检查元素数量失败: {e}")
+                # 继续尝试提取，不强制要求元素存在
+            
+            # 获取元素的标签名，判断元素类型
+            tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 元素标签名: {tag_name}")
+            
+            # 针对不同元素类型使用合适的提取方法
+            extracted_text = ""
+            if tag_name in ["input", "textarea"]:
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 输入框元素，使用input_value()提取")
+                try:
+                    extracted_text = await element.input_value()
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] input_value()提取结果: '{extracted_text}'")
+                except Exception as e:
+                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] input_value()失败: {e}")
+                    try:
+                        extracted_text = await element.get_attribute("value")
+                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value')提取结果: '{extracted_text}'")
+                    except Exception as e2:
+                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value')失败: {e2}")
+            else:
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 普通元素，使用inner_text()提取")
+                try:
+                    extracted_text = await element.inner_text()
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] inner_text()提取结果: '{extracted_text}'")
+                except Exception as e:
+                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] inner_text()失败: {e}")
+                    try:
+                        extracted_text = await element.text_content()
+                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] text_content()提取结果: '{extracted_text}'")
+                    except Exception as e2:
+                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] text_content()失败: {e2}")
+            
+            # 确保返回的文本不为None
+            result = extracted_text if extracted_text is not None else ""
+            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 最终提取结果: '{result}'")
+            return result
+        except Exception as e:
+            # 详细记录异常信息
+            uat_logger.error(f"📝 [TEXT_EXTRACT_DEBUG] 提取文本时出错: {str(e)}")
+            print(f"提取元素文本时出错: {str(e)}")
+            return ""
     
+    async def extract_element_json(self, selector: str, selector_type: str = "css") -> dict:
+        """从特定元素中提取JSON数据，支持多种定位方式
+        参数:
+            selector: 定位器字符串
+            selector_type: 定位器类型，支持以下选项:
+                - css: CSS选择器
+                - xpath: XPath选择器
+                - text: 文本内容
+                - role: 语义角色 (直接使用角色名，如 "button", "heading")
+                - testid: 测试ID (data-testid属性值)
+        返回:
+            提取到的JSON数据，解析失败则返回空字典
+        """
+        if self.page is None:
+            raise Exception("浏览器未启动")
+        
+        uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 开始提取JSON，选择器: {selector}, 选择器类型: {selector_type}")
+        
+        try:
+            element = None
+            
+            # 根据不同定位方式获取元素
+            if selector_type == "css":
+                # CSS选择器
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用CSS选择器: {selector}")
+                element = self.page.locator(selector)
+                await element.wait_for(state="visible", timeout=8000)
+            elif selector_type == "xpath":
+                # XPath选择器
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用XPath选择器: {selector}")
+                element = self.page.locator(f"xpath={selector}")
+                await element.wait_for(state="visible", timeout=8000)
+            elif selector_type == "text":
+                # 文本内容选择器
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用文本选择器: {selector}")
+                element = self.page.locator(f"text={selector}")
+                await element.wait_for(state="visible", timeout=8000)
+            elif selector_type == "role":
+                # 语义角色选择器
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用角色选择器: {selector}")
+                # 使用Playwright的专用role定位器
+                if "," in selector:
+                    # 处理带参数的角色，只使用角色名部分
+                    role_name = selector.split(",")[0]
+                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 角色选择器包含参数，只使用角色名: {role_name}")
+                    element = self.page.get_by_role(role_name)
+                else:
+                    element = self.page.get_by_role(selector)
+                await element.wait_for(state="visible", timeout=8000)
+            elif selector_type == "testid":
+                # 测试ID选择器，使用Playwright的专用testid定位器
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用testid选择器: {selector}")
+                element = self.page.get_by_test_id(selector)
+                await element.wait_for(state="visible", timeout=8000)
+            elif selector.startswith("//") or selector.startswith("/"):
+                # 自动识别XPath
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 自动识别为XPath选择器: {selector}")
+                element = self.page.locator(f"xpath={selector}")
+                await element.wait_for(state="visible", timeout=8000)
+            else:
+                # 默认使用CSS选择器
+                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 默认使用CSS选择器: {selector}")
+                element = self.page.locator(selector)
+                await element.wait_for(state="visible", timeout=8000)
+            
+            # 确保元素已正确获取
+            if element is None:
+                uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 未成功获取元素")
+                return {}
+            
+            # 检查元素是否存在
+            count = await element.count()
+            uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 找到元素数量: {count}")
+            if count == 0:
+                uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 未找到元素")
+                return {}
+            
+            # 获取第一个匹配元素
+            element = element.first
+            
+            # 获取元素的标签名，判断元素类型
+            tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+            uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 元素标签名: {tag_name}")
+            
+            # 从多种来源提取JSON数据
+            json_sources = []
+            
+            # 1. 从元素文本内容提取
+            try:
+                text_content = await element.text_content()
+                if text_content and text_content.strip():
+                    json_sources.append(text_content.strip())
+                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 从text_content提取到潜在JSON: {text_content.strip()[:100]}...")
+            except Exception as e:
+                uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 从text_content提取失败: {e}")
+            
+            # 2. 从inner_text提取
+            try:
+                inner_text = await element.inner_text()
+                if inner_text and inner_text.strip() and inner_text.strip() != text_content:
+                    json_sources.append(inner_text.strip())
+                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 从inner_text提取到潜在JSON: {inner_text.strip()[:100]}...")
+            except Exception as e:
+                uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 从inner_text提取失败: {e}")
+            
+            # 3. 从input/textarea的value属性提取
+            if tag_name in ["input", "textarea"]:
+                try:
+                    input_value = await element.input_value()
+                    if input_value and input_value.strip():
+                        json_sources.append(input_value.strip())
+                        uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 从input_value提取到潜在JSON: {input_value.strip()[:100]}...")
+                except Exception as e:
+                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 从input_value提取失败: {e}")
+            
+            # 4. 从innerHTML提取（寻找JSON结构）
+            try:
+                inner_html = await element.innerHTML()
+                if inner_html and inner_html.strip():
+                    # 尝试从innerHTML中提取JSON字符串
+                    import re
+                    # 匹配JSON对象或数组
+                    json_pattern = r'\{\s*["\w].*?\}\s*' + r'|' + r'\[\s*["\w].*?\]\s*'
+                    matches = re.findall(json_pattern, inner_html, re.DOTALL)
+                    if matches:
+                        for match in matches:
+                            if match.strip():
+                                json_sources.append(match.strip())
+                                uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 从innerHTML提取到潜在JSON: {match.strip()[:100]}...")
+            except Exception as e:
+                uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 从innerHTML提取失败: {e}")
+            
+            # 5. 从元素的特定属性提取
+            json_attributes = ["data-json", "data-content", "data-value", "value"]
+            for attr in json_attributes:
+                try:
+                    attr_value = await element.get_attribute(attr)
+                    if attr_value and attr_value.strip():
+                        json_sources.append(attr_value.strip())
+                        uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 从属性{attr}提取到潜在JSON: {attr_value.strip()[:100]}...")
+                except Exception as e:
+                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 从属性{attr}提取失败: {e}")
+            
+            # 尝试解析每个潜在的JSON源
+            for json_source in json_sources:
+                try:
+                    import json
+                    # 清理JSON字符串（移除可能的换行符、多余空格等）
+                    cleaned_json = json_source.replace("\n", "").replace("\r", "").strip()
+                    # 尝试解析JSON
+                    json_data = json.loads(cleaned_json)
+                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 成功解析JSON，包含{len(json_data) if isinstance(json_data, dict) else len(json_data)}个元素")
+                    return json_data
+                except json.JSONDecodeError as e:
+                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] JSON解析失败: {e}，尝试下一个源")
+                except Exception as e:
+                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 处理JSON源时出错: {e}，尝试下一个源")
+            
+            uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 所有JSON源解析失败")
+            return {}
+        except Exception as e:
+            # 详细记录异常信息
+            uat_logger.error(f"📝 [JSON_EXTRACT_DEBUG] 提取JSON时出错: {str(e)}")
+            print(f"提取元素JSON时出错: {str(e)}")
+            return {}
+
     async def _validate_selector(self, selector: str):
         """验证定位器的有效性和唯一性"""
         try:
@@ -3266,13 +3497,65 @@ class PlaywrightAutomation:
                 await self.playwright.stop()
             except Exception:
                 pass  # 忽略错误
+            self.playwright = None
     
-    async def enable_element_selection(self):
+    async def enable_element_selection(self, url=''):
         """启用元素选择模式，显示悬浮窗让用户选择页面元素"""
-        if self.page is None:
-            await self.start_browser()
-        
         try:
+            # 检查浏览器实例是否有效
+            browser_valid = False
+            
+            # 1. 检查browser对象是否存在且已连接
+            browser_connected = False
+            if self.browser:
+                try:
+                    browser_connected = self.browser.is_connected()
+                except:
+                    browser_connected = False
+            
+            # 2. 如果浏览器已连接，检查page对象是否有效
+            if browser_connected and self.page:
+                try:
+                    # 尝试执行一个简单的操作来检查页面是否仍然有效
+                    await self.page.evaluate("1 + 1")
+                    browser_valid = True
+                except Exception as e:
+                    uat_logger.warning(f"页面对象已失效: {str(e)}")
+                    # 重置浏览器相关状态
+                    self.page = None
+                    self.context = None
+            
+            # 3. 如果浏览器未连接或页面无效，重置所有浏览器相关状态
+            if not browser_valid:
+                uat_logger.warning(f"浏览器实例无效，重置所有相关状态")
+                # 尝试优雅关闭playwright
+                if self.playwright:
+                    try:
+                        await self.playwright.stop()
+                    except:
+                        pass
+                # 重置所有浏览器相关状态
+                self.browser = None
+                self.page = None
+                self.context = None
+                self.playwright = None
+            
+            # 4. 启动或复用浏览器实例
+            if not browser_valid:
+                # 如果浏览器实例不存在或已失效，则启动新实例
+                uat_logger.info("启动新的浏览器实例")
+                await self.start_browser()
+            else:
+                # 复用已存在的浏览器实例，切换到当前页面
+                uat_logger.info("复用已存在的浏览器实例")
+                # 确保页面已加载
+                await self.page.wait_for_load_state('networkidle')
+            
+            # 如果提供了URL，则导航到该URL
+            if url:
+                await self.page.goto(url)
+                await self.page.wait_for_load_state('networkidle')
+            
             # 注入元素选择悬浮窗
             await self.page.evaluate(r"""
                 (() => {
@@ -3296,11 +3579,26 @@ class PlaywrightAutomation:
                         
                         #automation-selector-highlight {
                             position: absolute;
-                            border: 2px solid #ff0000;
-                            background-color: rgba(255, 0, 0, 0.2);
+                            border: 2px solid #00ff00;
+                            background-color: rgba(0, 255, 0, 0.15);
                             pointer-events: none;
                             z-index: 999998;
-                            transition: all 0.1s ease;
+                            transition: all 0.05s ease-in-out;
+                            box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5);
+                            animation: pulse 1.5s infinite;
+                        }
+                        
+                        /* 高亮动画效果 */
+                        @keyframes pulse {
+                            0% {
+                                box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5);
+                            }
+                            50% {
+                                box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.3);
+                            }
+                            100% {
+                                box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5);
+                            }
                         }
                         
                         #automation-selector-float {
@@ -3308,64 +3606,126 @@ class PlaywrightAutomation:
                             top: 20px;
                             right: 20px;
                             background: white;
-                            border: 1px solid #ccc;
-                            border-radius: 8px;
+                            border: 2px solid #007bff;
+                            border-radius: 10px;
                             padding: 15px;
-                            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+                            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
                             z-index: 1000000;
                             pointer-events: auto;
-                            font-family: Arial, sans-serif;
-                            max-width: 300px;
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            max-width: 350px;
+                            min-width: 300px;
+                            transition: all 0.3s ease;
+                        }
+                        
+                        #automation-selector-float:hover {
+                            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.2);
+                            transform: translateY(-2px);
                         }
                         
                         #automation-selector-float h3 {
                             margin-top: 0;
-                            font-size: 16px;
-                            color: #333;
+                            font-size: 18px;
+                            color: #2c3e50;
+                            font-weight: 600;
+                            margin-bottom: 10px;
                         }
                         
                         #automation-selector-float p {
-                            margin: 10px 0;
+                            margin: 8px 0;
                             font-size: 14px;
-                            color: #666;
+                            color: #555;
+                            line-height: 1.4;
                         }
                         
                         #automation-selector-float .selector-preview {
-                            background: #f5f5f5;
-                            padding: 8px;
-                            border-radius: 4px;
-                            font-family: monospace;
-                            font-size: 12px;
-                            margin: 10px 0;
+                            background: #f8f9fa;
+                            padding: 10px;
+                            border-radius: 6px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 13px;
+                            margin: 12px 0;
                             word-break: break-all;
+                            border-left: 4px solid #007bff;
+                            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+                        }
+                        
+                        #automation-selector-float .element-info {
+                            background: #e3f2fd;
+                            padding: 8px;
+                            border-radius: 6px;
+                            margin: 8px 0;
+                            font-size: 12px;
+                            color: #1565c0;
+                            font-family: 'Courier New', monospace;
                         }
                         
                         #automation-selector-float .btn {
-                            padding: 8px 12px;
+                            padding: 10px 16px;
                             margin: 5px 5px 0 0;
                             border: none;
-                            border-radius: 4px;
+                            border-radius: 6px;
                             cursor: pointer;
                             font-size: 14px;
-                            transition: background-color 0.2s;
+                            font-weight: 500;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                        }
+                        
+                        #automation-selector-float .btn:hover {
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+                        }
+                        
+                        #automation-selector-float .btn:active {
+                            transform: translateY(0);
                         }
                         
                         #automation-selector-float .btn-primary {
-                            background: #007bff;
+                            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
                             color: white;
                         }
                         
                         #automation-selector-float .btn-primary:hover {
-                            background: #0056b3;
+                            background: linear-gradient(135deg, #0056b3 0%, #003d82 100%);
                         }
                         
                         #automation-selector-float .btn-secondary {
-                            background: #6c757d;
+                            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
                             color: white;
                         }
                         
                         #automation-selector-float .btn-secondary:hover {
-                            background: #545b62;
+                            background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+                        }
+                        
+                        #automation-selector-float .btn-success {
+                            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+                            color: white;
+                        }
+                        
+                        #automation-selector-float .btn-success:hover {
+                            background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
+                        }
+                        
+                        #automation-selector-float .btn-group {
+                            display: flex;
+                            gap: 8px;
+                            margin-top: 12px;
+                            flex-wrap: wrap;
+                        }
+                        
+                        #automation-selector-float .info-section {
+                            background: #f0f8ff;
+                            padding: 10px;
+                            border-radius: 6px;
+                            margin-top: 12px;
+                            font-size: 13px;
+                            color: #0066cc;
+                        }
+                        
+                        #automation-selector-float .info-section strong {
+                            font-weight: 600;
                         }
                     `;
                     document.head.appendChild(style);
@@ -3375,28 +3735,43 @@ class PlaywrightAutomation:
                     highlight.id = 'automation-selector-highlight';
                     document.body.appendChild(highlight);
                     
-                    // 创建悬浮窗
+                    // 创建悬浮窗，添加开始选择按钮
                     const floatWindow = document.createElement('div');
                     floatWindow.id = 'automation-selector-float';
                     floatWindow.innerHTML = `
                         <h3>元素选择工具</h3>
-                        <p>将鼠标悬停在页面元素上，点击即可选择该元素</p>
+                        <p>点击"开始选择"按钮后，将鼠标悬停在页面元素上，点击即可选择该元素</p>
                         <div class="selector-preview">选择器将显示在这里</div>
-                        <button class="btn btn-primary" id="select-element-btn">选择该元素</button>
-                        <button class="btn btn-secondary" id="cancel-selection-btn">取消选择</button>
+                        <div class="json-preview" style="display: none; margin: 10px 0; padding: 8px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; font-size: 12px; color: #155724;"></div>
+                        <div class="element-info" id="element-info" style="display: none;"></div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="start-selection-btn">开始选择</button>
+                            <button class="btn btn-primary" id="select-element-btn" style="display: none;">选择该元素</button>
+                            <button class="btn btn-secondary" id="cancel-selection-btn">取消选择</button>
+                        </div>
+                        <div class="info-section" style="margin-top: 12px;">
+                            <strong>操作提示：</strong><br>
+                            • 悬停元素查看选择器<br>
+                            • 点击元素确认选择<br>
+                            • Shift+上箭头选择父元素<br>
+                            • 点击"选择该元素"完成选择
+                        </div>
                     `;
                     document.body.appendChild(floatWindow);
                     
-                    // 全局变量
+                    // 全局变量 - 初始状态isSelecting为false，等待用户点击开始选择
                     window.automationSelection = {
                         selectedElement: null,
                         highlight: highlight,
                         floatWindow: floatWindow,
-                        isSelecting: true
+                        isSelecting: false,
+                        isSelectionSaved: false, // 新增：标记是否已保存选择内容
+                        savedElement: null, // 新增：保存的元素
+                        savedSelector: '' // 新增：保存的选择器
                     };
                     
                     // 生成更精确的CSS选择器函数
-                    function generateSelector(element, maxDepth = 4, currentDepth = 0) {
+                    function generateSelector(element, maxDepth = 5, currentDepth = 0) {
                         if (!element || element.tagName === 'HTML' || currentDepth >= maxDepth) {
                             return '';
                         }
@@ -3409,8 +3784,15 @@ class PlaywrightAutomation:
                             return `#${element.id}`;
                         }
                         
-                        // 优先使用稳定属性
-                        const stableAttrs = ['data-testid', 'data-cy', 'data-test', 'data-qa', 'data-automation', 'data-selector', 'data-key', 'data-id', 'data-name', 'name', 'title', 'role'];
+                        // 优先使用稳定属性，增加更多稳定属性类型
+                        const stableAttrs = [
+                            'data-testid', 'data-cy', 'data-test', 'data-qa', 'data-automation', 
+                            'data-selector', 'data-key', 'data-id', 'data-name', 'data-component', 
+                            'data-role', 'data-feature', 'data-behavior', 'data-action', 
+                            'data-control', 'name', 'title', 'role', 'aria-label', 
+                            'aria-labelledby', 'for', 'rel', 'data-rel', 'data-link',
+                            'data-v-*', 'data-bind', 'data-i18n', 'data-content'
+                        ];
                         let hasStableAttr = false;
                         for (const attr of stableAttrs) {
                             const value = element.getAttribute(attr);
@@ -3426,6 +3808,7 @@ class PlaywrightAutomation:
                             // 处理类名，过滤掉动态类名
                             if (element.className) {
                                 const allClasses = element.className.split(' ').filter(c => c.length > 0);
+                                // 增强动态类名过滤模式
                                 const dynamicClassPatterns = [
                                     /^is-\w+$/, /^has-\w+$/, /^\w+-\w+-(leave|enter|active)$/, 
                                     /^el-\w+(-\w+)*$/, /^ant-\w+(-\w+)*$/, /^t-[a-zA-Z0-9]{8}$/, 
@@ -3444,10 +3827,17 @@ class PlaywrightAutomation:
                                     const isDynamic = dynamicClassPatterns.some(p => p.test(c));
                                     // 过滤掉只有数字或特殊字符的类名
                                     const isInvalid = /^[0-9_\-]+$/.test(c);
-                                    return !isDynamic && !isInvalid;
+                                    // 过滤掉太短的类名（可能是动态生成的）
+                                    const isTooShort = c.length < 3;
+                                    return !isDynamic && !isInvalid && !isTooShort;
                                 });
-                                if (stableClasses.length) {
-                                    elementSelector += '.' + stableClasses.slice(0, 3).join('.');
+                                
+                                // 按类名长度排序，优先使用更长的类名（更可能是稳定的）
+                                const sortedClasses = stableClasses.sort((a, b) => b.length - a.length);
+                                
+                                if (sortedClasses.length) {
+                                    // 使用前3个最长的稳定类名
+                                    elementSelector += '.' + sortedClasses.slice(0, 3).join('.');
                                 }
                             }
                         }
@@ -3456,47 +3846,89 @@ class PlaywrightAutomation:
                         if (tagName === 'input') {
                             // 对于表单输入元素，添加更多识别属性
                             const type = element.type;
-                            elementSelector += `[type="${type}"]`;
+                            if (!elementSelector.includes('[type=')) {
+                                elementSelector += `[type="${type}"]`;
+                            }
                             
-                            // 添加name或placeholder属性
-                            if (element.name && element.name.length > 0) {
-                                elementSelector += `[name="${element.name}"]`;
-                            } else if (element.placeholder && element.placeholder.length > 0) {
-                                elementSelector += `[placeholder="${element.placeholder}"]`;
+                            // 添加多个表单属性，提高识别准确性
+                            const formAttrs = ['name', 'placeholder', 'aria-label', 'title', 'id'];
+                            for (const attr of formAttrs) {
+                                const value = element[attr] || element.getAttribute(attr);
+                                if (value && value.length > 0 && !elementSelector.includes(`[${attr}=`)) {
+                                    elementSelector += `[${attr}="${value.replace(/"/g, '&quot;')}"]`;
+                                    break;
+                                }
                             }
                         } else if (tagName === 'textarea' || tagName === 'select') {
                             // 对于其他表单元素
-                            if (element.name && element.name.length > 0) {
-                                elementSelector += `[name="${element.name}"]`;
-                            } else if (element.placeholder && element.placeholder.length > 0) {
-                                elementSelector += `[placeholder="${element.placeholder}"]`;
-                            } else if (element.title && element.title.length > 0) {
-                                elementSelector += `[title="${element.title}"]`;
+                            const formAttrs = ['name', 'placeholder', 'aria-label', 'title', 'id'];
+                            for (const attr of formAttrs) {
+                                const value = element[attr] || element.getAttribute(attr);
+                                if (value && value.length > 0 && !elementSelector.includes(`[${attr}=`)) {
+                                    elementSelector += `[${attr}="${value.replace(/"/g, '&quot;')}"]`;
+                                    break;
+                                }
                             }
                         } else if (tagName === 'img') {
                             // 对于图片，使用更精确的定位
-                            if (element.alt && element.alt.length > 0) {
-                                elementSelector += `[alt="${element.alt}"]`;
+                            if (element.alt && element.alt.length > 0 && !elementSelector.includes('[alt=')) {
+                                elementSelector += `[alt="${element.alt.replace(/"/g, '&quot;')}"]`;
                             } else if (element.src && element.src.length > 0) {
-                                // 只使用src的文件名部分
-                                const filename = element.src.split('/').pop();
+                                // 优化src处理，使用完整路径或文件名，避免动态参数
+                                const src = element.src.split('?')[0]; // 去掉查询参数
+                                const filename = src.split('/').pop();
                                 elementSelector += `[src*="${filename}"]`;
                             }
                         } else if (tagName === 'a') {
-                            // 对于链接，使用href或text
-                            if (element.href && element.href.length > 0) {
-                                // 只使用href的路径部分
-                                const url = new URL(element.href);
-                                elementSelector += `[href*="${url.pathname}"]`;
+                            // 增强链接元素的识别，优化动态链接处理
+                            if (element.href && element.href.length > 0 && !elementSelector.includes('[href=')) {
+                                // 优化href处理，去掉查询参数和hash
+                                const cleanHref = element.href.split('?')[0].split('#')[0];
+                                const url = new URL(cleanHref);
+                                if (url.pathname.length > 1) {
+                                    elementSelector += `[href*="${url.pathname}"]`;
+                                } else {
+                                    // 对于根路径，使用完整href
+                                    elementSelector += `[href="${cleanHref}"]`;
+                                }
                             } else if (element.textContent && element.textContent.trim().length > 0) {
-                                elementSelector += `:contains("${element.textContent.trim().substring(0, 20)}")`;
+                                // 使用文本内容作为备选
+                                const text = element.textContent.trim().substring(0, 25).replace(/"/g, '&quot;');
+                                // 使用更兼容的文本选择器
+                                elementSelector += `[data-text="${text}"]`;
+                            } else if (element.getAttribute('aria-label')) {
+                                elementSelector += `[aria-label="${element.getAttribute('aria-label').replace(/"/g, '&quot;')}"]`;
+                            }
+                        } else if (tagName === 'button') {
+                            // 增强按钮元素的识别
+                            if (element.textContent && element.textContent.trim().length > 0) {
+                                const text = element.textContent.trim().substring(0, 20).replace(/"/g, '&quot;');
+                                elementSelector += `[data-text="${text}"]`;
+                            } else if (element.getAttribute('aria-label')) {
+                                elementSelector += `[aria-label="${element.getAttribute('aria-label').replace(/"/g, '&quot;')}"]`;
+                            } else if (element.innerHTML && element.innerHTML.includes('svg')) {
+                                // 对于图标按钮，使用父元素或其他属性
+                                elementSelector += '[has-svg="true"]';
                             }
                         }
                         
-                        // 如果选择器还是太简单，添加父元素选择器
-                        if (elementSelector === tagName || elementSelector.startsWith(tagName + '.')) {
+                        // 增强选择器，添加位置信息
+                        const siblings = Array.from(element.parentElement.children).filter(child => 
+                            child.tagName === element.tagName
+                        );
+                        
+                        if (siblings.length > 1) {
+                            const index = siblings.indexOf(element) + 1;
+                            // 使用nth-of-type选择器，提高准确性
+                            elementSelector += `:nth-of-type(${index})`;
+                        }
+                        
+                        // 如果选择器还是太简单，添加父元素选择器，增强动态元素的定位
+                        const hasComplexSelector = elementSelector.includes('[') || elementSelector.includes(':') || elementSelector.split('.').length > 2;
+                        if (!hasComplexSelector && currentDepth < maxDepth - 1) {
                             const parentSelector = generateSelector(element.parentElement, maxDepth, currentDepth + 1);
                             if (parentSelector) {
+                                // 对于动态生成的元素，使用更精确的父元素路径
                                 return `${parentSelector} > ${elementSelector}`;
                             }
                         }
@@ -3504,26 +3936,227 @@ class PlaywrightAutomation:
                         return elementSelector;
                     }
 
-                    // 元素选择逻辑
+                    // 元素选择逻辑 - 改进版本，支持选择更精确的元素
+                    // 新增：当鼠标移动到悬浮窗上时，保持原有元素的选中状态
                     document.addEventListener('mouseover', function(e) {
                         if (!window.automationSelection.isSelecting) return;
                         
-                        const target = e.target;
-                        const rect = target.getBoundingClientRect();
+                        // 如果选择内容已保存，则不再更新选中元素和高亮框
+                        if (window.automationSelection.isSelectionSaved) {
+                            // 显示选择已保存的提示
+                            floatWindow.querySelector('p').textContent = '选择内容已保存，点击"选择该元素"按钮确认或"取消选择"重新选择';
+                            return;
+                        }
                         
-                        // 更新高亮框位置和大小
+                        // 获取鼠标位置，使用elementFromPoint获取最顶层可见元素
+                        const x = e.clientX;
+                        const y = e.clientY;
+                        const target = document.elementFromPoint(x, y);
+                        
+                        // 检查目标元素是否是悬浮窗或悬浮窗内的元素
+                        const isHoveringFloatWindow = target === floatWindow || floatWindow.contains(target);
+                        
+                        // 如果是悬浮窗，则保持原有选中元素，不更新
+                        if (isHoveringFloatWindow) {
+                            // 只更新提示文本，不改变选中元素和高亮框
+                            floatWindow.querySelector('p').textContent = '点击"选择该元素"按钮确认选择，或继续悬停选择其他元素';
+                            return;
+                        }
+                        
+                        // 如果不是悬浮窗，则更新选中元素和高亮框
+                        if (target) {
+                            const rect = target.getBoundingClientRect();
+                            
+                            // 更新高亮框位置和大小
+                            window.automationSelection.highlight.style.left = `${rect.left}px`;
+                            window.automationSelection.highlight.style.top = `${rect.top}px`;
+                            window.automationSelection.highlight.style.width = `${rect.width}px`;
+                            window.automationSelection.highlight.style.height = `${rect.height}px`;
+                            
+                            // 更新选中元素
+                            window.automationSelection.selectedElement = target;
+                            
+                            // 生成选择器并显示
+                            const selector = generateSelector(target);
+                            const selectorPreview = floatWindow.querySelector('.selector-preview');
+                            selectorPreview.textContent = selector;
+                            
+                            // 检测元素是否包含JSON数据并显示预览
+                            const jsonPreview = floatWindow.querySelector('.json-preview');
+                            
+                            // 从多种来源检测JSON
+                            function detectJSON(element) {
+                                const sources = [];
+                                
+                                // 1. 从元素文本内容检测
+                                if (element.textContent && element.textContent.trim()) {
+                                    sources.push(element.textContent.trim());
+                                }
+                                
+                                // 2. 从innerText检测
+                                if (element.innerText && element.innerText.trim() && element.innerText.trim() !== element.textContent) {
+                                    sources.push(element.innerText.trim());
+                                }
+                                
+                                // 3. 从input/textarea的value属性检测
+                                if (element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea') {
+                                    if (element.value && element.value.trim()) {
+                                        sources.push(element.value.trim());
+                                    }
+                                }
+                                
+                                // 4. 从特定属性检测
+                                const jsonAttrs = ['data-json', 'data-content', 'data-value', 'value'];
+                                for (const attr of jsonAttrs) {
+                                    const value = element.getAttribute(attr);
+                                    if (value && value.trim()) {
+                                        sources.push(value.trim());
+                                    }
+                                }
+                                
+                                // 5. 从innerHTML中检测JSON结构
+                                if (element.innerHTML && element.innerHTML.trim()) {
+                                    const jsonPattern = /\{\s*["\w].*?\}\s*|\[\s*["\w].*?\]\s*/;
+                                    const match = element.innerHTML.match(jsonPattern);
+                                    if (match) {
+                                        sources.push(match[0].trim());
+                                    }
+                                }
+                                
+                                // 尝试解析每个潜在的JSON源
+                                for (const source of sources) {
+                                    try {
+                                        const cleaned = source.replace(/\n/g, '').replace(/\r/g, '').trim();
+                                        const parsed = JSON.parse(cleaned);
+                                        return {
+                                            success: true,
+                                            data: parsed,
+                                            source: source
+                                        };
+                                    } catch (e) {
+                                        // 继续尝试下一个源
+                                    }
+                                }
+                                
+                                return { success: false };
+                            }
+                            
+                            // 检测JSON
+                            const jsonResult = detectJSON(target);
+                            
+                            if (jsonResult.success) {
+                                // 显示JSON预览
+                                jsonPreview.style.display = 'block';
+                                const dataType = Array.isArray(jsonResult.data) ? '数组' : '对象';
+                                const itemCount = Array.isArray(jsonResult.data) ? jsonResult.data.length : Object.keys(jsonResult.data).length;
+                                jsonPreview.innerHTML = `📋 检测到JSON ${dataType}，包含 <strong>${itemCount}</strong> 个元素`;
+                            } else {
+                                // 隐藏JSON预览
+                                jsonPreview.style.display = 'none';
+                            }
+                            
+                            // 显示提示信息，告知用户可以使用Shift+向上箭头选择父元素
+                            floatWindow.querySelector('p').textContent = '将鼠标悬停在页面元素上，点击即可选择该元素（Shift+向上箭头选择父元素）';
+                        }
+                    });
+                    
+                    // 支持Shift+向上箭头选择父元素
+                    document.addEventListener('keydown', function(e) {
+                        if (e.shiftKey && e.key === 'ArrowUp' && window.automationSelection.isSelecting && window.automationSelection.selectedElement) {
+                            const currentElement = window.automationSelection.selectedElement;
+                            const parent = currentElement.parentElement;
+                            if (parent && parent.tagName !== 'HTML') {
+                                window.automationSelection.selectedElement = parent;
+                                const rect = parent.getBoundingClientRect();
+                                
+                                // 更新高亮框位置和大小
                         window.automationSelection.highlight.style.left = `${rect.left}px`;
                         window.automationSelection.highlight.style.top = `${rect.top}px`;
                         window.automationSelection.highlight.style.width = `${rect.width}px`;
                         window.automationSelection.highlight.style.height = `${rect.height}px`;
                         
-                        // 更新选中元素
-                        window.automationSelection.selectedElement = target;
-                        
                         // 生成选择器并显示
-                        const selector = generateSelector(target);
+                        const selector = generateSelector(parent);
                         const selectorPreview = floatWindow.querySelector('.selector-preview');
                         selectorPreview.textContent = selector;
+                        
+                        // 检测父元素是否包含JSON数据并显示预览
+                        const jsonPreview = floatWindow.querySelector('.json-preview');
+                        
+                        // 复用之前定义的detectJSON函数
+                        function detectJSON(element) {
+                            const sources = [];
+                            
+                            // 1. 从元素文本内容检测
+                            if (element.textContent && element.textContent.trim()) {
+                                sources.push(element.textContent.trim());
+                            }
+                            
+                            // 2. 从innerText检测
+                            if (element.innerText && element.innerText.trim() && element.innerText.trim() !== element.textContent) {
+                                sources.push(element.innerText.trim());
+                            }
+                            
+                            // 3. 从input/textarea的value属性检测
+                            if (element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea') {
+                                if (element.value && element.value.trim()) {
+                                    sources.push(element.value.trim());
+                                }
+                            }
+                            
+                            // 4. 从特定属性检测
+                            const jsonAttrs = ['data-json', 'data-content', 'data-value', 'value'];
+                            for (const attr of jsonAttrs) {
+                                const value = element.getAttribute(attr);
+                                if (value && value.trim()) {
+                                    sources.push(value.trim());
+                                }
+                            }
+                            
+                            // 5. 从innerHTML中检测JSON结构
+                            if (element.innerHTML && element.innerHTML.trim()) {
+                                const jsonPattern = /\{\s*["\w].*?\}\s*|\[\s*["\w].*?\]\s*/;
+                                const match = element.innerHTML.match(jsonPattern);
+                                if (match) {
+                                    sources.push(match[0].trim());
+                                }
+                            }
+                            
+                            // 尝试解析每个潜在的JSON源
+                            for (const source of sources) {
+                                try {
+                                    const cleaned = source.replace(/\n/g, '').replace(/\r/g, '').trim();
+                                    const parsed = JSON.parse(cleaned);
+                                    return {
+                                        success: true,
+                                        data: parsed,
+                                        source: source
+                                    };
+                                } catch (e) {
+                                    // 继续尝试下一个源
+                                }
+                            }
+                            
+                            return { success: false };
+                        }
+                        
+                        // 检测JSON
+                        const jsonResult = detectJSON(parent);
+                        
+                        if (jsonResult.success) {
+                            // 显示JSON预览
+                            jsonPreview.style.display = 'block';
+                            const dataType = Array.isArray(jsonResult.data) ? '数组' : '对象';
+                            const itemCount = Array.isArray(jsonResult.data) ? jsonResult.data.length : Object.keys(jsonResult.data).length;
+                            jsonPreview.innerHTML = `📋 检测到JSON ${dataType}，包含 <strong>${itemCount}</strong> 个元素`;
+                        } else {
+                            // 隐藏JSON预览
+                            jsonPreview.style.display = 'none';
+                        }
+                            }
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
                     });
                     
                     // 点击元素选择
@@ -3539,10 +4172,123 @@ class PlaywrightAutomation:
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        window.automationSelection.selectedElement = target;
-                        const selector = generateSelector(target);
-                        const selectorPreview = floatWindow.querySelector('.selector-preview');
-                        selectorPreview.textContent = selector;
+                        // 如果选择内容尚未保存，则保存选择内容
+                        if (!window.automationSelection.isSelectionSaved) {
+                            // 更新选中元素
+                            window.automationSelection.selectedElement = target;
+                            
+                            // 生成选择器
+                            const selector = generateSelector(target);
+                            
+                            // 保存选择内容
+                            window.automationSelection.isSelectionSaved = true;
+                            window.automationSelection.savedElement = target;
+                            window.automationSelection.savedSelector = selector;
+                            
+                            // 更新选择器预览
+                            const selectorPreview = floatWindow.querySelector('.selector-preview');
+                            selectorPreview.textContent = selector;
+                            selectorPreview.style.backgroundColor = '#d4edda'; // 绿色背景，表示已保存
+                            selectorPreview.style.borderColor = '#c3e6cb';
+                            selectorPreview.style.border = '1px solid #c3e6cb';
+                            
+                            // 更新高亮框样式，显示已保存
+                            window.automationSelection.highlight.style.borderColor = '#28a745'; // 绿色边框，表示已保存
+                            window.automationSelection.highlight.style.backgroundColor = 'rgba(40, 167, 69, 0.2)'; // 绿色背景，表示已保存
+                        }
+                        
+                        // 如果选择内容尚未保存，则检测JSON数据
+                        if (!window.automationSelection.isSelectionSaved) {
+                            // 检测点击的元素是否包含JSON数据并显示预览
+                            const jsonPreview = floatWindow.querySelector('.json-preview');
+                            
+                            // 复用之前定义的detectJSON函数
+                            function detectJSON(element) {
+                            const sources = [];
+                            
+                            // 1. 从元素文本内容检测
+                            if (element.textContent && element.textContent.trim()) {
+                                sources.push(element.textContent.trim());
+                            }
+                            
+                            // 2. 从innerText检测
+                            if (element.innerText && element.innerText.trim() && element.innerText.trim() !== element.textContent) {
+                                sources.push(element.innerText.trim());
+                            }
+                            
+                            // 3. 从input/textarea的value属性检测
+                            if (element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea') {
+                                if (element.value && element.value.trim()) {
+                                    sources.push(element.value.trim());
+                                }
+                            }
+                            
+                            // 4. 从特定属性检测
+                            const jsonAttrs = ['data-json', 'data-content', 'data-value', 'value'];
+                            for (const attr of jsonAttrs) {
+                                const value = element.getAttribute(attr);
+                                if (value && value.trim()) {
+                                    sources.push(value.trim());
+                                }
+                            }
+                            
+                            // 5. 从innerHTML中检测JSON结构
+                            if (element.innerHTML && element.innerHTML.trim()) {
+                                const jsonPattern = /\{\s*["\w].*?\}\s*|\[\s*["\w].*?\]\s*/;
+                                const match = element.innerHTML.match(jsonPattern);
+                                if (match) {
+                                    sources.push(match[0].trim());
+                                }
+                            }
+                            
+                            // 尝试解析每个潜在的JSON源
+                            for (const source of sources) {
+                                try {
+                                    const cleaned = source.replace(/\n/g, '').replace(/\r/g, '').trim();
+                                    const parsed = JSON.parse(cleaned);
+                                    return {
+                                        success: true,
+                                        data: parsed,
+                                        source: source
+                                    };
+                                } catch (e) {
+                                    // 继续尝试下一个源
+                                }
+                            }
+                            
+                            return { success: false };
+                        }
+                        
+                        // 检测JSON
+                        const jsonResult = detectJSON(target);
+                        
+                        if (jsonResult.success) {
+                            // 显示JSON预览
+                            jsonPreview.style.display = 'block';
+                            const dataType = Array.isArray(jsonResult.data) ? '数组' : '对象';
+                            const itemCount = Array.isArray(jsonResult.data) ? jsonResult.data.length : Object.keys(jsonResult.data).length;
+                            jsonPreview.innerHTML = `📋 检测到JSON ${dataType}，包含 <strong>${itemCount}</strong> 个元素`;
+                        } else {
+                            // 隐藏JSON预览
+                            jsonPreview.style.display = 'none';
+                        }
+                        
+                        // 更新提示文本，显示选择已保存
+                        floatWindow.querySelector('p').textContent = '选择内容已保存，点击"选择该元素"按钮确认或"取消选择"重新选择';
+                    }
+                    });
+                    
+                    // 开始选择按钮事件
+                    document.getElementById('start-selection-btn').addEventListener('click', function() {
+                        // 启动选择模式
+                        window.automationSelection.isSelecting = true;
+                        
+                        // 显示选择该元素按钮，隐藏开始选择按钮
+                        document.getElementById('start-selection-btn').style.display = 'none';
+                        document.getElementById('select-element-btn').style.display = 'inline-block';
+                        
+                        // 更新提示文本
+                        floatWindow.querySelector('p').textContent = '将鼠标悬停在页面元素上，点击即可选择该元素';
                     });
                     
                     // 选择按钮事件
@@ -3601,6 +4347,242 @@ class PlaywrightAutomation:
                 })
             """)
             
+            # 添加页面加载事件监听器，确保页面导航后重新注入悬浮窗
+            async def handle_page_load():
+                """页面加载时重新注入悬浮窗"""
+                try:
+                    await self.page.evaluate(r"""
+                        (() => {
+                            // 检查是否已经存在选择器悬浮窗
+                            if (document.getElementById('automation-selector-float')) {
+                                return; // 已经存在，直接返回
+                            }
+                            
+                            // 重新注入悬浮窗和相关逻辑
+                            // 检查sessionStorage中是否保存了选择状态
+                            const savedState = window.sessionStorage.getItem('automationSelectionState');
+                            const selectionState = savedState ? JSON.parse(savedState) : null;
+                            const shouldRestoreSelection = selectionState && selectionState.isSelecting;
+                            
+                            // 创建高亮元素
+                            const highlight = document.createElement('div');
+                            highlight.id = 'automation-selector-highlight';
+                            // 如果需要恢复选择状态，保持高亮显示
+                            if (shouldRestoreSelection) {
+                                highlight.style.display = 'block';
+                            }
+                            document.body.appendChild(highlight);
+                            
+                            // 创建悬浮窗
+                            const floatWindow = document.createElement('div');
+                            floatWindow.id = 'automation-selector-float';
+                            floatWindow.innerHTML = `
+                                <h3>元素选择工具</h3>
+                                <p>将鼠标悬停在页面元素上，点击即可选择该元素</p>
+                                <div class="selector-preview">${shouldRestoreSelection && selectionState.savedSelector ? selectionState.savedSelector : '选择器将显示在这里'}</div>
+                                <div class="json-preview" style="display: none; margin: 10px 0; padding: 8px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; font-size: 12px; color: #155724;"></div>
+                                <button class="btn btn-primary" id="select-element-btn">选择该元素</button>
+                                <button class="btn btn-secondary" id="cancel-selection-btn">取消选择</button>
+                            `;
+                            // 如果需要恢复选择状态，保持悬浮窗显示
+                            if (shouldRestoreSelection) {
+                                floatWindow.style.display = 'block';
+                            }
+                            document.body.appendChild(floatWindow);
+                            
+                            // 重新初始化选择逻辑
+                            window.automationSelection = {
+                                selectedElement: null,
+                                highlight: highlight,
+                                floatWindow: floatWindow,
+                                isSelecting: shouldRestoreSelection, // 如果有保存的状态，保持选择模式
+                                isSelectionSaved: shouldRestoreSelection,
+                                savedElement: null,
+                                savedSelector: shouldRestoreSelection ? selectionState.savedSelector : ''
+                            };
+                            
+                            // 重新添加事件监听器
+                            document.addEventListener('mouseover', function(e) {
+                                if (!window.automationSelection.isSelecting) return;
+                                
+                                const target = e.target;
+                                // 检查是否悬停在悬浮窗上
+                                if (target === floatWindow || floatWindow.contains(target)) {
+                                    return;
+                                }
+                                
+                                const rect = target.getBoundingClientRect();
+                                
+                                // 更新高亮框位置和大小
+                                window.automationSelection.highlight.style.left = `${rect.left}px`;
+                                window.automationSelection.highlight.style.top = `${rect.top}px`;
+                                window.automationSelection.highlight.style.width = `${rect.width}px`;
+                                window.automationSelection.highlight.style.height = `${rect.height}px`;
+                                
+                                // 更新选中元素
+                                window.automationSelection.selectedElement = target;
+                                
+                                // 生成选择器并显示
+                                if (window.generateSelector) {
+                                    const selector = window.generateSelector(target);
+                                    const selectorPreview = floatWindow.querySelector('.selector-preview');
+                                    selectorPreview.textContent = selector;
+                                    
+                                    // 更新保存的选择器
+                                    window.automationSelection.savedSelector = selector;
+                                    
+                                    // 保存选择状态到sessionStorage
+                                    window.sessionStorage.setItem('automationSelectionState', JSON.stringify({
+                                        isSelecting: true,
+                                        savedSelector: selector,
+                                        timestamp: Date.now()
+                                    }));
+                                }
+                            });
+                            
+                            // 点击元素选择
+                            document.addEventListener('click', function(e) {
+                                if (!window.automationSelection.isSelecting) return;
+                                
+                                const target = e.target;
+                                if (target === floatWindow || floatWindow.contains(target)) {
+                                    return; // 点击的是悬浮窗内部，不处理
+                                }
+                                
+                                // 阻止默认事件和冒泡，防止页面跳转等行为
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
+                                window.automationSelection.selectedElement = target;
+                                if (window.generateSelector) {
+                                    const selector = window.generateSelector(target);
+                                    const selectorPreview = floatWindow.querySelector('.selector-preview');
+                                    selectorPreview.textContent = selector;
+                                    
+                                    // 更新保存的选择器
+                                    window.automationSelection.savedSelector = selector;
+                                    
+                                    // 保存选择状态到sessionStorage
+                                    window.sessionStorage.setItem('automationSelectionState', JSON.stringify({
+                                        isSelecting: true,
+                                        savedSelector: selector,
+                                        timestamp: Date.now()
+                                    }));
+                                }
+                            });
+                            
+                            // 选择按钮事件
+                            document.getElementById('select-element-btn').addEventListener('click', function() {
+                                if (window.automationSelection.selectedElement) {
+                                    const element = window.automationSelection.selectedElement;
+                                    const selector = window.generateSelector(element);
+                                    
+                                    // 触发自定义事件，通知外部代码
+                                    const event = new CustomEvent('elementSelected', {
+                                        detail: {
+                                            selector: selector,
+                                            elementInfo: {
+                                                tagName: element.tagName,
+                                                id: element.id || '',
+                                                className: element.className || '',
+                                                textContent: element.textContent ? element.textContent.substring(0, 100) : '',
+                                                attributes: {
+                                                    type: element.type || '',
+                                                    name: element.name || '',
+                                                    value: element.value || '',
+                                                    href: element.href || '',
+                                                    src: element.src || '',
+                                                    alt: element.alt || '',
+                                                    title: element.title || '',
+                                                    role: element.getAttribute('role') || '',
+                                                    'data-testid': element.getAttribute('data-testid') || '',
+                                                    'data-cy': element.getAttribute('data-cy') || '',
+                                                    'data-test': element.getAttribute('data-test') || ''
+                                                }
+                                            }
+                                        }
+                                    });
+                                    window.dispatchEvent(event);
+                                    
+                                    // 清除保存的选择状态
+                                    window.sessionStorage.removeItem('automationSelectionState');
+                                    
+                                    // 标记为已选择
+                                    window.automationSelection.isSelecting = false;
+                                }
+                            });
+                            
+                            // 取消选择按钮事件
+                            document.getElementById('cancel-selection-btn').addEventListener('click', function() {
+                                if (window.automationSelection) {
+                                    window.automationSelection.isSelecting = false;
+                                    
+                                    // 清除保存的选择状态
+                                    window.sessionStorage.removeItem('automationSelectionState');
+                                    
+                                    // 移除高亮和悬浮窗
+                                    if (window.automationSelection.highlight && window.automationSelection.highlight.parentNode) {
+                                        window.automationSelection.highlight.parentNode.removeChild(window.automationSelection.highlight);
+                                    }
+                                    if (window.automationSelection.floatWindow && window.automationSelection.floatWindow.parentNode) {
+                                        window.automationSelection.floatWindow.parentNode.removeChild(window.automationSelection.floatWindow);
+                                    }
+                                    
+                                    // 重置全局变量
+                                    window.automationSelection = null;
+                                }
+                            });
+                        })
+                    """)
+                except Exception as e:
+                    uat_logger.error(f"页面加载时重新注入悬浮窗出错: {str(e)}")
+            
+            # 添加页面加载事件监听器
+            self.page.on('load', handle_page_load)
+            self.page.on('domcontentloaded', handle_page_load)
+            self.page.on('framenavigated', handle_page_load)
+            
+            # 添加beforeunload事件监听器，保存选择状态
+            await self.page.evaluate(r"""
+                (() => {
+                    window.addEventListener('beforeunload', function() {
+                        if (window.automationSelection && window.automationSelection.isSelecting) {
+                            // 保存选择状态到sessionStorage
+                            window.sessionStorage.setItem('automationSelectionState', JSON.stringify({
+                                isSelecting: true,
+                                savedSelector: window.automationSelection.savedSelector || '',
+                                timestamp: Date.now()
+                            }));
+                        }
+                    });
+                    
+                    // 添加popstate事件监听器（浏览器前进/后退）
+                    window.addEventListener('popstate', function() {
+                        // 延迟执行，确保页面已加载完成
+                        setTimeout(() => {
+                            const savedState = window.sessionStorage.getItem('automationSelectionState');
+                            if (savedState && JSON.parse(savedState).isSelecting) {
+                                // 页面导航后，重新检查并注入悬浮窗
+                                const event = new CustomEvent('checkSelectionState');
+                                window.dispatchEvent(event);
+                            }
+                        }, 200);
+                    });
+                    
+                    // 添加hashchange事件监听器
+                    window.addEventListener('hashchange', function() {
+                        const savedState = window.sessionStorage.getItem('automationSelectionState');
+                        if (savedState && JSON.parse(savedState).isSelecting) {
+                            // 延迟执行，确保页面已加载完成
+                            setTimeout(() => {
+                                const event = new CustomEvent('checkSelectionState');
+                                window.dispatchEvent(event);
+                            }, 200);
+                        }
+                    });
+                })
+            """)
+            
             uat_logger.info("元素选择模式已启用")
             return True
         except Exception as e:
@@ -3633,8 +4615,11 @@ class PlaywrightAutomation:
             return None
         
         try:
+            # 获取页面标题，用于填充页面名称
+            page_name = await self.page.title()
+            
             # 等待元素选择事件
-            element_info = await self.page.evaluate("""
+            raw_element_info = await self.page.evaluate("""
                 (() => {
                     return new Promise((resolve) => {
                         // 检查是否已经有选中的元素
@@ -3670,7 +4655,45 @@ class PlaywrightAutomation:
                 })
             """)
             
-            return element_info
+            if raw_element_info:
+                # 处理原始元素信息，转换为前端期望的格式
+                element = raw_element_info.get('elementInfo', {})
+                css_selector = raw_element_info.get('selector', '')
+                text_content = element.get('textContent', '').strip()
+                
+                # 选择最合适的定位方式
+                selector_type = 'css'
+                selector_value = css_selector
+                
+                # 如果有ID，优先使用ID选择器
+                element_id = element.get('id', '')
+                if element_id:
+                    selector_type = 'id'
+                    selector_value = element_id
+                # 如果有data-testid属性，优先使用testid
+                elif element.get('attributes', {}).get('data-testid'):
+                    selector_type = 'testid'
+                    selector_value = element.get('attributes', {}).get('data-testid')
+                # 如果是文本内容比较独特，使用文本选择器
+                elif text_content and len(text_content) > 5:
+                    selector_type = 'text'
+                    selector_value = text_content
+                
+                # 构造前端期望的返回格式
+                formatted_element_info = {
+                    'selector_type': selector_type,
+                    'selector_value': selector_value,
+                    'text_content': text_content,
+                    'page_name': page_name,
+                    'tag_name': element.get('tagName', '').lower(),
+                    'css_selector': css_selector,
+                    'id': element_id,
+                    'class_name': element.get('className', '')
+                }
+                
+                uat_logger.info(f"获取到格式化的选中元素: {formatted_element_info}")
+                return formatted_element_info
+            return None
         except Exception as e:
             uat_logger.error(f"获取选中元素信息时出错: {str(e)}")
             raise Exception(f"获取选中元素信息失败: {str(e)}")
@@ -3820,9 +4843,14 @@ def sync_get_page_text():
         return await automation.get_page_text()
     return worker.execute(run)
 
-def sync_extract_element_text(selector: str):
+def sync_extract_element_text(selector: str, selector_type: str = "css"):
     async def run():
-        return await automation.extract_element_text(selector)
+        return await automation.extract_element_text(selector, selector_type)
+    return worker.execute(run)
+
+def sync_extract_element_json(selector: str, selector_type: str = "css"):
+    async def run():
+        return await automation.extract_element_json(selector, selector_type)
     return worker.execute(run)
 
 def sync_execute_script_steps(steps: List[Dict[str, Any]]):
@@ -3934,9 +4962,9 @@ def sync_stop_recording():
         return await automation.stop_recording()
     return worker.execute(run)
 
-def sync_enable_element_selection():
+def sync_enable_element_selection(url=''):
     async def run():
-        return await automation.enable_element_selection()
+        return await automation.enable_element_selection(url)
     return worker.execute(run)
 
 def sync_disable_element_selection():

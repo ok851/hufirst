@@ -350,10 +350,10 @@
                         secondary: '#10b981',
                         accent: '#8b5cf6',
                         danger: '#ef4444',
-                        warning: '#f59e0b',
+                        warning: '#f59e0b'
                     },
                     fontFamily: {
-                        sans: ['Segoe UI', 'Tahoma', 'Geneva', 'Verdana', 'sans-serif'],
+                        sans: ['Segoe UI', 'Tahoma', 'Geneva', 'Verdana', 'sans-serif']
                     },
                 }
             }
@@ -412,171 +412,30 @@
                 <form id="caseForm">
                     <!-- 项目选择器 -->
                     <div class="project-selector">
-                        <div class="form-group">
+                        <div class="form-group flex items-center justify-between">
                             <label for="projectSelect">选择项目 *</label>
+                            <button type="button" id="refreshProjectsBtn" class="btn btn-sm btn-outline">
+                                <i class="fa fa-refresh"></i>
+                                刷新
+                            </button>
+                        </div>
+                        <div class="relative">
                             <select id="projectSelect" name="project_id" required class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                                 <option value="">请选择项目</option>
                             </select>
+                            <div id="projectLoading" style="display: none;" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
                         </div>
+                        <div id="projectError" class="text-red-500 text-sm mt-1" style="display: none;"></div>
                     </div>
-                    
-                    <!-- 基本信息 -->
-                    <div class="section">
-                        <div class="section-title">
-                            <i class="fa fa-info-circle text-primary"></i>
-                            1. 基本信息
-                        </div>
-                        <div class="form-group">
-                            <label for="precondition">前置条件</label>
-                            <textarea id="precondition" name="precondition" placeholder="请输入测试用例的前置条件，如：已登录系统、已打开特定页面等..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
-                        </div>
+                    <!-- 用例名称和描述编辑提示 -->
+                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <h3 class="font-medium text-blue-800 mb-2">用例名称和描述</h3>
+                        <p class="text-blue-700 mb-3">点击页面顶部的"编辑标题和描述"按钮来设置测试用例的名称和描述。</p>
                     </div>
-                    
 
-                    
-                    <!-- 操作步骤 -->
-                    <div class="section">
-                        <div class="section-title">
-                            <i class="fa fa-list-ol text-primary"></i>
-                            3. 操作步骤
-                        </div>
-                        <button type="button" class="btn btn-secondary mb-4" onclick="showStepForm()">
-                            <i class="fa fa-plus"></i>
-                            添加步骤
-                        </button>
-                        
-                        <!-- 步骤表单 -->
-                        <div id="stepForm" class="step-form">
-                            <h4 class="text-lg font-semibold text-primary mb-4">添加/编辑操作步骤</h4>
-                            <div class="step-form-row">
-                                <div>
-                                    <label for="stepAction">操作方式 *</label>
-                                    <select id="stepAction" onchange="updateStepFormFields()" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                        <option value="">请选择操作方式</option>
-                                        <option value="input">输入</option>
-                                        <option value="click">点击</option>
-                                        <option value="swipe">滑动</option>
-                                        <option value="navigate">导航</option>
-                                        <option value="extract_text">提取文本</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="stepPageName">页面名称</label>
-                                    <input type="text" id="stepPageName" placeholder="请输入页面名称" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-                            
-                            <!-- 元素定位字段 -->
-                            <div id="locatorFields" class="step-form-row">
-                                <div>
-                                    <label for="stepLocatorMethod">元素定位方法 *</label>
-                                    <select id="stepLocatorMethod" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                        <option value="css">CSS选择器</option>
-                                        <option value="xpath">XPath</option>
-                                        <option value="id">ID</option>
-                                        <option value="name">Name</option>
-                                        <option value="class">Class</option>
-                                        <option value="text">文本</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="stepElementName">元素定位值 *</label>
-                                    <input type="text" id="stepElementName" placeholder="请输入元素的定位值（如ID、class、name等）" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-                            
-                            <!-- 输入值/预期结果字段 -->
-                            <div id="inputValueField" class="step-form-row" style="display: none;">
-                                <div>
-                                    <label for="stepInputValue">输入值/预期结果</label>
-                                    <input type="text" id="stepInputValue" placeholder="请输入要输入的值或预期的文本结果" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-                            
-                            <!-- 验证方式字段 -->
-                            <div id="verifyTypeField" class="step-form-row" style="display: none;">
-                                <div>
-                                    <label for="stepVerifyType">验证方式</label>
-                                    <select id="stepVerifyType" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                        <option value="equals">等于</option>
-                                        <option value="contains">包含</option>
-                                        <option value="partial">部分等于</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <!-- 滑动字段 -->
-                            <div id="swipeFields" class="step-form-row" style="display: none;">
-                                <div>
-                                    <label for="stepSwipeX">X轴偏移量</label>
-                                    <input type="text" id="stepSwipeX" placeholder="请输入X轴偏移量" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                                <div>
-                                    <label for="stepSwipeY">Y轴偏移量</label>
-                                    <input type="text" id="stepSwipeY" placeholder="请输入Y轴偏移量" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-                            
-                            <!-- URL字段 -->
-                            <div id="urlField" class="step-form-row" style="display: none;">
-                                <div>
-                                    <label for="stepUrl">URL地址</label>
-                                    <input type="text" id="stepUrl" placeholder="请输入URL地址" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-                            
-                            <!-- 步骤描述 -->
-                            <div class="step-form-row full-width">
-                                <div>
-                                    <label for="stepDescription">步骤描述</label>
-                                    <input type="text" id="stepDescription" placeholder="请输入步骤描述" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                </div>
-                            </div>
-                            
-                            <!-- 操作按钮 -->
-                            <div class="flex justify-end gap-2 mt-4">
-                                <button type="button" class="btn btn-primary" onclick="saveStep()">
-                                    <i class="fa fa-save"></i>
-                                    保存步骤
-                                </button>
-                                <button type="button" class="btn btn-outline" onclick="hideStepForm()">
-                                    <i class="fa fa-times"></i>
-                                    取消
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- 步骤表格 -->
-                        <table class="steps-table" id="stepsTable">
-                            <thead>
-                                <tr>
-                                    <th style="width: 60px;">序号</th>
-                                    <th style="width: 120px;">操作方式</th>
-                                    <th style="width: 140px;">页面名称</th>
-                                    <th style="width: 140px;">元素定位方法</th>
-                                    <th style="width: 180px;">元素定位值</th>
-                                    <th style="width: 200px;">输入值</th>
-                                    <th>步骤描述</th>
-                                    <th style="width: 120px;">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="stepsTableBody">
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <!-- 预期结果 -->
-                    <div class="section">
-                        <div class="section-title">
-                            <i class="fa fa-bullseye text-primary"></i>
-                            4. 预期结果
-                        </div>
-                        <div class="form-group">
-                            <label for="expectedResult">预期结果</label>
-                            <textarea id="expectedResult" name="expectedResult" placeholder="请输入测试用例的预期结果，如：页面跳转成功、显示特定提示信息等..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
-                        </div>
-                    </div>
-                    
+
                     <!-- 导航按钮 -->
                     <div class="navigation">
                         <button type="submit" class="btn btn-secondary">
@@ -601,38 +460,62 @@
     let caseTitle = '';
     let caseDescription = '';
 
+
     async function loadProjects() {
-        try {
-            console.log('开始加载项目数据...');
-            const response = await fetch('/api/projects');
-            console.log('API响应状态:', response.status);
+        // 显示加载状态
+        const projectSelect = document.getElementById('projectSelect');
+        const projectLoading = document.getElementById('projectLoading');
+        const projectError = document.getElementById('projectError');
+        const refreshBtn = document.getElementById('refreshProjectsBtn');
+        
+        if (projectSelect && projectLoading && projectError) {
+            // 禁用选择器和刷新按钮
+            projectSelect.disabled = true;
+            if (refreshBtn) refreshBtn.disabled = true;
             
-            if (!response.ok) {
-                throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+            // 显示加载动画，隐藏错误信息
+            projectLoading.style.display = 'block';
+            projectError.style.display = 'none';
+            
+            try {
+                console.log('开始加载项目数据...');
+                const response = await fetch('/api/projects');
+                console.log('API响应状态:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('项目数据:', data);
+                
+                // 清空现有选项
+                projectSelect.innerHTML = '<option value="">请选择项目</option>';
+                
+                if (data && data.projects && data.projects.length > 0) {
+                    data.projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.id;
+                        option.textContent = project.name;
+                        projectSelect.appendChild(option);
+                    });
+                    console.log('项目加载成功，共加载', data.projects.length, '个项目');
+                } else {
+                    console.log('暂无项目数据');
+                    // 不直接跳转，而是显示提示
+                    projectError.textContent = '暂无项目数据，请先创建项目';
+                    projectError.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('加载项目失败:', error);
+                projectError.textContent = '加载项目失败: ' + error.message;
+                projectError.style.display = 'block';
+            } finally {
+                // 隐藏加载动画，启用选择器和刷新按钮
+                projectLoading.style.display = 'none';
+                projectSelect.disabled = false;
+                if (refreshBtn) refreshBtn.disabled = false;
             }
-            
-            const data = await response.json();
-            console.log('项目数据:', data);
-            
-            const projectSelect = document.getElementById('projectSelect');
-            projectSelect.innerHTML = '<option value="">请选择项目</option>';
-            
-            if (data.projects && data.projects.length > 0) {
-                data.projects.forEach(project => {
-                    const option = document.createElement('option');
-                    option.value = project.id;
-                    option.textContent = project.name;
-                    projectSelect.appendChild(option);
-                });
-                console.log('项目加载成功，共加载', data.projects.length, '个项目');
-            } else {
-                console.log('暂无项目数据');
-                alert('暂无项目，请先创建项目');
-                window.location.href = '/list_projects';
-            }
-        } catch (error) {
-            console.error('加载项目失败:', error);
-            alert('加载项目失败: ' + error.message);
         }
     }
 
@@ -653,8 +536,6 @@
                 caseDescription = testCase.description || '';
                 document.getElementById('currentCaseTitle').textContent = caseTitle || '未设置标题';
                 document.getElementById('currentCaseDescription').textContent = caseDescription || '未设置描述';
-                document.getElementById('precondition').value = testCase.precondition || '';
-                document.getElementById('expectedResult').value = testCase.expected_result || '';
                 
                 // 获取用例步骤
                 const stepsResponse = await fetch(`/api/cases/${caseId}/steps`);
@@ -688,64 +569,333 @@
     }
 
     function showStepForm() {
-        document.getElementById('stepForm').classList.add('active');
-        clearStepForm();
-    }
-
-    function hideStepForm() {
-        document.getElementById('stepForm').classList.remove('active');
-        editingStepIndex = -1;
-        clearStepForm();
-    }
-
-    function clearStepForm() {
-        document.getElementById('stepAction').value = '';
-        document.getElementById('stepPageName').value = '';
-        document.getElementById('stepLocatorMethod').value = 'css';
-        document.getElementById('stepElementName').value = '';
-        document.getElementById('stepInputValue').value = '';
-        document.getElementById('stepSwipeX').value = '';
-        document.getElementById('stepSwipeY').value = '';
-        document.getElementById('stepUrl').value = '';
-        document.getElementById('stepDescription').value = '';
-        updateStepFormFields();
-    }
-
-    function updateStepFormFields() {
-        const action = document.getElementById('stepAction').value;
-        
-        document.getElementById('inputValueField').style.display = 'none';
-        document.getElementById('swipeFields').style.display = 'none';
-        document.getElementById('urlField').style.display = 'none';
-        document.getElementById('locatorFields').style.display = 'none'; // 默认隐藏元素定位字段
-        document.getElementById('verifyTypeField').style.display = 'none'; // 默认隐藏验证方式字段
-        
-        if (action === 'input' || action === 'click' || action === 'extract_text') {
-            document.getElementById('locatorFields').style.display = 'grid'; // 点击/输入/提取文本操作显示定位字段
-            if (action === 'input' || action === 'extract_text') {
-                document.getElementById('inputValueField').style.display = 'grid'; // 输入和提取文本操作显示输入值/预期结果字段
-                if (action === 'extract_text') {
-                    document.getElementById('verifyTypeField').style.display = 'grid'; // 提取文本操作显示验证方式字段
-                }
-            }
-        } else if (action === 'swipe') {
-            document.getElementById('swipeFields').style.display = 'grid';
-        } else if (action === 'navigate') {
-            document.getElementById('urlField').style.display = 'grid';
+        const stepForm = document.getElementById('stepForm');
+        if (stepForm) {
+            stepForm.classList.add('active');
+            clearStepForm();
+            // 初始化表单字段显示，包括可视化选择按钮
+            updateStepFormFields();
         }
     }
 
+    function hideStepForm() {
+        const stepForm = document.getElementById('stepForm');
+        if (stepForm) {
+            stepForm.classList.remove('active');
+            editingStepIndex = -1;
+            clearStepForm();
+        }
+    }
+
+    function clearStepForm() {
+        // 保留当前的操作方式，不重置stepAction的值
+        const elementsToClear = [
+            { id: 'stepPageName', value: '' },
+            { id: 'stepLocatorMethod', value: 'css' },
+            { id: 'stepElementName', value: '' },
+            { id: 'stepInputValue', value: '' },
+            { id: 'stepSwipeX', value: '' },
+            { id: 'stepSwipeY', value: '' },
+            { id: 'stepUrl', value: '' },
+            { id: 'stepDescription', value: '' }
+        ];
+        
+        elementsToClear.forEach(elementInfo => {
+            const element = document.getElementById(elementInfo.id);
+            if (element) {
+                element.value = elementInfo.value;
+            }
+        });
+        // 不调用updateStepFormFields，避免重置字段可见性
+    }
+
+    function updateStepFormFields() {
+        const action = document.getElementById('stepAction')?.value || '';
+        console.log('updateStepFormFields called with action:', action);
+        
+        // 默认隐藏除可视化选择字段外的所有字段
+        const fields = [
+            'inputValueField', 
+            'swipeFields', 
+            'urlField', 
+            'locatorFields', 
+            'verifyTypeField'
+        ];
+        
+        fields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.style.display = 'none';
+            }
+        });
+        
+        // 显示/隐藏开始选择按钮 - 对所有需要元素定位的操作都显示
+        const startSelectBtn = document.getElementById('startSelectBtn');
+        const stopSelectBtn = document.getElementById('stopSelectBtn');
+        if (startSelectBtn && stopSelectBtn) {
+            if (action === 'extract_text' || action === 'click' || action === 'input') {
+                startSelectBtn.style.display = 'inline-block';
+                console.log('显示开始选择按钮');
+            } else {
+                startSelectBtn.style.display = 'none';
+                stopSelectBtn.style.display = 'none';
+                console.log('隐藏开始选择按钮');
+            }
+        }
+        
+        // 根据操作类型显示相应字段
+        if (action === 'input' || action === 'click' || action === 'extract_text') {
+            console.log('显示定位字段');
+            const locatorFields = document.getElementById('locatorFields');
+            if (locatorFields) {
+                locatorFields.style.display = 'grid';
+            }
+            
+            if (action === 'input' || action === 'extract_text') {
+                console.log('显示输入值字段');
+                const inputValueField = document.getElementById('inputValueField');
+                if (inputValueField) {
+                    inputValueField.style.display = 'grid';
+                }
+                
+                if (action === 'extract_text') {
+                    console.log('显示验证方式字段');
+                    const verifyTypeField = document.getElementById('verifyTypeField');
+                    if (verifyTypeField) {
+                        verifyTypeField.style.display = 'grid';
+                    }
+                }
+            }
+        } else if (action === 'swipe') {
+            console.log('显示滑动字段');
+            const swipeFields = document.getElementById('swipeFields');
+            if (swipeFields) {
+                swipeFields.style.display = 'grid';
+            }
+        } else if (action === 'navigate') {
+            console.log('显示URL字段');
+            const urlField = document.getElementById('urlField');
+            if (urlField) {
+                urlField.style.display = 'grid';
+            }
+        }
+    }
+    
+    // 可视化选择功能
+    let isSelecting = false;
+    
+    function startVisualSelection() {
+        isSelecting = true;
+        
+        // 更新UI状态，只在元素存在时操作
+        const startSelectBtn = document.getElementById('startSelectBtn');
+        const stopSelectBtn = document.getElementById('stopSelectBtn');
+        const selectionStatus = document.getElementById('selectionStatus');
+        
+        if (startSelectBtn) {
+            startSelectBtn.style.display = 'none';
+        }
+        if (stopSelectBtn) {
+            stopSelectBtn.style.display = 'block';
+        }
+        if (selectionStatus) {
+            selectionStatus.style.display = 'block';
+        }
+        
+        // 查找当前用例中的导航步骤，获取URL
+        const navigateStep = steps.find(step => step.action === 'navigate');
+        // 导航URL可能存储在url属性或input_value属性中，同时检查两者
+        const targetUrl = navigateStep ? (navigateStep.url || navigateStep.input_value || '') : '';
+        console.log('提取到的导航URL:', targetUrl, 'from step:', navigateStep);
+        
+        // 调用后端API启动可视化选择，并传递导航URL
+        console.log('正在启动可视化选择，目标URL:', targetUrl);
+        fetch('/api/start_visual_selection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: targetUrl })
+        })
+        .then(response => {
+            console.log('启动选择响应状态:', response.status);
+            console.log('响应类型:', response.headers.get('content-type'));
+            if (!response.ok) {
+                throw new Error('启动选择失败，状态码: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                console.log('可视化选择已启动');
+                // 开始监听元素选择事件
+                startListeningForSelection();
+            } else {
+                alert('启动可视化选择失败: ' + data.error);
+                stopVisualSelection();
+            }
+        })
+        .catch(error => {
+            console.error('启动可视化选择时出错:', error);
+            alert('启动可视化选择时发生错误: ' + error.message);
+            stopVisualSelection();
+        });
+    }
+    
+    function stopVisualSelection() {
+        isSelecting = false;
+        
+        // 更新UI状态，只在元素存在时操作
+        const startSelectBtn = document.getElementById('startSelectBtn');
+        const stopSelectBtn = document.getElementById('stopSelectBtn');
+        const selectionStatus = document.getElementById('selectionStatus');
+        
+        if (startSelectBtn) {
+            startSelectBtn.style.display = 'block';
+        }
+        if (stopSelectBtn) {
+            stopSelectBtn.style.display = 'none';
+        }
+        if (selectionStatus) {
+            selectionStatus.style.display = 'none';
+        }
+        
+        // 调用后端API停止可视化选择
+        fetch('/api/stop_visual_selection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('可视化选择已停止');
+                // 停止监听元素选择事件
+                stopListeningForSelection();
+            }
+        })
+        .catch(error => {
+            console.error('停止可视化选择时出错:', error);
+        });
+    }
+    
+    function startListeningForSelection() {
+        // 启动轮询，检查是否有元素被选择
+        const pollInterval = setInterval(() => {
+            if (!isSelecting) {
+                clearInterval(pollInterval);
+                return;
+            }
+            
+            fetch('/api/check_selected_element')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.selected_element) {
+                    // 元素已被选择，填充到表单
+                    fillElementToForm(data.selected_element);
+                    stopVisualSelection();
+                    clearInterval(pollInterval);
+                }
+            })
+            .catch(error => {
+                console.error('检查选择元素时出错:', error);
+            });
+        }, 1000); // 每秒轮询一次
+    }
+    
+    function stopListeningForSelection() {
+        // 停止轮询
+    }
+    
+    function fillElementToForm(elementInfo) {
+        // 填充元素信息到表单，只在元素存在时操作
+        const elementsToFill = [
+            { id: 'stepLocatorMethod', value: elementInfo.selector_type || 'css' },
+            { id: 'stepElementName', value: elementInfo.selector_value || '' }
+        ];
+        
+        if (elementInfo.page_name) {
+            elementsToFill.push({ id: 'stepPageName', value: elementInfo.page_name });
+        }
+        
+        if (elementInfo.text_content) {
+            elementsToFill.push({ id: 'stepInputValue', value: elementInfo.text_content });
+        }
+        
+        elementsToFill.forEach(elementInfo => {
+            const element = document.getElementById(elementInfo.id);
+            if (element) {
+                element.value = elementInfo.value;
+            }
+        });
+        
+        console.log('元素信息已填充到表单:', elementInfo);
+        showCustomAlert('元素选择成功，已自动填充到表单！');
+    }
+    
+    // 自定义模态对话框功能
+    function showCustomAlert(message) {
+        // 检查是否已存在模态对话框，如果不存在则创建
+        let modal = document.getElementById('customAlertModal');
+        if (!modal) {
+            // 创建模态对话框HTML结构
+            const modalHTML = `
+                <div id="customAlertModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+                        <div class="mb-4 text-gray-700">${message}</div>
+                        <button id="customAlertClose" class="btn btn-primary">
+                            确定
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            modal = document.getElementById('customAlertModal');
+            
+            // 添加关闭按钮事件
+            document.getElementById('customAlertClose').addEventListener('click', function() {
+                modal.classList.add('hidden');
+                setTimeout(() => {
+                    modal.remove();
+                }, 300);
+            });
+            
+            // 添加点击背景关闭事件
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    setTimeout(() => {
+                        modal.remove();
+                    }, 300);
+                }
+            });
+        } else {
+            // 更新现有模态对话框的消息
+            modal.querySelector('div').textContent = message;
+            modal.classList.remove('hidden');
+        }
+    }
+    
+    // 监听定位方法选择变化，自动生成XPath框架
+    function generateXPathFramework(locatorType, elementNameInput) {
+        if (locatorType === 'xpath' && !elementNameInput.value) {
+            // 生成Playwright标准的XPath选择器框架
+            const xpathFramework = 'xpath=//';
+            elementNameInput.value = xpathFramework;
+        }
+    }
+    
     function saveStep() {
-        const action = document.getElementById('stepAction').value;
-        const pageName = document.getElementById('stepPageName').value;
-        const locatorMethod = document.getElementById('stepLocatorMethod').value;
-        const elementName = document.getElementById('stepElementName').value;
-        const inputValue = document.getElementById('stepInputValue').value;
-        const swipeX = document.getElementById('stepSwipeX').value;
-        const swipeY = document.getElementById('stepSwipeY').value;
-        const url = document.getElementById('stepUrl').value;
-        const verifyType = document.getElementById('stepVerifyType').value;
-        const description = document.getElementById('stepDescription').value;
+        const action = document.getElementById('stepAction')?.value || '';
+        const pageName = document.getElementById('stepPageName')?.value || '';
+        const locatorMethod = document.getElementById('stepLocatorMethod')?.value || 'css';
+        const elementName = document.getElementById('stepElementName')?.value || '';
+        const inputValue = document.getElementById('stepInputValue')?.value || '';
+        const swipeX = document.getElementById('stepSwipeX')?.value || '';
+        const swipeY = document.getElementById('stepSwipeY')?.value || '';
+        const url = document.getElementById('stepUrl')?.value || '';
+        const description = document.getElementById('stepDescription')?.value || '';
 
         if (!action) {
             alert('请选择操作方式');
@@ -793,7 +943,6 @@
             swipe_x: swipeX,
             swipe_y: swipeY,
             url: url,
-            verify_type: verifyType,
             description: description
         };
 
@@ -810,47 +959,43 @@
 
     function renderSteps() {
         const tbody = document.getElementById('stepsTableBody');
-        tbody.innerHTML = '';
+        if (tbody) {
+            tbody.innerHTML = '';
 
-        steps.forEach((step, index) => {
-            const row = document.createElement('tr');
-            row.className = 'step-row';
-            
-            let displayValue = '-';
-            if (step.action === 'input') {
-                displayValue = step.input_value || '-';
-            } else if (step.action === 'swipe') {
-                displayValue = `X: ${step.swipe_x || '0'}, Y: ${step.swipe_y || '0'}`;
-            } else if (step.action === 'navigate') {
-                displayValue = step.url || '-';
-            } else if (step.action === 'extract_text') {
-                displayValue = step.input_value || '-';
-            }
-            
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${step.action}</td>
-                <td>${step.page_name || '-'}</td>
-                <td>${step.locator_method || '-'}</td>
-                <td>${step.element_name || '-'}</td>
-                <td>${displayValue}</td>
-                <td>${step.description || '-'}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="editStep(${index})">编辑</button>
-                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteStep(${index})">删除</button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-        
-
+            steps.forEach((step, index) => {
+                const row = document.createElement('tr');
+                row.className = 'step-row';
+                
+                let displayValue = '-';
+                if (step.action === 'input') {
+                    displayValue = step.input_value || '-';
+                } else if (step.action === 'swipe') {
+                    displayValue = `X: ${step.swipe_x || '0'}, Y: ${step.swipe_y || '0'}`;
+                } else if (step.action === 'navigate') {
+                    displayValue = step.url || '-';
+                } else if (step.action === 'extract_text') {
+                    displayValue = step.input_value || '-';
+                }
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${step.action}</td>
+                    <td>${step.page_name || '-'}</td>
+                    <td>${step.locator_method || '-'}</td>
+                    <td>${step.element_name || '-'}</td>
+                    <td>${displayValue}</td>
+                    <td>${step.description || '-'}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="editStep(${index})">编辑</button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteStep(${index})">删除</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
     }
-    
-
-    
-    // 格式化日期时间
     function formatDateTime(dateTimeStr) {
         const date = new Date(dateTimeStr);
         return date.toLocaleString('zh-CN', {
@@ -865,19 +1010,33 @@
 
     function editStep(index) {
         const step = steps[index];
-        document.getElementById('stepAction').value = step.action;
-        document.getElementById('stepPageName').value = step.page_name || '';
-        document.getElementById('stepLocatorMethod').value = step.locator_method || 'css';
-        document.getElementById('stepElementName').value = step.element_name || '';
-        document.getElementById('stepInputValue').value = step.input_value || '';
-        document.getElementById('stepSwipeX').value = step.swipe_x || '';
-        document.getElementById('stepSwipeY').value = step.swipe_y || '';
-        document.getElementById('stepUrl').value = step.url || '';
-        document.getElementById('stepDescription').value = step.description || '';
+        
+        const elementsToFill = [
+            { id: 'stepAction', value: step.action },
+            { id: 'stepPageName', value: step.page_name || '' },
+            { id: 'stepLocatorMethod', value: step.locator_method || 'css' },
+            { id: 'stepElementName', value: step.element_name || '' },
+            { id: 'stepInputValue', value: step.input_value || '' },
+            { id: 'stepSwipeX', value: step.swipe_x || '' },
+            { id: 'stepSwipeY', value: step.swipe_y || '' },
+            { id: 'stepUrl', value: step.url || '' },
+            { id: 'stepDescription', value: step.description || '' }
+        ];
+        
+        elementsToFill.forEach(function(elementInfo) {
+            const element = document.getElementById(elementInfo.id);
+            if (element) {
+                element.value = elementInfo.value;
+            }
+        });
         
         updateStepFormFields();
         editingStepIndex = index;
-        document.getElementById('stepForm').classList.add('active');
+        
+        const stepForm = document.getElementById('stepForm');
+        if (stepForm) {
+            stepForm.classList.add('active');
+        }
     }
 
     function deleteStep(index) {
@@ -888,18 +1047,39 @@
     }
 
     // 模态框相关函数
-    function openTitleModal() {
-        document.getElementById('modalCaseTitle').value = caseTitle;
-        document.getElementById('modalCaseDescription').value = caseDescription;
-        document.getElementById('titleModal').classList.remove('hidden');
+    window.openTitleModal = function() {
+        console.log('openTitleModal函数被调用');
+        const modalCaseTitle = document.getElementById('modalCaseTitle');
+        const modalCaseDescription = document.getElementById('modalCaseDescription');
+        const titleModal = document.getElementById('titleModal');
+        
+        console.log('模态框元素检查:', {
+            modalCaseTitle: modalCaseTitle ? '找到' : '未找到',
+            modalCaseDescription: modalCaseDescription ? '找到' : '未找到',
+            titleModal: titleModal ? '找到' : '未找到'
+        });
+        
+        if (modalCaseTitle && modalCaseDescription && titleModal) {
+            modalCaseTitle.value = caseTitle;
+            modalCaseDescription.value = caseDescription;
+            titleModal.classList.remove('hidden');
+            console.log('模态框已显示');
+        } else {
+            console.error('模态框元素未找到');
+            alert('模态框元素未找到，请检查页面结构');
+        }
     }
 
-    function closeTitleModal() {
-        document.getElementById('titleModal').classList.add('hidden');
+    window.closeTitleModal = function() {
+        const titleModal = document.getElementById('titleModal');
+        if (titleModal) {
+            titleModal.classList.add('hidden');
+        }
     }
 
     // 标题表单提交
     document.addEventListener('DOMContentLoaded', function() {
+        // 处理标题表单提交
         if (document.getElementById('titleForm')) {
             document.getElementById('titleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -912,39 +1092,61 @@
                 closeTitleModal();
             });
         }
+        
+        // 监听定位方法选择变化，自动生成XPath框架
+        const locatorMethodSelect = document.getElementById('stepLocatorMethod');
+        const elementNameInput = document.getElementById('stepElementName');
+        
+        if (locatorMethodSelect && elementNameInput) {
+            // 定位方法变化事件
+            locatorMethodSelect.addEventListener('change', function() {
+                generateXPathFramework(this.value, elementNameInput);
+            });
+            
+            // 元素定位值输入框清空事件
+            elementNameInput.addEventListener('input', function() {
+                if (locatorMethodSelect.value === 'xpath' && !this.value) {
+                    generateXPathFramework('xpath', this);
+                }
+            });
+            
+            // 聚焦事件，确保光标位置正确
+            elementNameInput.addEventListener('focus', function() {
+                if (locatorMethodSelect.value === 'xpath' && this.value === 'xpath=//') {
+                    // 将光标定位到XPath框架的适当位置
+                    this.setSelectionRange(7, 7);
+                }
+            });
+        }
         console.log('DOM加载完成，开始初始化页面...');
         
         document.getElementById('caseForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-
+        
             console.log('=== 开始提交表单 ===');
-
+        
             const projectId = document.getElementById('projectSelect').value;
-            const precondition = document.getElementById('precondition').value;
-            const expectedResult = document.getElementById('expectedResult').value;
-
+        
             console.log('表单数据:', {
                 projectId: projectId,
                 caseTitle: caseTitle,
                 caseDescription: caseDescription,
-                precondition: precondition,
-                expectedResult: expectedResult,
                 stepsCount: steps.length
             });
-
+        
             if (!projectId) {
                 alert('请选择项目');
                 return;
             }
-
+        
             if (!caseTitle) {
                 alert('请输入用例标题');
                 return;
             }
-
+        
             try {
                 console.log('发送创建/更新用例请求...');
-                
+                        
                 let response, data;
                 if (currentCaseId) {
                     // 更新用例
@@ -957,18 +1159,18 @@
                             name: caseTitle,
                             url: '',
                             description: caseDescription,
-                            precondition: precondition,
-                            expected_result: expectedResult
+                            precondition: '',
+                            expected_result: ''
                         })
                     });
                     data = await response.json();
-                    
+                            
                     if (data.success) {
                         // 删除原有步骤
                         await fetch(`/api/cases/${currentCaseId}/steps`, {
                             method: 'DELETE'
                         });
-                        
+                                
                         // 添加新步骤
                         for (let i = 0; i < steps.length; i++) {
                             const step = steps[i];
@@ -981,7 +1183,7 @@
                                 step_order: i + 1,
                                 page_name: step.page_name || ''
                             };
-                            
+                                    
                             if (step.action === 'input') {
                                 stepData.input_value = step.input_value || '';
                             } else if (step.action === 'swipe') {
@@ -992,7 +1194,7 @@
                             } else if (step.action === 'extract_text') {
                                 stepData.input_value = step.input_value || '';
                             }
-                            
+                                    
                             await fetch('/api/steps', {
                                 method: 'POST',
                                 headers: {
@@ -1001,7 +1203,7 @@
                                 body: JSON.stringify(stepData)
                             });
                         }
-
+        
                         alert('测试用例更新成功！');
                         window.location.href = '/list_projects';
                     } else {
@@ -1019,18 +1221,18 @@
                             name: caseTitle,
                             url: '',
                             description: caseDescription,
-                            precondition: precondition,
-                            expected_result: expectedResult
+                            precondition: '',
+                            expected_result: ''
                         })
                     });
-
+        
                     console.log('响应状态:', response.status);
                     data = await response.json();
                     console.log('响应数据:', data);
-
+        
                     if (data.success) {
                         const caseId = data.case_id;
-                        
+                                
                         for (let i = 0; i < steps.length; i++) {
                             const step = steps[i];
                             let stepData = {
@@ -1042,7 +1244,7 @@
                                 step_order: i + 1,
                                 page_name: step.page_name || ''
                             };
-                            
+                                    
                             if (step.action === 'input') {
                                 stepData.input_value = step.input_value || '';
                             } else if (step.action === 'swipe') {
@@ -1051,7 +1253,7 @@
                             } else if (step.action === 'navigate') {
                                 stepData.url = step.url || '';
                             }
-                            
+                                    
                             await fetch('/api/steps', {
                                 method: 'POST',
                                 headers: {
@@ -1060,7 +1262,7 @@
                                 body: JSON.stringify(stepData)
                             });
                         }
-
+        
                         alert('测试用例创建成功！用例ID: ' + caseId);
                         window.location.href = '/list_projects';
                     } else {
@@ -1074,8 +1276,26 @@
         });
 
         // 加载项目数据
-        console.log('调用loadProjects函数...');
-        loadProjects();
+        async function refreshProjects() {
+            console.log('调用loadProjects函数...');
+            try {
+                await loadProjects();
+                console.log('项目数据加载完成');
+            } catch (error) {
+                console.error('项目数据加载失败:', error);
+            }
+        }
+        
+        // 页面加载时调用，确保异步操作被正确处理
+        (async () => {
+            await refreshProjects();
+        })();
+        
+        // 添加项目列表刷新按钮点击事件（如果存在）
+        const refreshBtn = document.getElementById('refreshProjectsBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', refreshProjects);
+        }
         
         // 处理URL参数
         console.log('处理URL参数...');
@@ -1096,6 +1316,18 @@
             loadTestCase(caseId);
         }
         
+        // 为模态框关闭按钮添加事件监听器
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const cancelModalBtn = document.getElementById('cancelModalBtn');
+        
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', closeTitleModal);
+        }
+        
+        if (cancelModalBtn) {
+            cancelModalBtn.addEventListener('click', closeTitleModal);
+        }
+        
         console.log('页面初始化完成');
     });
 </script>
@@ -1104,7 +1336,7 @@
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">编辑用例标题和描述</h3>
-                <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeTitleModal()">
+                <button type="button" class="text-gray-400" id="closeModalBtn">
                     <i class="fa fa-times text-xl"></i>
                 </button>
             </div>
@@ -1118,7 +1350,7 @@
                     <textarea id="modalCaseDescription" placeholder="请输入测试用例的详细描述..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" class="btn btn-outline" onclick="closeTitleModal()">取消</button>
+                    <button type="button" class="btn btn-outline" id="cancelModalBtn">取消</button>
                     <button type="submit" class="btn btn-primary">保存</button>
                 </div>
             </form>
