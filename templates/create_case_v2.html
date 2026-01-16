@@ -578,43 +578,22 @@
                     </form>
                 </div>
                 
-                <!-- 测试步骤管理 -->
-                <div class="section">
+                <!-- 提示信息 -->
+                <div class="section mb-8">
                     <div class="section-title">
-                        测试步骤管理
+                        步骤管理提示
                     </div>
-                    
-                    <!-- 添加步骤按钮 -->
-                    <div class="flex justify-end mb-6">
-                        <button type="button" onclick="openAddStepModal()" class="btn btn-primary">
-                            <i class="fa fa-plus"></i>
-                            添加测试步骤
-                        </button>
-                    </div>
-                    
-                    <!-- 步骤列表 -->
-                    <div class="overflow-x-auto">
-                        <table id="stepsTable">
-                            <thead>
-                                <tr>
-                                    <th>步骤序号</th>
-                                    <th>操作方式</th>
-                                    <th>元素定位</th>
-                                    <th>操作值</th>
-                                    <th>是否进入iframe</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- 步骤将通过JavaScript动态添加 -->
-                                <tr>
-                                    <td colspan="6" class="text-center py-8 text-gray-500">
-                                        <i class="fa fa-info-circle text-2xl mb-2"></i>
-                                        <p>暂无测试步骤，请点击"添加测试步骤"按钮添加</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa fa-info-circle text-blue-500 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-blue-700">
+                                    测试用例创建完成后，请在<a href="#" class="text-blue-900 font-semibold underline" id="stepsLink">操作步骤管理</a>页面添加和管理测试步骤。
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -629,118 +608,8 @@
         </div>
     </div>
     
-    <!-- 添加步骤模态框 -->
-    <div id="addStepModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="modal-header bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-4">
-                <h3 class="text-xl font-bold">添加测试步骤</h3>
-                <button type="button" onclick="closeAddStepModal()" class="text-white hover:text-gray-200">
-                    <i class="fa fa-times text-xl"></i>
-                </button>
-            </div>
-            <div class="modal-body p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="form-group">
-                        <label for="action">操作方式</label>
-                        <select id="action" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                            <option value="">-- 选择操作方式 --</option>
-                            <option value="navigate">导航</option>
-                            <option value="click">点击</option>
-                            <option value="input">输入</option>
-                            <option value="extract_text">提取文本</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="elementName">元素定位</label>
-                        <input type="text" id="elementName" placeholder="例如: #username 或 .password" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                </div>
-                
-                <!-- 操作值字段 (根据操作类型动态显示) -->
-                <div id="valueFields" class="mt-4 hidden">
-                    <div class="form-group">
-                        <label for="actionValue">操作值</label>
-                        <input type="text" id="actionValue" placeholder="请输入操作值" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                </div>
-                
-                <!-- iframe开关 -->
-                <div class="iframe-switch-container">
-                    <label>
-                        <input type="checkbox" id="iframeSwitch">
-                        <span>是否进入iframe</span>
-                    </label>
-                    <div id="iframeSelectorField" style="display: none;" class="iframe-selector-field">
-                        <label for="iframeSelector">iframe选择器</label>
-                        <input type="text" id="iframeSelector" placeholder="例如: #myFrame 或 iframe[src='...']">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer bg-gray-50 px-6 py-4 flex justify-end gap-4">
-                <button type="button" onclick="closeAddStepModal()" class="btn btn-outline">取消</button>
-                <button type="button" onclick="addStep()" class="btn btn-primary">保存步骤</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 编辑步骤模态框 -->
-    <div id="editStepModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="modal-header bg-gradient-to-r from-primary to-blue-600 text-white px-6 py-4">
-                <h3 class="text-xl font-bold">编辑测试步骤</h3>
-                <button type="button" onclick="closeEditStepModal()" class="text-white hover:text-gray-200">
-                    <i class="fa fa-times text-xl"></i>
-                </button>
-            </div>
-            <div class="modal-body p-6">
-                <input type="hidden" id="editStepId">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="form-group">
-                        <label for="editAction">操作方式</label>
-                        <select id="editAction" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                            <option value="">-- 选择操作方式 --</option>
-                            <option value="navigate">导航</option>
-                            <option value="click">点击</option>
-                            <option value="input">输入</option>
-                            <option value="extract_text">提取文本</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="editElementName">元素定位</label>
-                        <input type="text" id="editElementName" placeholder="例如: #username 或 .password" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                </div>
-                
-                <!-- 编辑操作值字段 -->
-                <div id="editValueFields" class="mt-4 hidden">
-                    <div class="form-group">
-                        <label for="editActionValue">操作值</label>
-                        <input type="text" id="editActionValue" placeholder="请输入操作值" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                </div>
-                
-                <!-- 编辑iframe开关 -->
-                <div class="iframe-switch-container">
-                    <label>
-                        <input type="checkbox" id="editIframeSwitch">
-                        <span>是否进入iframe</span>
-                    </label>
-                    <div id="editIframeSelectorField" style="display: none;" class="iframe-selector-field">
-                        <label for="editIframeSelector">iframe选择器</label>
-                        <input type="text" id="editIframeSelector" placeholder="例如: #myFrame 或 iframe[src='...']">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer bg-gray-50 px-6 py-4 flex justify-end gap-4">
-                <button type="button" onclick="closeEditStepModal()" class="btn btn-outline">取消</button>
-                <button type="button" onclick="updateStep()" class="btn btn-primary">保存更改</button>
-            </div>
-        </div>
-    </div>
-    
     <script>
         // 全局变量
-        let steps = [];
         let projectId = null;
         
         // 页面加载完成后执行
@@ -753,282 +622,13 @@
                 return;
             }
             
-            // 绑定事件监听器
-            document.getElementById('action').addEventListener('change', updateValueFields);
-            document.getElementById('editAction').addEventListener('change', updateEditValueFields);
-            
-            // 绑定iframe开关事件
-            const iframeSwitch = document.getElementById('iframeSwitch');
-            const iframeSelectorField = document.getElementById('iframeSelectorField');
-            
-            if (iframeSwitch && iframeSelectorField) {
-                iframeSwitch.addEventListener('change', function() {
-                    if (iframeSwitch.checked) {
-                        iframeSelectorField.style.display = 'block';
-                    } else {
-                        iframeSelectorField.style.display = 'none';
-                    }
-                });
-            }
-            
-            const editIframeSwitch = document.getElementById('editIframeSwitch');
-            const editIframeSelectorField = document.getElementById('editIframeSelectorField');
-            
-            if (editIframeSwitch && editIframeSelectorField) {
-                editIframeSwitch.addEventListener('change', function() {
-                    if (editIframeSwitch.checked) {
-                        editIframeSelectorField.style.display = 'block';
-                    } else {
-                        editIframeSelectorField.style.display = 'none';
-                    }
-                });
-            }
-        });
-        
-        // 打开添加步骤模态框
-        function openAddStepModal() {
-            document.getElementById('addStepModal').classList.remove('hidden');
-            document.getElementById('action').value = '';
-            document.getElementById('elementName').value = '';
-            document.getElementById('actionValue').value = '';
-            document.getElementById('iframeSwitch').checked = false;
-            document.getElementById('iframeSelector').value = '';
-            document.getElementById('iframeSelectorField').style.display = 'none';
-            updateValueFields();
-        }
-        
-        // 关闭添加步骤模态框
-        function closeAddStepModal() {
-            document.getElementById('addStepModal').classList.add('hidden');
-        }
-        
-        // 打开编辑步骤模态框
-        function openEditStepModal(stepId) {
-            const step = steps.find(s => s.id === stepId);
-            if (!step) return;
-            
-            document.getElementById('editStepId').value = step.id;
-            document.getElementById('editAction').value = step.action;
-            document.getElementById('editElementName').value = step.elementName || '';
-            document.getElementById('editActionValue').value = step.value || '';
-            document.getElementById('editIframeSwitch').checked = step.enter_iframe || false;
-            document.getElementById('editIframeSelector').value = step.iframe_selector || '';
-            
-            if (step.enter_iframe) {
-                document.getElementById('editIframeSelectorField').style.display = 'block';
-            } else {
-                document.getElementById('editIframeSelectorField').style.display = 'none';
-            }
-            
-            updateEditValueFields();
-            document.getElementById('editStepModal').classList.remove('hidden');
-        }
-        
-        // 关闭编辑步骤模态框
-        function closeEditStepModal() {
-            document.getElementById('editStepModal').classList.add('hidden');
-        }
-        
-        // 更新值字段显示
-        function updateValueFields() {
-            const action = document.getElementById('action').value;
-            const valueFields = document.getElementById('valueFields');
-            
-            if (['input', 'navigate'].includes(action)) {
-                valueFields.classList.remove('hidden');
-            } else {
-                valueFields.classList.add('hidden');
-            }
-        }
-        
-        // 更新编辑值字段显示
-        function updateEditValueFields() {
-            const action = document.getElementById('editAction').value;
-            const valueFields = document.getElementById('editValueFields');
-            
-            if (['input', 'navigate'].includes(action)) {
-                valueFields.classList.remove('hidden');
-            } else {
-                valueFields.classList.add('hidden');
-            }
-        }
-        
-        // 添加步骤
-        function addStep() {
-            const action = document.getElementById('action').value;
-            const elementName = document.getElementById('elementName').value;
-            const actionValue = document.getElementById('actionValue').value;
-            const enterIframe = document.getElementById('iframeSwitch').checked;
-            const iframeSelector = document.getElementById('iframeSelector').value;
-            
-            if (!action) {
-                alert('请选择操作方式');
-                return;
-            }
-            
-            // 为点击、输入和提取文本操作验证元素定位
-            if ((action === 'click' || action === 'input' || action === 'extract_text') && !elementName) {
-                alert('点击、输入或提取文本操作必须填写元素定位值');
-                return;
-            }
-            
-            // 为需要值的操作验证操作值
-            if (['input', 'navigate'].includes(action) && !actionValue) {
-                alert('此操作需要填写操作值');
-                return;
-            }
-            
-            // 为进入iframe操作验证iframe选择器
-            if (enterIframe && !iframeSelector) {
-                alert('进入iframe操作必须填写iframe选择器');
-                return;
-            }
-            
-            const newStep = {
-                id: Date.now().toString(),
-                action: action,
-                elementName: elementName,
-                value: actionValue,
-                enter_iframe: enterIframe,
-                iframe_selector: iframeSelector
-            };
-            
-            steps.push(newStep);
-            updateStepsTable();
-            closeAddStepModal();
-        }
-        
-        // 更新步骤
-        function updateStep() {
-            const stepId = document.getElementById('editStepId').value;
-            const action = document.getElementById('editAction').value;
-            const elementName = document.getElementById('editElementName').value;
-            const actionValue = document.getElementById('editActionValue').value;
-            const enterIframe = document.getElementById('editIframeSwitch').checked;
-            const iframeSelector = document.getElementById('editIframeSelector').value;
-            
-            if (!action) {
-                alert('请选择操作方式');
-                return;
-            }
-            
-            // 为点击、输入和提取文本操作验证元素定位
-            if ((action === 'click' || action === 'input' || action === 'extract_text') && !elementName) {
-                alert('点击、输入或提取文本操作必须填写元素定位值');
-                return;
-            }
-            
-            // 为需要值的操作验证操作值
-            if (['input', 'navigate'].includes(action) && !actionValue) {
-                alert('此操作需要填写操作值');
-                return;
-            }
-            
-            // 为进入iframe操作验证iframe选择器
-            if (enterIframe && !iframeSelector) {
-                alert('进入iframe操作必须填写iframe选择器');
-                return;
-            }
-            
-            const stepIndex = steps.findIndex(s => s.id === stepId);
-            if (stepIndex !== -1) {
-                steps[stepIndex] = {
-                    id: stepId,
-                    action: action,
-                    elementName: elementName,
-                    value: actionValue,
-                    enter_iframe: enterIframe,
-                    iframe_selector: iframeSelector
-                };
-                updateStepsTable();
-                closeEditStepModal();
-            }
-        }
-        
-        // 删除步骤
-        function deleteStep(stepId) {
-            if (confirm('确定要删除此步骤吗？')) {
-                steps = steps.filter(s => s.id !== stepId);
-                updateStepsTable();
-            }
-        }
-        
-        // 上移步骤
-        function moveStepUp(stepId) {
-            const stepIndex = steps.findIndex(s => s.id === stepId);
-            if (stepIndex > 0) {
-                [steps[stepIndex - 1], steps[stepIndex]] = [steps[stepIndex], steps[stepIndex - 1]];
-                updateStepsTable();
-            }
-        }
-        
-        // 下移步骤
-        function moveStepDown(stepId) {
-            const stepIndex = steps.findIndex(s => s.id === stepId);
-            if (stepIndex < steps.length - 1) {
-                [steps[stepIndex], steps[stepIndex + 1]] = [steps[stepIndex + 1], steps[stepIndex]];
-                updateStepsTable();
-            }
-        }
-        
-        // 更新步骤表格
-        function updateStepsTable() {
-            const tableBody = document.querySelector('#stepsTable tbody');
-            if (!tableBody) return;
-            
-            if (steps.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center py-8 text-gray-500">
-                            <i class="fa fa-info-circle text-2xl mb-2"></i>
-                            <p>暂无测试步骤，请点击"添加测试步骤"按钮添加</p>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            tableBody.innerHTML = '';
-            steps.forEach((step, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${getActionText(step.action)}</td>
-                    <td>${step.elementName || '-'}</td>
-                    <td>${step.value || '-'}</td>
-                    <td>${step.enter_iframe ? '是' : '否'}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button type="button" onclick="moveStepUp('${step.id}')" class="btn btn-sm btn-outline" ${index === 0 ? 'disabled' : ''}>
-                                <i class="fa fa-arrow-up"></i>
-                            </button>
-                            <button type="button" onclick="moveStepDown('${step.id}')" class="btn btn-sm btn-outline" ${index === steps.length - 1 ? 'disabled' : ''}>
-                                <i class="fa fa-arrow-down"></i>
-                            </button>
-                            <button type="button" onclick="openEditStepModal('${step.id}')" class="btn btn-sm btn-primary">
-                                <i class="fa fa-edit"></i>
-                            </button>
-                            <button type="button" onclick="deleteStep('${step.id}')" class="btn btn-sm btn-danger">
-                                <i class="fa fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tableBody.appendChild(row);
+            // 绑定操作步骤管理链接事件
+            document.getElementById('stepsLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = `/list_cases_v2/${projectId}`;
             });
-        }
-        
-        // 获取操作文本
-        function getActionText(action) {
-            const actionMap = {
-                'navigate': '导航',
-                'click': '点击',
-                'input': '输入',
-                'extract_text': '提取文本'
-            };
-            return actionMap[action] || action;
-        }
-        
+        });
+
         // 保存测试用例
         function saveCase() {
             const caseTitle = document.getElementById('caseTitle').value;
@@ -1038,7 +638,6 @@
                 alert('请输入用例标题');
                 return;
             }
-            
             if (!projectId) {
                 alert('项目ID不存在');
                 return;
@@ -1050,7 +649,6 @@
                 description: caseDescription
             };
             
-            // 先保存测试用例
             fetch('/api/cases', {
                 method: 'POST',
                 headers: {
@@ -1061,68 +659,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const caseId = data.case_id;
-                    
-                    // 如果有步骤，保存步骤
-                    if (steps.length > 0) {
-                        // 批量保存步骤
-                        const saveStepsPromises = steps.map((step, index) => {
-                            const stepData = {
-                                case_id: caseId,
-                                action: step.action,
-                                selector_type: 'css',
-                                selector_value: step.elementName,
-                                input_value: step.value,
-                                description: `${step.action}操作`,
-                                step_order: index + 1,
-                                enter_iframe: step.enter_iframe,
-                                iframe_selector: step.iframe_selector
-                            };
-                            
-                            return fetch('/api/steps', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify(stepData)
-                            })
-                            .then(response => response.json());
-                        });
-                        
-                        // 等待所有步骤保存完成
-                        Promise.all(saveStepsPromises)
-                        .then(stepResults => {
-                            // 检查是否所有步骤都保存成功
-                            const allStepsSaved = stepResults.every(result => result.success);
-                            
-                            if (allStepsSaved) {
-                                alert('测试用例保存成功');
-                                // 重置表单
-                                document.getElementById('caseTitle').value = '';
-                                document.getElementById('caseDescription').value = '';
-                                steps = [];
-                                updateStepsTable();
-                                // 跳转到测试用例列表页面
-                                window.location.href = `/list_cases_v2/${projectId}`;
-                            } else {
-                                alert('测试用例保存成功，但部分步骤保存失败');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('保存步骤失败:', error);
-                            alert('测试用例保存成功，但步骤保存失败');
-                        });
-                    } else {
-                        // 没有步骤，直接保存成功
-                        alert('测试用例保存成功');
-                        // 重置表单
-                        document.getElementById('caseTitle').value = '';
-                        document.getElementById('caseDescription').value = '';
-                        steps = [];
-                        updateStepsTable();
-                        // 跳转到测试用例列表页面
-                        window.location.href = `/list_cases_v2/${projectId}`;
-                    }
+                    alert('测试用例保存成功');
+                    document.getElementById('caseTitle').value = '';
+                    document.getElementById('caseDescription').value = '';
+                    window.location.href = `/list_cases_v2/${projectId}`;
                 } else {
                     alert('保存失败: ' + (data.error || '未知错误'));
                 }

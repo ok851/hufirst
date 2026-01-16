@@ -370,11 +370,12 @@ def api_execute_multiple_cases():
 def api_navigate():
     data = request.get_json(silent=True) or {}
     url = data.get('url', '')
+    iframe_selector = data.get('iframe_selector', '')
     
     if not url:
         return jsonify({'error': 'URL不能为空'}), 400
     
-    sync_navigate_to(url)
+    sync_navigate_to(url, iframe_selector=iframe_selector)
     return jsonify({'success': True})
 
 # API: 执行滚动操作
@@ -385,8 +386,9 @@ def api_scroll():
     data = request.get_json(silent=True) or {}
     direction = data.get('direction', 'down')
     pixels = data.get('pixels', 500)
+    iframe_selector = data.get('iframe_selector', '')
     
-    sync_scroll_page(direction, pixels)
+    sync_scroll_page(direction, pixels, iframe_selector=iframe_selector)
     return jsonify({'success': True})
 
 # API: 提取元素文本
@@ -529,11 +531,13 @@ def api_analyze_content():
 def api_hover_element():
     data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
+    selector_type = data.get('selector_type', 'css')
+    iframe_selector = data.get('iframe_selector', '')
     
     if not selector:
         return jsonify({'error': '选择器不能为空'}), 400
     
-    sync_hover_element(selector)
+    sync_hover_element(selector, selector_type, iframe_selector=iframe_selector)
     return jsonify({'success': True})
 
 # API: 双击元素
@@ -543,11 +547,13 @@ def api_hover_element():
 def api_double_click():
     data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
+    selector_type = data.get('selector_type', 'css')
+    iframe_selector = data.get('iframe_selector', '')
     
     if not selector:
         return jsonify({'error': '选择器不能为空'}), 400
     
-    sync_double_click_element(selector)
+    sync_double_click_element(selector, selector_type, iframe_selector=iframe_selector)
     return jsonify({'success': True})
 
 # API: 点击元素
@@ -564,20 +570,7 @@ def api_click_element():
     sync_click_element(selector)
     return jsonify({'success': True})
 
-# API: 填充输入框
-@app.route('/api/fill_input', methods=['POST'])
-@api_error_handler
-@log_api_request
-def api_fill_input():
-    data = request.get_json(silent=True) or {}
-    selector = data.get('selector', '')
-    text = data.get('text', '')
-    
-    if not selector:
-        return jsonify({'error': '选择器不能为空'}), 400
-    
-    sync_fill_input(selector, text)
-    return jsonify({'success': True})
+
 
 # API: 右键点击元素
 @app.route('/api/right_click', methods=['POST'])
@@ -586,11 +579,13 @@ def api_fill_input():
 def api_right_click():
     data = request.get_json(silent=True) or {}
     selector = data.get('selector', '')
+    selector_type = data.get('selector_type', 'css')
+    iframe_selector = data.get('iframe_selector', '')
     
     if not selector:
         return jsonify({'error': '选择器不能为空'}), 400
     
-    sync_right_click_element(selector)
+    sync_right_click_element(selector, selector_type, iframe_selector=iframe_selector)
     return jsonify({'success': True})
 
 # API: 等待元素出现
@@ -1038,24 +1033,19 @@ def api_run_case(case_id):
                         sync_fill_input(selector_value, input_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 输入后等待页面响应
                         sync_wait_for_timeout(1000)
-                elif action == 'fill':
-                    if selector_value and input_value:
-                        sync_fill_input(selector_value, input_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
-                        # 填充后等待页面响应
-                        sync_wait_for_timeout(1000)
                 elif action == 'hover':
                     if selector_value:
-                        sync_hover_element(selector_value, selector_type)
+                        sync_hover_element(selector_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 悬停后等待页面响应
                         sync_wait_for_timeout(1000)
                 elif action == 'double_click':
                     if selector_value:
-                        sync_double_click_element(selector_value, selector_type)
+                        sync_double_click_element(selector_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 双击后等待页面响应
                         sync_wait_for_timeout(2000)
                 elif action == 'right_click':
                     if selector_value:
-                        sync_right_click_element(selector_value, selector_type)
+                        sync_right_click_element(selector_value, selector_type, iframe_selector=iframe_selector if enter_iframe else None)
                         # 右键点击后等待页面响应
                         sync_wait_for_timeout(1000)
                 elif action == 'wait':
@@ -1064,7 +1054,7 @@ def api_run_case(case_id):
                 elif action == 'scroll':
                     direction = 'down'
                     pixels = 500
-                    sync_scroll_page(direction, pixels)
+                    sync_scroll_page(direction, pixels, iframe_selector=iframe_selector if enter_iframe else None)
                     # 滚动后等待页面响应
                     sync_wait_for_timeout(1500)
                 elif action == 'extract_text':

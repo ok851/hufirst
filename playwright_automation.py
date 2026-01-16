@@ -921,8 +921,8 @@ class PlaywrightAutomation:
                 return 0
         return 0
     
-    async def navigate_to(self, url: str):
-        """导航到指定URL"""
+    async def navigate_to(self, url: str, iframe_selector: str = None):
+        """导航到指定URL，支持iframe导航"""
         if self.page is None:
             await self.start_browser()
         
@@ -980,6 +980,7 @@ class PlaywrightAutomation:
             step = {
                 "action": "navigate",
                 "url": url,
+                "iframe_selector": iframe_selector,
                 "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
             }
             
@@ -1351,19 +1352,50 @@ class PlaywrightAutomation:
             }
             self.recorded_steps.append(step)
     
-    async def scroll_page(self, direction: str = "down", pixels: int = 500):
-        """滚动页面"""
+    async def scroll_page(self, direction: str = "down", pixels: int = 500, iframe_selector: str = None, iframe_context=None):
+        """滚动页面或iframe"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        if direction == "down" and self.page is not None:
-            await self.page.evaluate(f"window.scrollBy(0, {pixels})")
-        elif direction == "up" and self.page is not None:
-            await self.page.evaluate(f"window.scrollBy(0, {-pixels})")
-        elif direction == "to_top" and self.page is not None:
-            await self.page.evaluate("window.scrollTo(0, 0)")
-        elif direction == "to_bottom" and self.page is not None:
-            await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        uat_logger.info(f"🔍 [SCROLL_DEBUG] 开始滚动，方向: {direction}, 像素: {pixels}, iframe选择器: {iframe_selector}")
+        
+        # 确定操作上下文
+        target_context = self.page
+        if iframe_context:
+            target_context = iframe_context
+        elif iframe_selector:
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            target_context = self.page.frame_locator(iframe_selector)
+        
+        # 执行滚动操作
+        if hasattr(target_context, 'evaluate'):
+            # 对于page对象
+            if direction == "down":
+                await target_context.evaluate(f"window.scrollBy(0, {pixels})")
+            elif direction == "up":
+                await target_context.evaluate(f"window.scrollBy(0, {-pixels})")
+            elif direction == "to_top":
+                await target_context.evaluate("window.scrollTo(0, 0)")
+            elif direction == "to_bottom":
+                await target_context.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        else:
+            # 对于frame_locator对象，需要先获取iframe的contentFrame
+            try:
+                # 获取iframe的contentFrame
+                iframe = await target_context.first.content_frame()
+                if iframe:
+                    if direction == "down":
+                        await iframe.evaluate(f"window.scrollBy(0, {pixels})")
+                    elif direction == "up":
+                        await iframe.evaluate(f"window.scrollBy(0, {-pixels})")
+                    elif direction == "to_top":
+                        await iframe.evaluate("window.scrollTo(0, 0)")
+                    elif direction == "to_bottom":
+                        await iframe.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                else:
+                    uat_logger.warning("无法获取iframe的contentFrame，无法执行滚动操作")
+            except Exception as e:
+                uat_logger.warning(f"执行iframe滚动时出错: {str(e)}")
         
         # 如果正在录制，记录滚动步骤
         if self.recording:
@@ -1371,6 +1403,7 @@ class PlaywrightAutomation:
                 "action": "scroll",
                 "direction": direction,
                 "pixels": pixels,
+                "iframe_selector": iframe_selector,
                 "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
@@ -2296,23 +2329,40 @@ class PlaywrightAutomation:
         except:
             return False
     
-    async def hover_element(self, selector: str, selector_type: str = "css"):
+    async def hover_element(self, selector: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None):
         """悬停在元素上"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
+        uat_logger.info(f"🔍 [HOVER_DEBUG] 开始悬停元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        
+        # 构建完整的选择器
+        full_selector = selector
+        if selector_type == "xpath":
+            full_selector = f"xpath={selector}"
+        
+        # 确定操作上下文
+        target_context = self.page
+        if iframe_context:
+            target_context = iframe_context
+        elif iframe_selector:
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            target_context = self.page.frame_locator(iframe_selector)
+        
         # 悬停步骤通常不是必要的，设置较短的超时时间
         try:
             # 等待元素可见（减少超时时间到2秒）
-            if selector_type == "xpath":
-                element = self.page.locator(f"xpath={selector}")
+            if hasattr(target_context, 'wait_for_selector'):
+                # 对于page对象
+                await target_context.wait_for_selector(full_selector, state='visible', timeout=2000)
+                # 使用更健壮的悬停方式
+                await target_context.hover(full_selector, timeout=2000)
+            else:
+                # 对于frame_locator对象
+                element = target_context.locator(full_selector)
                 await element.wait_for(state='visible', timeout=2000)
                 # 使用更健壮的悬停方式
                 await element.hover(timeout=2000)
-            else:
-                await self.page.wait_for_selector(selector, state='visible', timeout=2000)
-                # 使用更健壮的悬停方式
-                await self.page.hover(selector, timeout=2000)
             uat_logger.info(f"成功悬停元素: {selector}")
         except Exception as e:
             uat_logger.warning(f"悬停失败，这通常不影响执行: {str(e)}")
@@ -2323,54 +2373,92 @@ class PlaywrightAutomation:
             step = {
                 "action": "hover",
                 "selector": selector,
+                "selector_type": selector_type,
+                "iframe_selector": iframe_selector,
                 "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
-    async def double_click_element(self, selector: str, selector_type: str = "css"):
+    async def double_click_element(self, selector: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None):
         """双击元素"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        if self.page is not None:
-            # 等待元素可见且可交互
-            if selector_type == "xpath":
-                element = self.page.locator(f"xpath={selector}")
-                await element.wait_for(state='visible', timeout=10000)
-                await element.dblclick(timeout=10000)
-            else:
-                await self.page.wait_for_selector(selector, state='visible', timeout=10000)
-                await self.page.dblclick(selector, timeout=10000)
+        uat_logger.info(f"🔍 [DOUBLE_CLICK_DEBUG] 开始双击元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        
+        # 构建完整的选择器
+        full_selector = selector
+        if selector_type == "xpath":
+            full_selector = f"xpath={selector}"
+        
+        # 确定操作上下文
+        target_context = self.page
+        if iframe_context:
+            target_context = iframe_context
+        elif iframe_selector:
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            target_context = self.page.frame_locator(iframe_selector)
+        
+        # 等待元素可见且可交互
+        if hasattr(target_context, 'wait_for_selector'):
+            # 对于page对象
+            await target_context.wait_for_selector(full_selector, state='visible', timeout=10000)
+            await target_context.dblclick(full_selector, timeout=10000)
+        else:
+            # 对于frame_locator对象
+            element = target_context.locator(full_selector)
+            await element.wait_for(state='visible', timeout=10000)
+            await element.dblclick(timeout=10000)
         
         # 如果正在录制，记录双击步骤
         if self.recording:
             step = {
                 "action": "double_click",
                 "selector": selector,
+                "selector_type": selector_type,
+                "iframe_selector": iframe_selector,
                 "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
-    async def right_click_element(self, selector: str, selector_type: str = "css"):
+    async def right_click_element(self, selector: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None):
         """右键点击元素"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        if self.page is not None:
-            # 等待元素可见且可交互
-            if selector_type == "xpath":
-                element = self.page.locator(f"xpath={selector}")
-                await element.wait_for(state='visible', timeout=10000)
-                await element.click(button="right", timeout=10000)
-            else:
-                await self.page.wait_for_selector(selector, state='visible', timeout=10000)
-                await self.page.click(selector, button="right", timeout=10000)
+        uat_logger.info(f"🔍 [RIGHT_CLICK_DEBUG] 开始右键点击元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        
+        # 构建完整的选择器
+        full_selector = selector
+        if selector_type == "xpath":
+            full_selector = f"xpath={selector}"
+        
+        # 确定操作上下文
+        target_context = self.page
+        if iframe_context:
+            target_context = iframe_context
+        elif iframe_selector:
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            target_context = self.page.frame_locator(iframe_selector)
+        
+        # 等待元素可见且可交互
+        if hasattr(target_context, 'wait_for_selector'):
+            # 对于page对象
+            await target_context.wait_for_selector(full_selector, state='visible', timeout=10000)
+            await target_context.click(full_selector, button="right", timeout=10000)
+        else:
+            # 对于frame_locator对象
+            element = target_context.locator(full_selector)
+            await element.wait_for(state='visible', timeout=10000)
+            await element.click(button="right", timeout=10000)
         
         # 如果正在录制，记录右键步骤
         if self.recording:
             step = {
                 "action": "right_click",
                 "selector": selector,
+                "selector_type": selector_type,
+                "iframe_selector": iframe_selector,
                 "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
@@ -2713,16 +2801,20 @@ class PlaywrightAutomation:
                 # 强制检查：submit操作前必须先click
                 if action == "submit":
                     if not has_clicked:
-                        uat_logger.error(f"❌ [FORCE_CHECK] submit操作前必须先click！当前状态: has_clicked={has_clicked}")
-                        raise Exception(f"违反强制规则：submit操作前必须先click，但当前未检测到click操作")
-                    uat_logger.info(f"✅ [FORCE_CHECK] submit操作检查通过：已检测到click操作")
+                        uat_logger.warning(f"⚠️ [FORCE_CHECK] submit操作前未检测到click，但继续执行（多案例执行模式）")
+                        # 不再强制抛出异常，允许继续执行
+                        # raise Exception(f"违反强制规则：submit操作前必须先click，但当前未检测到click操作")
+                    else:
+                        uat_logger.info(f"✅ [FORCE_CHECK] submit操作检查通过：已检测到click操作")
                 
                 # 强制检查：navigate操作前必须先submit（除非是第一个navigate操作）
                 if action == "navigate" and step_index > 1:
                     if not has_submitted:
-                        uat_logger.error(f"❌ [FORCE_CHECK] navigate操作前必须先submit！当前状态: has_submitted={has_submitted}")
-                        raise Exception(f"违反强制规则：navigate操作前必须先submit，但当前未检测到submit操作")
-                    uat_logger.info(f"✅ [FORCE_CHECK] navigate操作检查通过：已检测到submit操作")
+                        uat_logger.warning(f"⚠️ [FORCE_CHECK] navigate操作前未检测到submit，但继续执行（多案例执行模式）")
+                        # 不再强制抛出异常，允许继续执行
+                        # raise Exception(f"违反强制规则：navigate操作前必须先submit，但当前未检测到submit操作")
+                    else:
+                        uat_logger.info(f"✅ [FORCE_CHECK] navigate操作检查通过：已检测到submit操作")
                 
                 if action == "navigate":
                     url = step.get("url")
@@ -2744,7 +2836,7 @@ class PlaywrightAutomation:
                     
                     # 首先尝试原始选择器
                     try:
-                        await self.click_element(selector)
+                        await self.click_element(selector, step.get("selector_type", "css"), step.get("iframe_selector"))
                         click_success = True
                     except Exception as e:
                         uat_logger.warning(f"原始选择器点击失败: {str(e)}")
@@ -2827,7 +2919,7 @@ class PlaywrightAutomation:
                     
                     # 首先尝试原始选择器
                     try:
-                        await self.fill_input(selector, text)
+                        await self.fill_input(selector, text, step.get("selector_type", "css"), step.get("iframe_selector"))
                         fill_success = True
                     except Exception as e:
                         uat_logger.warning(f"原始选择器填充失败: {str(e)}")
@@ -3066,12 +3158,12 @@ class PlaywrightAutomation:
                     selector = step.get("selector")
                     timeout = step.get("timeout", 30000)
                     if selector:
-                        await self.wait_for_selector(selector, timeout)
+                        await self.wait_for_selector(selector, timeout, step.get("selector_type", "css"), step.get("iframe_selector"))
                 elif action == "wait_for_element_visible":
                     selector = step.get("selector")
                     timeout = step.get("timeout", 30000)
                     if selector:
-                        await self.wait_for_element_visible(selector, timeout)
+                        await self.wait_for_element_visible(selector, timeout, step.get("selector_type", "css"), step.get("iframe_selector"))
                 elif action == "screenshot":
                     # 截取页面截图
                     await self.take_screenshot()
@@ -3082,7 +3174,7 @@ class PlaywrightAutomation:
                     try:
                         if selector:
                             # 提取元素文本
-                            extracted_text = await self.extract_element_text(selector)
+                            extracted_text = await self.extract_element_text(selector, step.get("selector_type", "css"), step.get("iframe_selector"))
                             uat_logger.info(f"✅ [EXTRACT_TEXT_DEBUG] 提取到文本: {extracted_text[:100]}...")
                             # 标记为成功
                             step_status = "success"
@@ -3272,11 +3364,17 @@ class PlaywrightAutomation:
                     # 根据不同的操作类型添加相应的参数
                     if step["action"] == "click":
                         exec_step["selector"] = step["selector_value"]
+                        exec_step["selector_type"] = step.get("selector_type", "css")
+                        exec_step["iframe_selector"] = step.get("iframe_selector")
                     elif step["action"] in ["fill", "input"]:
                         exec_step["selector"] = step["selector_value"]
                         exec_step["text"] = step["input_value"]
+                        exec_step["selector_type"] = step.get("selector_type", "css")
+                        exec_step["iframe_selector"] = step.get("iframe_selector")
                     elif step["action"] == "submit":
                         exec_step["selector"] = step["selector_value"]
+                        exec_step["selector_type"] = step.get("selector_type", "css")
+                        exec_step["iframe_selector"] = step.get("iframe_selector")
                     elif step["action"] == "navigate":
                         exec_step["url"] = step["url"] or step["input_value"]
                     elif step["action"] == "keypress":
@@ -3288,12 +3386,16 @@ class PlaywrightAutomation:
                             exec_step["time"] = 1000
                     elif step["action"] in ["wait_for_selector", "wait_for_element_visible"]:
                         exec_step["selector"] = step["selector_value"]
+                        exec_step["selector_type"] = step.get("selector_type", "css")
+                        exec_step["iframe_selector"] = step.get("iframe_selector")
                         try:
                             exec_step["timeout"] = int(step["input_value"])
                         except:
                             exec_step["timeout"] = 30000
                     elif step["action"] == "extract_text":
                         exec_step["selector"] = step["selector_value"]
+                        exec_step["selector_type"] = step.get("selector_type", "css")
+                        exec_step["iframe_selector"] = step.get("iframe_selector")
                     
                     # 添加描述信息
                     if step["description"]:
@@ -4925,9 +5027,9 @@ def sync_start_browser(headless=False):
         return await automation.start_browser(headless)
     return worker.execute(run)
 
-def sync_navigate_to(url: str):
+def sync_navigate_to(url: str, iframe_selector: str = None):
     async def run():
-        return await automation.navigate_to(url)
+        return await automation.navigate_to(url, iframe_selector=iframe_selector)
     return worker.execute(run)
 
 def sync_click_element(selector: str, selector_type: str = "css", iframe_selector: str = None):
@@ -4940,9 +5042,9 @@ def sync_fill_input(selector: str, text: str, selector_type: str = "css", iframe
         return await automation.fill_input(selector, text, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
-def sync_scroll_page(direction: str = "down", pixels: int = 500):
+def sync_scroll_page(direction: str = "down", pixels: int = 500, iframe_selector: str = None):
     async def run():
-        return await automation.scroll_page(direction, pixels)
+        return await automation.scroll_page(direction, pixels, iframe_selector=iframe_selector)
     return worker.execute(run)
 
 def sync_get_page_text():
@@ -5007,19 +5109,19 @@ def sync_take_screenshot(path: str = None):
         return await automation.take_screenshot(path)
     return worker.execute(run)
 
-def sync_hover_element(selector: str, selector_type: str = "css"):
+def sync_hover_element(selector: str, selector_type: str = "css", iframe_selector: str = None):
     async def run():
-        return await automation.hover_element(selector, selector_type)
+        return await automation.hover_element(selector, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
-def sync_double_click_element(selector: str, selector_type: str = "css"):
+def sync_double_click_element(selector: str, selector_type: str = "css", iframe_selector: str = None):
     async def run():
-        return await automation.double_click_element(selector, selector_type)
+        return await automation.double_click_element(selector, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
-def sync_right_click_element(selector: str, selector_type: str = "css"):
+def sync_right_click_element(selector: str, selector_type: str = "css", iframe_selector: str = None):
     async def run():
-        return await automation.right_click_element(selector, selector_type)
+        return await automation.right_click_element(selector, selector_type, iframe_selector=iframe_selector)
     return worker.execute(run)
 
 def sync_get_page_elements():

@@ -417,14 +417,13 @@ class Database:
         if row:
             return {
                 'id': row[0],
-                'name': row[1],
-                'description': row[2],
-                'target_url': row[3],
-                'created_at': row[4],
-                'project_id': row[5] if len(row) > 5 else None,
-                'url': row[6] if len(row) > 6 else '',
-                'precondition': row[7] if len(row) > 7 else '',
-                'expected_result': row[8] if len(row) > 8 else ''
+                'project_id': row[1],
+                'name': row[2],
+                'url': row[3],
+                'description': row[4],
+                'created_at': row[5],
+                'precondition': row[6] if len(row) > 6 else '',
+                'expected_result': row[7] if len(row) > 7 else ''
             }
         
         conn.close()
@@ -667,9 +666,13 @@ class Database:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        # 获取本地时间，而不是使用 UTC 时间
+        import datetime
+        local_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         cursor.execute(
-            "INSERT INTO run_history (case_id, status, duration, error, extracted_text) VALUES (?, ?, ?, ?, ?)",
-            (case_id, status, duration, error, extracted_text)
+            "INSERT INTO run_history (case_id, status, duration, error, extracted_text, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (case_id, status, duration, error, extracted_text, local_time)
         )
         history_id = cursor.lastrowid
         

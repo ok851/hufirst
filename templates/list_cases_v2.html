@@ -430,7 +430,19 @@
         function getProjectIdFromUrl() {
             const path = window.location.pathname;
             const parts = path.split('/');
-            return parts[2];
+            
+            // 遍历路径部分，找到数字形式的项目ID
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                if (part === 'list_cases_v2' && i + 1 < parts.length) {
+                    const projectId = parts[i + 1];
+                    if (projectId && !isNaN(parseInt(projectId))) {
+                        return projectId;
+                    }
+                }
+            }
+            
+            return null;
         }
 
         async function loadProjectInfo() {
@@ -653,6 +665,7 @@
         
         function viewCaseSteps(caseId) {
             sessionStorage.setItem('currentCaseId', caseId);
+            sessionStorage.setItem('currentProjectId', currentProjectId);
             window.location.href = '/list_steps';
         }
         
