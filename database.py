@@ -506,12 +506,18 @@ class Database:
     
     def create_test_step(self, case_id: int, action: str, selector_type: str = "", 
                          selector_value: str = "", input_value: str = "", 
-                         description: str = "", step_order: int = 0, page_name: str = "",
+                         description: str = "", step_order: int = None, page_name: str = "",
                          swipe_x: str = "", swipe_y: str = "", url: str = "",
                          enter_iframe: bool = False, iframe_selector: str = "") -> int:
         """创建测试步骤"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        
+        # 如果没有指定step_order，自动计算最大顺序值
+        if step_order is None:
+            cursor.execute("SELECT MAX(step_order) FROM test_steps WHERE case_id = ?", (case_id,))
+            max_order = cursor.fetchone()[0]
+            step_order = (max_order or 0) + 1
         
         cursor.execute(
             """INSERT INTO test_steps 
@@ -840,3 +846,33 @@ class Database:
         conn.close()
         
         return success
+    
+    def update_step_order(self, case_id: int, steps: List[Dict[str, Any]]) -> bool:
+        """更新测试步骤的顺序"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # 开始事务
+            conn.execute("BEGIN TRANSACTION")
+            
+            # 更新每个步骤的顺序
+            for step in steps:
+                step_id = step.get('id')
+                step_order = step.get('order')
+                
+                if step_id and step_order:
+                    cursor.execute(
+                        "UPDATE test_steps SET step_order = ? WHERE id = ? AND case_id = ?",
+                        (step_order, step_id, case_id)
+                    )
+            
+            # 提交事务
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"更新步骤顺序失败: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()

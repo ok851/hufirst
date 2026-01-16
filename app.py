@@ -858,7 +858,7 @@ def api_create_step():
     selector_value = data.get('selector_value', '')
     input_value = data.get('input_value', '')
     description = data.get('description', '')
-    step_order = data.get('step_order', 0)
+    step_order = data.get('step_order')  # 不设置默认值，让它为None
     page_name = data.get('page_name', '')
     swipe_x = data.get('swipe_x', '')
     swipe_y = data.get('swipe_y', '')
@@ -921,6 +921,20 @@ def api_delete_case_steps(case_id):
         return jsonify({'success': True})
     else:
         return jsonify({'success': False, 'error': '删除测试用例步骤失败'}), 400
+
+# API: 更新测试步骤顺序
+@app.route('/api/cases/<int:case_id>/steps/order', methods=['PUT'])
+@api_error_handler
+@log_api_request
+def api_update_step_order(case_id):
+    data = request.json
+    steps = data.get('steps', [])
+    
+    success = db.update_step_order(case_id, steps)
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '更新步骤顺序失败'}), 400
 
 # API: 运行测试用例
 @app.route('/api/cases/<int:case_id>/run', methods=['POST'])
@@ -1143,7 +1157,7 @@ def api_run_case(case_id):
             
             # 保存运行历史记录
             try:
-                db.create_run_history(case_id, 'passed', duration, "", extracted_text)
+                db.create_run_history(case_id, 'success', duration, "", extracted_text)
             except Exception as history_error:
                 uat_logger.warning(f"保存运行历史记录失败: {history_error}")
             
@@ -1155,7 +1169,7 @@ def api_run_case(case_id):
             
             return jsonify({
                 'success': True,
-                'status': 'passed',
+                'status': 'success',
                 'duration': duration,
                 'message': '测试用例运行成功'
             })
@@ -1167,7 +1181,7 @@ def api_run_case(case_id):
             
             # 保存运行历史记录
             try:
-                db.create_run_history(case_id, 'failed', duration, str(e), extracted_text)
+                db.create_run_history(case_id, 'error', duration, str(e), extracted_text)
             except Exception as history_error:
                 uat_logger.warning(f"保存运行历史记录失败: {history_error}")
             
@@ -1179,7 +1193,7 @@ def api_run_case(case_id):
             
             return jsonify({
                 'success': False,
-                'status': 'failed',
+                'status': 'error',
                 'duration': duration,
                 'error': str(e)
             })

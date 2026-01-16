@@ -439,7 +439,15 @@
                         }
                         
                         if (statusFilter) {
-                            history = history.filter(item => item.status === statusFilter);
+                            if (statusFilter === 'passed') {
+                                // 当过滤"通过"状态时，同时显示 'passed' 和 'success' 状态的记录
+                                history = history.filter(item => ['passed', 'success'].includes(item.status));
+                            } else if (statusFilter === 'failed') {
+                                // 当过滤"失败"状态时，显示除了 'passed' 和 'success' 之外的所有状态
+                                history = history.filter(item => !['passed', 'success'].includes(item.status));
+                            } else {
+                                history = history.filter(item => item.status === statusFilter);
+                            }
                         }
                         
                         // 计算总页数（基于后端返回的总数）
@@ -489,7 +497,7 @@
                         <td>${item.case_name}</td>
                         <td>
                             <span class="status-badge status-${item.status}">
-                                ${item.status === 'passed' ? '通过' : '失败'}
+                                ${['passed', 'success'].includes(item.status) ? '通过' : '失败'}
                             </span>
                         </td>
                         <td>${item.duration}</td>

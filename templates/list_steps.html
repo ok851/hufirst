@@ -189,6 +189,34 @@
             flex-shrink: 0;
         }
         
+        /* 拖动排序样式 */
+        .steps-list {
+            min-height: 100px;
+        }
+        
+        .step-item {
+            cursor: grab;
+            transition: all 0.3s ease;
+        }
+        
+        .step-item:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .step-item:active {
+            cursor: grabbing;
+        }
+        
+        .step-item.dragging {
+            opacity: 0.8;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .step-item.over {
+            border-top: 2px solid #667eea;
+        }
+        
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -589,7 +617,7 @@
             </div>
             
             <!-- 操作值字段 (根据操作类型动态显示) -->
-            <div id="editStepValueFields" class="mt-4 hidden">
+            <div id="editStepValueFields" class="mt-4" style="display: none;">
                 <div class="form-group">
                     <label for="editStepInputValue">操作值</label>
                     <input type="text" id="editStepInputValue" placeholder="请输入操作值">
@@ -597,7 +625,7 @@
             </div>
             
             <!-- 定位方式字段 -->
-            <div id="editStepSelectorTypeField" class="mt-4">
+            <div id="editStepSelectorTypeField" class="mt-4" style="display: none;">
                 <div class="form-group">
                     <label for="editStepSelectorType">定位方式</label>
                     <select id="editStepSelectorType">
@@ -611,7 +639,7 @@
             </div>
             
             <!-- 元素定位字段 -->
-            <div id="editStepElementNameField" class="mt-4">
+            <div id="editStepElementNameField" class="mt-4" style="display: none;">
                 <div class="form-group">
                     <label for="editStepSelectorValue">选择器值</label>
                     <input type="text" id="editStepSelectorValue" placeholder="例如: #username 或 //input[@id='username']">
@@ -734,6 +762,7 @@
                         const stepItem = document.createElement('div');
                         stepItem.className = 'step-item';
                         stepItem.id = `step-${step.id}`;
+                        stepItem.dataset.stepId = step.id;
                         
                         let actionText = '';
                         switch (step.action) {
@@ -770,6 +799,9 @@
                         
                         stepsListContainer.appendChild(stepItem);
                     });
+                    
+                    // 初始化拖动排序功能
+                    initDragAndDrop();
                 } else {
                     stepsList.innerHTML = `
                         <div class="empty-state">
@@ -898,6 +930,362 @@
         function backToCases() {
             // 最简单的方法：直接返回上一页
             window.history.back();
+        }
+        
+        // 初始化拖动排序功能
+        function initDragAndDrop() {
+            const stepsListContainer = document.getElementById('stepsListContainer');
+            const stepItems = document.querySelectorAll('.step-item');
+            
+            let draggedItem = null;
+            let scrollInterval = null;
+            
+            // 添加鼠标滚轮支持 - 直接添加到document上，确保即使鼠标不在容器内也能滚动
+            document.addEventListener('wheel', function(e) {
+                if (draggedItem) {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? 20 : -20;
+                    stepsListContainer.scrollTop += delta;
+                }
+            }, { passive: false });
+            
+            stepItems.forEach(item => {
+                // 拖动开始
+                item.addEventListener('dragstart', function(e) {
+                    draggedItem = this;
+                    setTimeout(() => {
+                        this.classList.add('dragging');
+                    }, 0);
+                });
+                
+                // 拖动结束
+                item.addEventListener('dragend', function(e) {
+                    this.classList.remove('dragging');
+                    draggedItem = null;
+                    
+                    // 清除所有over类
+                    document.querySelectorAll('.step-item').forEach(el => {
+                        el.classList.remove('over');
+                    });
+                    
+                    // 清除自动滚动定时器
+                    if (scrollInterval) {
+                        clearInterval(scrollInterval);
+                        scrollInterval = null;
+                    }
+                    
+                    // 更新步骤编号
+                    updateStepNumbers();
+                    
+                    // 保存新的顺序
+                    saveStepOrder();
+                });
+                
+                // 拖动经过
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    
+                    // 计算拖动方向
+                    const rect = this.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    
+                    // 清除所有over类
+                    document.querySelectorAll('.step-item').forEach(el => {
+                        el.classList.remove('over');
+                    });
+                    
+                    // 根据鼠标位置添加over类
+                    if (this !== draggedItem) {
+                        this.classList.add('over');
+                    }
+                    
+                    // 自动滚动
+                    const containerRect = stepsListContainer.getBoundingClientRect();
+                    const scrollThreshold = 80; // 增加阈值，使自动滚动更容易触发
+                    const scrollSpeed = 8; // 增加滚动速度
+                    
+                    // 清除之前的滚动定时器
+                    if (scrollInterval) {
+                        clearInterval(scrollInterval);
+                        scrollInterval = null;
+                    }
+                    
+                    // 计算滚动方向和速度
+                    if (e.clientY < containerRect.top + scrollThreshold) {
+                        // 向上滚动
+                        scrollInterval = setInterval(() => {
+                            stepsListContainer.scrollTop -= scrollSpeed;
+                        }, 20);
+                    } else if (e.clientY > containerRect.bottom - scrollThreshold) {
+                        // 向下滚动
+                        scrollInterval = setInterval(() => {
+                            stepsListContainer.scrollTop += scrollSpeed;
+                        }, 20);
+                    }
+                });
+                
+                // 拖动进入
+                item.addEventListener('dragenter', function(e) {
+                    e.preventDefault();
+                });
+                
+                // 拖动离开
+                item.addEventListener('dragleave', function(e) {
+                    // 只有当离开元素时才移除over类
+                    if (!this.contains(e.relatedTarget)) {
+                        this.classList.remove('over');
+                    }
+                });
+                
+                // 放置
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('over');
+                    
+                    // 清除自动滚动定时器
+                    if (scrollInterval) {
+                        clearInterval(scrollInterval);
+                        scrollInterval = null;
+                    }
+                    
+                    if (this !== draggedItem) {
+                        const container = stepsListContainer;
+                        
+                        // 计算放置位置
+                        const rect = this.getBoundingClientRect();
+                        const y = e.clientY - rect.top;
+                        
+                        // 如果鼠标在元素的上半部分，放在元素前面；否则放在元素后面
+                        if (y < rect.height / 2) {
+                            container.insertBefore(draggedItem, this);
+                        } else {
+                            container.insertBefore(draggedItem, this.nextSibling);
+                        }
+                    }
+                });
+                
+                // 设置可拖动
+                item.setAttribute('draggable', 'true');
+            });
+        }
+        
+        // 更新步骤编号
+        function updateStepNumbers() {
+            const stepItems = document.querySelectorAll('.step-item');
+            stepItems.forEach((item, index) => {
+                const stepNumber = item.querySelector('.step-number');
+                if (stepNumber) {
+                    stepNumber.textContent = index + 1;
+                }
+            });
+        }
+        
+        // 保存步骤顺序
+        async function saveStepOrder() {
+            const stepItems = document.querySelectorAll('.step-item');
+            const stepOrder = [];
+            
+            stepItems.forEach((item, index) => {
+                const stepId = item.dataset.stepId;
+                if (stepId) {
+                    stepOrder.push({
+                        id: parseInt(stepId),
+                        order: index + 1
+                    });
+                }
+            });
+            
+            try {
+                const response = await fetch(`/api/cases/${currentCaseId}/steps/order`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ steps: stepOrder })
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    console.error('保存步骤顺序失败:', data.error);
+                    // 重新加载步骤以恢复原始顺序
+                    loadSteps();
+                }
+            } catch (error) {
+                console.error('保存步骤顺序时出错:', error);
+                // 重新加载步骤以恢复原始顺序
+                loadSteps();
+            }
+        }
+        
+        function createStep() {
+            const action = document.getElementById('stepAction').value;
+            const selectorType = document.getElementById('stepSelectorType').value;
+            const selectorValue = document.getElementById('stepSelectorValue').value;
+            const inputValue = document.getElementById('stepInputValue').value;
+            const description = document.getElementById('stepDescription').value;
+            const enterIframe = document.getElementById('stepIframeSwitch').checked;
+            const iframeSelector = document.getElementById('stepIframeSelector').value;
+            
+            // 验证必填字段
+            if (!action) {
+                alert('请选择操作类型');
+                return;
+            }
+            
+            // 对于需要选择器的操作，验证选择器
+            if (action !== 'navigate' && action !== 'wait') {
+                if (!selectorValue) {
+                    alert('请填写选择器值');
+                    return;
+                }
+            }
+            
+            // 对于导航操作，验证 URL
+            if (action === 'navigate' && !inputValue) {
+                alert('请填写导航 URL');
+                return;
+            }
+            
+            // 构建请求数据
+            const stepData = {
+                case_id: currentCaseId,
+                action: action,
+                selector_type: selectorType,
+                selector_value: selectorValue,
+                input_value: inputValue,
+                description: description,
+                enter_iframe: enterIframe,
+                iframe_selector: iframeSelector
+            };
+            
+            // 调用 API 创建步骤
+            fetch('/api/steps', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(stepData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('步骤创建成功！');
+                    closeCreateStepModal();
+                    loadSteps(); // 刷新步骤列表
+                } else {
+                    alert('步骤创建失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('步骤创建时发生错误: ' + error.message);
+            });
+        }
+        
+        function updateStep() {
+            if (!currentEditingStepId) {
+                alert('未找到要编辑的步骤');
+                return;
+            }
+            
+            const action = document.getElementById('editStepAction').value;
+            const selectorType = document.getElementById('editStepSelectorType').value;
+            const selectorValue = document.getElementById('editStepSelectorValue').value;
+            const inputValue = document.getElementById('editStepInputValue').value;
+            const description = document.getElementById('editStepDescription').value;
+            const enterIframe = document.getElementById('editStepIframeSwitch').checked;
+            const iframeSelector = document.getElementById('editStepIframeSelector').value;
+            
+            // 验证必填字段
+            if (!action) {
+                alert('请选择操作类型');
+                return;
+            }
+            
+            // 对于需要选择器的操作，验证选择器
+            if (action !== 'navigate' && action !== 'wait') {
+                if (!selectorValue) {
+                    alert('请填写选择器值');
+                    return;
+                }
+            }
+            
+            // 对于导航操作，验证 URL
+            if (action === 'navigate' && !inputValue) {
+                alert('请填写导航 URL');
+                return;
+            }
+            
+            // 构建请求数据
+            const stepData = {
+                action: action,
+                selector_type: selectorType,
+                selector_value: selectorValue,
+                input_value: inputValue,
+                description: description,
+                enter_iframe: enterIframe,
+                iframe_selector: iframeSelector
+            };
+            
+            // 调用 API 更新步骤
+            fetch(`/api/steps/${currentEditingStepId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(stepData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('步骤更新成功！');
+                    closeEditStepModal();
+                    loadSteps(); // 刷新步骤列表
+                } else {
+                    alert('步骤更新失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('步骤更新时发生错误: ' + error.message);
+            });
+        }
+        
+        function deleteStep(stepId) {
+            if (!confirm('确定要删除这个测试步骤吗？')) {
+                return;
+            }
+            
+            // 调用 API 删除步骤
+            fetch(`/api/steps/${stepId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('步骤删除成功！');
+                    loadSteps(); // 刷新步骤列表
+                } else {
+                    alert('步骤删除失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('步骤删除时发生错误: ' + error.message);
+            });
+        }
+        
+        function editStep(stepId) {
+            // 调用 API 获取步骤详情
+            fetch(`/api/steps/${stepId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.step) {
+                    showEditStepModal(data.step);
+                } else {
+                    alert('获取步骤详情失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('获取步骤详情时发生错误: ' + error.message);
+            });
         }
         
         function startVisualSelection() {

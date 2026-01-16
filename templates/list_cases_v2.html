@@ -705,6 +705,13 @@
                 return;
             }
             
+            // 如果只选择了一个测试用例，使用单个测试用例的API端点
+            if (selectedCaseIds.size === 1) {
+                const caseId = Array.from(selectedCaseIds)[0];
+                await runTestCase(caseId);
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/execute_multiple_cases', {
                     method: 'POST',
