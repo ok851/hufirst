@@ -420,6 +420,11 @@
         function showRunResultModal(content) {
             document.getElementById('runResultContent').innerHTML = content;
             document.getElementById('runResultModal').classList.add('active');
+            
+            // 3秒后自动关闭模态框
+            setTimeout(() => {
+                closeRunResultModal();
+            }, 3000);
         }
 
         // 关闭运行结果模态框
@@ -757,10 +762,20 @@
                     
                     showRunResultModal(content);
                 } else {
-                    alert('执行失败: ' + (data.error || '未知错误'));
+                    showRunResultModal(`
+                        <div style="padding: 20px; color: red;">
+                            <h4>执行失败</h4>
+                            <p>${escapeHtml(data.error || '未知错误')}</p>
+                        </div>
+                    `);
                 }
             } catch (error) {
-                alert('执行测试用例时发生错误: ' + error.message);
+                showRunResultModal(`
+                    <div style="padding: 20px; color: red;">
+                        <h4>执行失败</h4>
+                        <p>发生错误: ${error.message}</p>
+                    </div>
+                `);
             }
         }
         

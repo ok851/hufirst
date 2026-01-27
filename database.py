@@ -411,7 +411,7 @@ class Database:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT * FROM test_cases WHERE id = ?", (case_id,))
+        cursor.execute("SELECT id, project_id, name, url, description, created_at, precondition, expected_result FROM test_cases WHERE id = ?", (case_id,))
         row = cursor.fetchone()
         
         if row:
@@ -508,7 +508,7 @@ class Database:
                          selector_value: str = "", input_value: str = "", 
                          description: str = "", step_order: int = None, page_name: str = "",
                          swipe_x: str = "", swipe_y: str = "", url: str = "",
-                         enter_iframe: bool = False, iframe_selector: str = "") -> int:
+                         enter_iframe: bool = False, iframe_selector: str = "", compare_type: str = "equals") -> int:
         """创建测试步骤"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -521,9 +521,9 @@ class Database:
         
         cursor.execute(
             """INSERT INTO test_steps 
-               (case_id, action, selector_type, selector_value, input_value, description, step_order, page_name, swipe_x, swipe_y, url, enter_iframe, iframe_selector) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (case_id, action, selector_type, selector_value, input_value, description, step_order, page_name, swipe_x, swipe_y, url, enter_iframe, iframe_selector)
+               (case_id, action, selector_type, selector_value, input_value, description, step_order, page_name, swipe_x, swipe_y, url, enter_iframe, iframe_selector, compare_type) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (case_id, action, selector_type, selector_value, input_value, description, step_order, page_name, swipe_x, swipe_y, url, enter_iframe, iframe_selector, compare_type)
         )
         step_id = cursor.lastrowid
         
@@ -556,7 +556,8 @@ class Database:
                 'swipe_y': row[11] if len(row) > 11 else '',
                 'url': row[12] if len(row) > 12 else '',
                 'enter_iframe': row[13] if len(row) > 13 else False,
-                'iframe_selector': row[14] if len(row) > 14 else ''
+                'iframe_selector': row[14] if len(row) > 14 else '',
+                'compare_type': row[15] if len(row) > 15 else 'equals'
             }
         
         conn.close()
@@ -587,7 +588,8 @@ class Database:
                 'swipe_y': row[11] if len(row) > 11 else '',
                 'url': row[12] if len(row) > 12 else '',
                 'enter_iframe': row[13] if len(row) > 13 else False,
-                'iframe_selector': row[14] if len(row) > 14 else ''
+                'iframe_selector': row[14] if len(row) > 14 else '',
+                'compare_type': row[15] if len(row) > 15 else 'equals'
             })
         
         conn.close()
@@ -596,7 +598,7 @@ class Database:
     def update_test_step(self, step_id: int, action: str = None, selector_type: str = None,
                         selector_value: str = None, input_value: str = None,
                         description: str = None, step_order: int = None,
-                        enter_iframe: bool = None, iframe_selector: str = None) -> bool:
+                        enter_iframe: bool = None, iframe_selector: str = None, compare_type: str = None) -> bool:
         """更新测试步骤"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -636,6 +638,10 @@ class Database:
             updates.append("iframe_selector = ?")
             params.append(iframe_selector)
         
+        if compare_type is not None:
+            updates.append("compare_type = ?")
+            params.append(compare_type)
+        
         if not updates:
             conn.close()
             return False
@@ -667,7 +673,7 @@ class Database:
     
     # ==================== 运行历史记录管理方法 ====================
     
-    def create_run_history(self, case_id: int, status: str, duration: float, error: str = "", extracted_text: str = "") -> int:
+    def create_run_history(self, case_id: int, status: str, duration: float, error: str = "", extracted_text: str = "", expected_text: str = "") -> int:
         """创建运行历史记录"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -677,8 +683,8 @@ class Database:
         local_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         cursor.execute(
-            "INSERT INTO run_history (case_id, status, duration, error, extracted_text, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (case_id, status, duration, error, extracted_text, local_time)
+            "INSERT INTO run_history (case_id, status, duration, error, extracted_text, expected_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (case_id, status, duration, error, extracted_text, expected_text, local_time)
         )
         history_id = cursor.lastrowid
         
@@ -723,7 +729,8 @@ class Database:
                 'error': row[4],
                 'extracted_text': row[5],
                 'created_at': row[6],
-                'case_name': row[7]
+                'expected_text': row[7] if len(row) > 7 else '',
+                'case_name': row[8] if len(row) > 8 else ''
             })
         
         conn.close()
@@ -764,7 +771,8 @@ class Database:
                 'duration': row[3],
                 'error': row[4],
                 'extracted_text': row[5],
-                'created_at': row[6]
+                'created_at': row[6],
+                'expected_text': row[7] if len(row) > 7 else ''
             })
         
         conn.close()
@@ -812,7 +820,7 @@ class Database:
         row = cursor.fetchone()
         
         if row:
-            return {
+            result = {
                 'id': row[0],
                 'case_id': row[1],
                 'status': row[2],
@@ -820,18 +828,14 @@ class Database:
                 'error': row[4],
                 'extracted_text': row[5],
                 'created_at': row[6],
-                'case_name': row[7]
+                'expected_text': row[7] if len(row) > 7 else '',
+                'case_name': row[8] if len(row) > 8 else ''
             }
+            conn.close()
+            return result
         
         conn.close()
         return None
-        
-        success = cursor.rowcount > 0
-        
-        conn.commit()
-        conn.close()
-        
-        return success
     
     def delete_case_steps(self, case_id: int) -> bool:
         """删除测试用例的所有步骤"""

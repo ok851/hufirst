@@ -3,7 +3,7 @@ from flask_cors import CORS
 import os
 import time
 from database import Database
-from playwright_automation import automation, sync_start_browser, sync_navigate_to, sync_scroll_page, sync_get_page_text, sync_extract_element_text, sync_extract_element_json, sync_get_page_title, sync_get_current_url, sync_get_all_links, sync_hover_element, sync_double_click_element, sync_right_click_element, sync_click_element, sync_fill_input, sync_get_page_elements, sync_extract_element_data, sync_get_page_data, sync_analyze_page_content, sync_close_browser, sync_execute_script_steps, sync_start_recording, sync_stop_recording, sync_wait_for_selector, sync_wait_for_element_visible, sync_take_screenshot, sync_execute_multiple_test_cases, worker, sync_enable_element_selection, sync_disable_element_selection, sync_get_selected_element, sync_wait_for_timeout  # 使用全局实例和同步包装器
+from playwright_automation import automation, sync_start_browser, sync_navigate_to, sync_scroll_page, sync_get_page_text, sync_extract_element_text, sync_extract_element_json, sync_get_page_title, sync_get_current_url, sync_get_all_links, sync_hover_element, sync_double_click_element, sync_right_click_element, sync_click_element, sync_fill_input, sync_get_page_elements, sync_extract_element_data, sync_get_page_data, sync_analyze_page_content, sync_close_browser, sync_execute_script_steps, sync_start_recording, sync_stop_recording, sync_wait_for_selector, sync_wait_for_element_visible, sync_take_screenshot, sync_execute_multiple_test_cases, worker, sync_enable_element_selection, sync_disable_element_selection, sync_get_selected_element, sync_extract_json_from_selected_element, sync_wait_for_timeout  # 使用全局实例和同步包装器
 import asyncio
 import json
 import functools
@@ -691,6 +691,17 @@ def api_get_selected_element():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# API: 从选定元素提取JSON数据
+@app.route('/api/extract_json_from_selected_element', methods=['GET'])
+@api_error_handler
+@log_api_request
+def api_extract_json_from_selected_element():
+    try:
+        json_data = sync_extract_json_from_selected_element()
+        return jsonify({'success': True, 'json_data': json_data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ==================== 项目管理API ====================
 
 # API: 创建项目
@@ -865,6 +876,7 @@ def api_create_step():
     url = data.get('url', '')
     enter_iframe = data.get('enter_iframe', False)
     iframe_selector = data.get('iframe_selector', '')
+    compare_type = data.get('compare_type', 'equals')
     
     if not case_id:
         return jsonify({'error': '用例ID不能为空'}), 400
@@ -873,7 +885,7 @@ def api_create_step():
     
     step_id = db.create_test_step(case_id, action, selector_type, selector_value, 
                                   input_value, description, step_order, page_name,
-                                  swipe_x, swipe_y, url, enter_iframe, iframe_selector)
+                                  swipe_x, swipe_y, url, enter_iframe, iframe_selector, compare_type)
     return jsonify({'success': True, 'step_id': step_id})
 
 # API: 更新测试步骤
@@ -890,9 +902,10 @@ def api_update_step(step_id):
     step_order = data.get('step_order')
     enter_iframe = data.get('enter_iframe')
     iframe_selector = data.get('iframe_selector')
+    compare_type = data.get('compare_type')
     
     success = db.update_test_step(step_id, action, selector_type, selector_value,
-                                   input_value, description, step_order, enter_iframe, iframe_selector)
+                                   input_value, description, step_order, enter_iframe, iframe_selector, compare_type)
     
     if success:
         return jsonify({'success': True})
@@ -963,6 +976,8 @@ def api_run_case(case_id):
         
         # 提取的文本
         extracted_text = ""
+        # 预期结果
+        expected_text = ""
         
         # 启动浏览器
         sync_start_browser(headless=False)
@@ -1071,7 +1086,7 @@ def api_run_case(case_id):
                     sync_scroll_page(direction, pixels, iframe_selector=iframe_selector if enter_iframe else None)
                     # 滚动后等待页面响应
                     sync_wait_for_timeout(1500)
-                elif action == 'extract_text':
+                elif action == 'extract_text' or action == 'text_compare':
                     if selector_value:
                         # 构建完整的选择器
                         full_selector = selector_value
@@ -1089,8 +1104,10 @@ def api_run_case(case_id):
                             current_extracted = ""
                         
                         # 检查是否需要验证文本
-                        expected_text = input_value or description
-                        verify_type = step.get('verify_type', 'equals')
+                        current_expected = input_value or description
+                        verify_type = step.get('compare_type', step.get('verify_type', 'equals'))
+                        # 保存预期结果
+                        expected_text = current_expected
                         
                         if expected_text:
                             uat_logger.info(f"验证文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
@@ -1100,6 +1117,10 @@ def api_run_case(case_id):
                                 if extracted_text != expected_text:
                                     uat_logger.error("文本验证失败: 提取的文本与预期结果不相等")
                                     raise Exception(f"文本验证失败: 提取的文本与预期结果不相等")
+                            elif verify_type == 'not_equals':
+                                if extracted_text == expected_text:
+                                    uat_logger.error("文本验证失败: 提取的文本与预期结果相等")
+                                    raise Exception(f"文本验证失败: 提取的文本与预期结果相等")
                             elif verify_type == 'contains':
                                 if expected_text not in extracted_text:
                                     uat_logger.error("文本验证失败: 提取的文本不包含预期内容")
@@ -1125,23 +1146,29 @@ def api_run_case(case_id):
                             current_extracted = ""
                         
                         # 检查是否需要验证文本
-                        expected_text = input_value or description
-                        verify_type = step.get('verify_type', 'equals')
+                        current_expected = input_value or description
+                        verify_type = step.get('compare_type', step.get('verify_type', 'equals'))
+                        # 保存预期结果
+                        expected_text = current_expected
                         
                         if expected_text:
-                            uat_logger.info(f"验证页面文本 - 提取: {current_extracted[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
+                            uat_logger.info(f"验证页面文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
                             
                             # 根据验证方式执行不同的验证逻辑
                             if verify_type == 'equals':
-                                if current_extracted != expected_text:
+                                if extracted_text != expected_text:
                                     uat_logger.error("页面文本验证失败: 提取的文本与预期结果不相等")
                                     raise Exception(f"页面文本验证失败: 提取的文本与预期结果不相等")
+                            elif verify_type == 'not_equals':
+                                if extracted_text == expected_text:
+                                    uat_logger.error("页面文本验证失败: 提取的文本与预期结果相等")
+                                    raise Exception(f"页面文本验证失败: 提取的文本与预期结果相等")
                             elif verify_type == 'contains':
-                                if expected_text not in current_extracted:
+                                if expected_text not in extracted_text:
                                     uat_logger.error("页面文本验证失败: 提取的文本不包含预期内容")
                                     raise Exception(f"页面文本验证失败: 提取的文本不包含预期内容")
                             elif verify_type == 'partial':
-                                if expected_text not in current_extracted:
+                                if expected_text not in extracted_text:
                                     uat_logger.error("页面文本验证失败: 提取的文本不包含预期的部分内容")
                                     raise Exception(f"页面文本验证失败: 提取的文本不包含预期的部分内容")
                             
@@ -1149,6 +1176,21 @@ def api_run_case(case_id):
                         
                         # 提取后等待页面响应
                         sync_wait_for_timeout(1000)
+                elif action == 'extract_json':
+                    if selector_value:
+                        # 提取元素JSON数据
+                        try:
+                            json_data = sync_extract_element_json(selector_value, selector_type)
+                            uat_logger.info(f"提取到JSON数据: {json_data}")
+                            # 保存到extracted_text变量，以便在结果中显示
+                            extracted_text = str(json_data)
+                        except Exception as extract_error:
+                            uat_logger.warning(f"提取JSON数据失败: {extract_error}")
+                    else:
+                        uat_logger.warning("提取JSON数据时缺少选择器")
+                    
+                    # 提取后等待页面响应
+                    sync_wait_for_timeout(1000)
             
             # 计算执行时间
             duration = round(time.time() - start_time, 2)
@@ -1157,7 +1199,7 @@ def api_run_case(case_id):
             
             # 保存运行历史记录
             try:
-                db.create_run_history(case_id, 'success', duration, "", extracted_text)
+                db.create_run_history(case_id, 'success', duration, "", extracted_text, expected_text)
             except Exception as history_error:
                 uat_logger.warning(f"保存运行历史记录失败: {history_error}")
             
@@ -1181,7 +1223,7 @@ def api_run_case(case_id):
             
             # 保存运行历史记录
             try:
-                db.create_run_history(case_id, 'error', duration, str(e), extracted_text)
+                db.create_run_history(case_id, 'error', duration, str(e), extracted_text, expected_text)
             except Exception as history_error:
                 uat_logger.warning(f"保存运行历史记录失败: {history_error}")
             

@@ -469,7 +469,7 @@
                     <option value="right_click">右键点击</option>
                     <option value="wait">等待</option>
                     <option value="scroll">滚动</option>
-                    <option value="extract_text">提取文本</option>
+                    <option value="text_compare">文本对比</option>
                 </select>
             </div>
             <div class="form-group" id="stepWaitTimeField" style="display: none;">
@@ -506,6 +506,15 @@
             
             <!-- 操作值字段 (根据操作类型动态显示) -->
             <div id="stepValueFields" class="mt-4" style="display: none;">
+                <!-- 文本对比操作的比较方式选择 -->
+                <div class="form-group" id="stepCompareTypeField" style="display: none;">
+                    <label for="stepCompareType">比较方式</label>
+                    <select id="stepCompareType" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="equals">等于</option>
+                        <option value="not_equals">不等于</option>
+                        <option value="contains">包含</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="stepInputValue">操作值</label>
                     <input type="text" id="stepInputValue" placeholder="请输入操作值" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
@@ -581,7 +590,7 @@
                     <option value="right_click">右键点击</option>
                     <option value="wait">等待</option>
                     <option value="scroll">滚动</option>
-                    <option value="extract_text">提取文本</option>
+                    <option value="text_compare">文本对比</option>
                 </select>
             </div>
             <div class="form-group" id="editStepWaitTimeField" style="display: none;">
@@ -618,6 +627,15 @@
             
             <!-- 操作值字段 (根据操作类型动态显示) -->
             <div id="editStepValueFields" class="mt-4" style="display: none;">
+                <!-- 文本对比操作的比较方式选择 -->
+                <div class="form-group" id="editStepCompareTypeField" style="display: none;">
+                    <label for="editStepCompareType">比较方式</label>
+                    <select id="editStepCompareType" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="equals">等于</option>
+                        <option value="not_equals">不等于</option>
+                        <option value="contains">包含</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="editStepInputValue">操作值</label>
                     <input type="text" id="editStepInputValue" placeholder="请输入操作值">
@@ -774,7 +792,7 @@
                             case 'right_click': actionText = '右键点击'; break;
                             case 'wait': actionText = '等待'; break;
                             case 'scroll': actionText = '滚动'; break;
-                            case 'extract_text': actionText = '提取文本'; break;
+                            case 'text_compare': actionText = '文本对比'; break;
                             default: actionText = step.action;
                         }
                         
@@ -849,6 +867,8 @@
             document.getElementById('editStepInputValue').value = step.input_value || '';
             document.getElementById('editStepWaitTime').value = step.input_value || '';
             document.getElementById('editStepHoverTime').value = step.input_value || '';
+            // 设置比较方式（仅文本对比操作需要）
+            document.getElementById('editStepCompareType').value = step.compare_type || 'equals';
             
             // 处理滚动操作的滚动距离
             if (step.action === 'scroll') {
@@ -912,13 +932,29 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('测试用例运行成功！');
+                    showRunResultModal(`
+                        <div style="padding: 20px;">
+                            <h4>执行结果</h4>
+                            <p><strong>状态:</strong> 成功</p>
+                            <p>测试用例运行成功！</p>
+                        </div>
+                    `);
                 } else {
-                    alert('测试用例运行失败: ' + (data.error || '未知错误'));
+                    showRunResultModal(`
+                        <div style="padding: 20px; color: red;">
+                            <h4>执行失败</h4>
+                            <p>${escapeHtml(data.error || '未知错误')}</p>
+                        </div>
+                    `);
                 }
             })
             .catch(error => {
-                alert('运行测试用例时出错: ' + error.message);
+                showRunResultModal(`
+                    <div style="padding: 20px; color: red;">
+                        <h4>执行失败</h4>
+                        <p>发生错误: ${error.message}</p>
+                    </div>
+                `);
             })
             .finally(() => {
                 // 恢复按钮状态
@@ -1125,6 +1161,8 @@
             const description = document.getElementById('stepDescription').value;
             const enterIframe = document.getElementById('stepIframeSwitch').checked;
             const iframeSelector = document.getElementById('stepIframeSelector').value;
+            // 获取比较方式（仅文本对比操作需要）
+            const compareType = action === 'text_compare' ? document.getElementById('stepCompareType').value : null;
             
             // 验证必填字段
             if (!action) {
@@ -1157,6 +1195,11 @@
                 enter_iframe: enterIframe,
                 iframe_selector: iframeSelector
             };
+            
+            // 添加比较方式（仅文本对比操作需要）
+            if (action === 'text_compare' && compareType) {
+                stepData.compare_type = compareType;
+            }
             
             // 调用 API 创建步骤
             fetch('/api/steps', {
@@ -1194,6 +1237,8 @@
             const description = document.getElementById('editStepDescription').value;
             const enterIframe = document.getElementById('editStepIframeSwitch').checked;
             const iframeSelector = document.getElementById('editStepIframeSelector').value;
+            // 获取比较方式（仅文本对比操作需要）
+            const compareType = action === 'text_compare' ? document.getElementById('editStepCompareType').value : null;
             
             // 验证必填字段
             if (!action) {
@@ -1225,6 +1270,11 @@
                 enter_iframe: enterIframe,
                 iframe_selector: iframeSelector
             };
+            
+            // 添加比较方式（仅文本对比操作需要）
+            if (action === 'text_compare' && compareType) {
+                stepData.compare_type = compareType;
+            }
             
             // 调用 API 更新步骤
             fetch(`/api/steps/${currentEditingStepId}`, {
@@ -1378,6 +1428,9 @@
             scrollFields.style.display = 'none';
             hoverFields.style.display = 'none';
             if (startSelectBtn) startSelectBtn.style.display = 'none';
+            // 隐藏比较方式选择框
+            const compareTypeField = document.getElementById('stepCompareTypeField');
+            if (compareTypeField) compareTypeField.style.display = 'none';
             
             // 根据操作类型显示对应的字段
             if (action === 'wait') {
@@ -1398,17 +1451,20 @@
                 selectorValueField.style.display = 'block';
                 inputValueField.style.display = 'block';
                 document.querySelector('label[for="stepInputValue"]').textContent = '输入值';
-            } else if (action === 'extract_text') {
+            } else if (action === 'text_compare') {
                 selectorTypeField.style.display = 'block';
                 selectorValueField.style.display = 'block';
                 inputValueField.style.display = 'block';
                 document.querySelector('label[for="stepInputValue"]').textContent = '预期文本 (可选)';
-                if (startSelectBtn) startSelectBtn.style.display = 'inline-block';
+                if (startSelectBtn) startSelectBtn.style.display = 'none';
+                // 显示比较方式选择框
+                const compareTypeField = document.getElementById('stepCompareTypeField');
+                if (compareTypeField) compareTypeField.style.display = 'block';
             } else {
                 selectorTypeField.style.display = 'block';
                 selectorValueField.style.display = 'block';
-                inputValueField.style.display = 'block';
-                document.querySelector('label[for="stepInputValue"]').textContent = '附加信息 (可选)';
+                // 除了文本对比以外的操作，不显示输入值字段
+                inputValueField.style.display = 'none';
             }
         }
         
@@ -1428,6 +1484,9 @@
             waitTimeField.style.display = 'none';
             scrollFields.style.display = 'none';
             hoverFields.style.display = 'none';
+            // 隐藏比较方式选择框
+            const compareTypeField = document.getElementById('editStepCompareTypeField');
+            if (compareTypeField) compareTypeField.style.display = 'none';
             
             // 根据操作类型显示对应的字段
             if (action === 'wait') {
@@ -1448,16 +1507,18 @@
                 selectorValueField.style.display = 'block';
                 inputValueField.style.display = 'block';
                 document.querySelector('label[for="editStepInputValue"]').textContent = '输入值';
-            } else if (action === 'extract_text') {
+            } else if (action === 'text_compare') {
                 selectorTypeField.style.display = 'block';
                 selectorValueField.style.display = 'block';
                 inputValueField.style.display = 'block';
                 document.querySelector('label[for="editStepInputValue"]').textContent = '预期文本 (可选)';
+                // 显示比较方式选择框
+                if (compareTypeField) compareTypeField.style.display = 'block';
             } else {
                 selectorTypeField.style.display = 'block';
                 selectorValueField.style.display = 'block';
-                inputValueField.style.display = 'block';
-                document.querySelector('label[for="editStepInputValue"]').textContent = '附加信息 (可选)';
+                // 除了文本对比以外的操作，不显示输入值字段
+                inputValueField.style.display = 'none';
             }
         }
         
@@ -1493,6 +1554,89 @@
             
             initPage();
         });
+        
+        // 显示运行结果模态框
+        function showRunResultModal(content) {
+            // 创建模态框元素
+            let modal = document.getElementById('runResultModal');
+            if (!modal) {
+                // 如果模态框不存在，创建一个
+                modal = document.createElement('div');
+                modal.id = 'runResultModal';
+                modal.className = 'modal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 1000;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                `;
+                
+                // 创建模态框内容
+                const modalContent = document.createElement('div');
+                modalContent.className = 'modal-content';
+                modalContent.style.cssText = `
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    max-width: 500px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                `;
+                
+                // 创建关闭按钮
+                const closeButton = document.createElement('button');
+                closeButton.innerText = '确定';
+                closeButton.style.cssText = `
+                    margin-top: 20px;
+                    padding: 10px 20px;
+                    background-color: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                `;
+                closeButton.onclick = closeRunResultModal;
+                
+                // 创建内容容器
+                const contentDiv = document.createElement('div');
+                contentDiv.id = 'runResultContent';
+                
+                // 组装模态框
+                modalContent.appendChild(contentDiv);
+                modalContent.appendChild(closeButton);
+                modal.appendChild(modalContent);
+                document.body.appendChild(modal);
+            }
+            
+            // 设置模态框内容
+            document.getElementById('runResultContent').innerHTML = content;
+            modal.classList.add('active');
+            modal.style.opacity = '1';
+            
+            // 移除自动关闭模态框的代码，让用户手动点击"确定"按钮来关闭模态框
+        }
+        
+        // 关闭运行结果模态框
+        function closeRunResultModal() {
+            const modal = document.getElementById('runResultModal');
+            if (modal) {
+                modal.style.opacity = '0';
+                setTimeout(() => {
+                    modal.classList.remove('active');
+                }, 300);
+            }
+        }
     </script>
 </body>
 </html>

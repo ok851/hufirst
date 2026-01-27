@@ -614,7 +614,7 @@
                                 <span class="detail-label">状态</span>
                                 <span class="detail-value">
                                     <span class="status-badge status-${record.status}">
-                                        ${record.status === 'passed' ? '通过' : '失败'}
+                                        ${['passed', 'success'].includes(record.status) ? '通过' : '失败'}
                                     </span>
                                 </span>
                             </div>
@@ -626,6 +626,12 @@
                                 <span class="detail-label">提取文本</span>
                                 <span class="detail-value">
                                     ${record.extracted_text ? `<pre>${record.extracted_text}</pre>` : '<span style="color: #999;">-</span>'}
+                                </span>
+                            </div>
+                            <div class="detail-section">
+                                <span class="detail-label">预期结果</span>
+                                <span class="detail-value">
+                                    ${record.expected_text ? `<pre>${record.expected_text}</pre>` : '<span style="color: #999;">-</span>'}
                                 </span>
                             </div>
                             <div class="detail-section">

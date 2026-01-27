@@ -4906,6 +4906,40 @@ class PlaywrightAutomation:
         except Exception as e:
             uat_logger.error(f"获取选中元素信息时出错: {str(e)}")
             raise Exception(f"获取选中元素信息失败: {str(e)}")
+    
+    async def extract_json_from_selected_element(self):
+        """从用户选定的区域提取JSON数据"""
+        if self.page is None:
+            raise Exception("浏览器未启动")
+        
+        try:
+            uat_logger.info("📝 [JSON_EXTRACT] 开始从选定元素提取JSON数据")
+            
+            # 获取用户选择的元素
+            selected_element_info = await self.get_selected_element()
+            if not selected_element_info:
+                raise Exception("未选择任何元素")
+            
+            # 获取选中元素的选择器
+            selector = selected_element_info.get('css_selector')
+            if not selector:
+                raise Exception("无法获取选中元素的选择器")
+            
+            uat_logger.info(f"📝 [JSON_EXTRACT] 从元素选择器提取JSON: {selector}")
+            
+            # 使用现有的extract_element_json方法从选定元素中提取JSON数据
+            json_data = await self.extract_element_json(selector)
+            
+            if json_data:
+                uat_logger.info(f"📝 [JSON_EXTRACT] 成功提取JSON数据: {json_data}")
+                return json_data
+            else:
+                uat_logger.warning("📝 [JSON_EXTRACT] 未从选定元素中提取到JSON数据")
+                return {}
+                
+        except Exception as e:
+            uat_logger.error(f"📝 [JSON_EXTRACT] 提取JSON数据时出错: {str(e)}")
+            raise Exception(f"提取JSON数据失败: {str(e)}")
 
 # 全局实例
 automation = PlaywrightAutomation()
@@ -5184,6 +5218,11 @@ def sync_disable_element_selection():
 def sync_get_selected_element():
     async def run():
         return await automation.get_selected_element()
+    return worker.execute(run)
+
+def sync_extract_json_from_selected_element():
+    async def run():
+        return await automation.extract_json_from_selected_element()
     return worker.execute(run)
 
 def sync_execute_multiple_test_cases(case_ids: List[int], db):
