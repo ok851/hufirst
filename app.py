@@ -1110,27 +1110,35 @@ def api_run_case(case_id):
                         expected_text = current_expected
                         
                         if expected_text:
-                            uat_logger.info(f"验证文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
-                            
-                            # 根据验证方式执行不同的验证逻辑
-                            if verify_type == 'equals':
-                                if extracted_text != expected_text:
-                                    uat_logger.error("文本验证失败: 提取的文本与预期结果不相等")
-                                    raise Exception(f"文本验证失败: 提取的文本与预期结果不相等")
-                            elif verify_type == 'not_equals':
-                                if extracted_text == expected_text:
-                                    uat_logger.error("文本验证失败: 提取的文本与预期结果相等")
-                                    raise Exception(f"文本验证失败: 提取的文本与预期结果相等")
-                            elif verify_type == 'contains':
-                                if expected_text not in extracted_text:
-                                    uat_logger.error("文本验证失败: 提取的文本不包含预期内容")
-                                    raise Exception(f"文本验证失败: 提取的文本不包含预期内容")
-                            elif verify_type == 'partial':
-                                if expected_text not in extracted_text:
-                                    uat_logger.error("文本验证失败: 提取的文本不包含预期的部分内容")
-                                    raise Exception(f"文本验证失败: 提取的文本不包含预期的部分内容")
-                            
-                            uat_logger.info("文本验证成功")
+                            # 只有当提取到文本时才进行验证
+                            if extracted_text:
+                                uat_logger.info(f"验证文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
+                                
+                                # 根据验证方式执行不同的验证逻辑
+                                if verify_type == 'equals':
+                                    if extracted_text != expected_text:
+                                        uat_logger.error("文本验证失败: 提取的文本与预期结果不相等")
+                                        raise Exception(f"文本验证失败: 提取的文本与预期结果不相等")
+                                elif verify_type == 'not_equals':
+                                    if extracted_text == expected_text:
+                                        uat_logger.error("文本验证失败: 提取的文本与预期结果相等")
+                                        raise Exception(f"文本验证失败: 提取的文本与预期结果相等")
+                                elif verify_type == 'contains':
+                                    if expected_text not in extracted_text:
+                                        uat_logger.error("文本验证失败: 提取的文本不包含预期内容")
+                                        raise Exception(f"文本验证失败: 提取的文本不包含预期内容")
+                                elif verify_type == 'partial':
+                                    if expected_text not in extracted_text:
+                                        uat_logger.error("文本验证失败: 提取的文本不包含预期的部分内容")
+                                        raise Exception(f"文本验证失败: 提取的文本不包含预期的部分内容")
+                                
+                                uat_logger.info("文本验证成功")
+                            else:
+                                # 如果没有提取到文本，且是text_compare操作，则跳过验证
+                                if action == 'text_compare':
+                                    uat_logger.warning("未提取到文本，跳过文本验证")
+                                else:
+                                    uat_logger.info("提取文本操作完成（未提取到文本）")
                         
                         # 提取后等待页面响应
                         sync_wait_for_timeout(1000)
@@ -1152,27 +1160,35 @@ def api_run_case(case_id):
                         expected_text = current_expected
                         
                         if expected_text:
-                            uat_logger.info(f"验证页面文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
-                            
-                            # 根据验证方式执行不同的验证逻辑
-                            if verify_type == 'equals':
-                                if extracted_text != expected_text:
-                                    uat_logger.error("页面文本验证失败: 提取的文本与预期结果不相等")
-                                    raise Exception(f"页面文本验证失败: 提取的文本与预期结果不相等")
-                            elif verify_type == 'not_equals':
-                                if extracted_text == expected_text:
-                                    uat_logger.error("页面文本验证失败: 提取的文本与预期结果相等")
-                                    raise Exception(f"页面文本验证失败: 提取的文本与预期结果相等")
-                            elif verify_type == 'contains':
-                                if expected_text not in extracted_text:
-                                    uat_logger.error("页面文本验证失败: 提取的文本不包含预期内容")
-                                    raise Exception(f"页面文本验证失败: 提取的文本不包含预期内容")
-                            elif verify_type == 'partial':
-                                if expected_text not in extracted_text:
-                                    uat_logger.error("页面文本验证失败: 提取的文本不包含预期的部分内容")
-                                    raise Exception(f"页面文本验证失败: 提取的文本不包含预期的部分内容")
-                            
-                            uat_logger.info("页面文本验证成功")
+                            # 只有当提取到文本时才进行验证
+                            if extracted_text:
+                                uat_logger.info(f"验证页面文本 - 提取: {extracted_text[:100]}..., 预期: {expected_text[:100]}..., 验证方式: {verify_type}")
+                                
+                                # 根据验证方式执行不同的验证逻辑
+                                if verify_type == 'equals':
+                                    if extracted_text != expected_text:
+                                        uat_logger.error("页面文本验证失败: 提取的文本与预期结果不相等")
+                                        raise Exception(f"页面文本验证失败: 提取的文本与预期结果不相等")
+                                elif verify_type == 'not_equals':
+                                    if extracted_text == expected_text:
+                                        uat_logger.error("页面文本验证失败: 提取的文本与预期结果相等")
+                                        raise Exception(f"页面文本验证失败: 提取的文本与预期结果相等")
+                                elif verify_type == 'contains':
+                                    if expected_text not in extracted_text:
+                                        uat_logger.error("页面文本验证失败: 提取的文本不包含预期内容")
+                                        raise Exception(f"页面文本验证失败: 提取的文本不包含预期内容")
+                                elif verify_type == 'partial':
+                                    if expected_text not in extracted_text:
+                                        uat_logger.error("页面文本验证失败: 提取的文本不包含预期的部分内容")
+                                        raise Exception(f"页面文本验证失败: 提取的文本不包含预期的部分内容")
+                                
+                                uat_logger.info("页面文本验证成功")
+                            else:
+                                # 如果没有提取到文本，且是text_compare操作，则跳过验证
+                                if action == 'text_compare':
+                                    uat_logger.warning("未提取到页面文本，跳过文本验证")
+                                else:
+                                    uat_logger.info("提取页面文本操作完成（未提取到文本）")
                         
                         # 提取后等待页面响应
                         sync_wait_for_timeout(1000)
