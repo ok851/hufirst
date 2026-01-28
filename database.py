@@ -693,30 +693,70 @@ class Database:
         
         return history_id
     
-    def get_all_run_history(self, page: int = 1, page_size: int = 20, case_id: int = None) -> List[Dict[str, Any]]:
-        """获取所有运行历史记录（支持分页和按测试用例ID过滤）"""
+    def get_all_run_history(self, page: int = 1, page_size: int = 20, case_id: int = None, search_text: str = None, project_id: int = None) -> List[Dict[str, Any]]:
+        """获取所有运行历史记录（支持分页、按测试用例ID过滤、按项目ID过滤和搜索）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         offset = (page - 1) * page_size
         
         if case_id:
-            cursor.execute("""
-                SELECT rh.*, tc.name as case_name 
-                FROM run_history rh 
-                LEFT JOIN test_cases tc ON rh.case_id = tc.id 
-                WHERE rh.case_id = ?
-                ORDER BY rh.created_at DESC
-                LIMIT ? OFFSET ?
-            """, (case_id, page_size, offset))
+            if search_text:
+                cursor.execute("""
+                    SELECT rh.*, tc.name as case_name 
+                    FROM run_history rh 
+                    LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                    WHERE rh.case_id = ? AND tc.name LIKE ?
+                    ORDER BY rh.created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (case_id, f'%{search_text}%', page_size, offset))
+            else:
+                cursor.execute("""
+                    SELECT rh.*, tc.name as case_name 
+                    FROM run_history rh 
+                    LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                    WHERE rh.case_id = ?
+                    ORDER BY rh.created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (case_id, page_size, offset))
         else:
-            cursor.execute("""
-                SELECT rh.*, tc.name as case_name 
-                FROM run_history rh 
-                LEFT JOIN test_cases tc ON rh.case_id = tc.id 
-                ORDER BY rh.created_at DESC
-                LIMIT ? OFFSET ?
-            """, (page_size, offset))
+            if project_id:
+                if search_text:
+                    cursor.execute("""
+                        SELECT rh.*, tc.name as case_name 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        WHERE tc.project_id = ? AND tc.name LIKE ?
+                        ORDER BY rh.created_at DESC
+                        LIMIT ? OFFSET ?
+                    """, (project_id, f'%{search_text}%', page_size, offset))
+                else:
+                    cursor.execute("""
+                        SELECT rh.*, tc.name as case_name 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        WHERE tc.project_id = ?
+                        ORDER BY rh.created_at DESC
+                        LIMIT ? OFFSET ?
+                    """, (project_id, page_size, offset))
+            else:
+                if search_text:
+                    cursor.execute("""
+                        SELECT rh.*, tc.name as case_name 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        WHERE tc.name LIKE ?
+                        ORDER BY rh.created_at DESC
+                        LIMIT ? OFFSET ?
+                    """, (f'%{search_text}%', page_size, offset))
+                else:
+                    cursor.execute("""
+                        SELECT rh.*, tc.name as case_name 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        ORDER BY rh.created_at DESC
+                        LIMIT ? OFFSET ?
+                    """, (page_size, offset))
         rows = cursor.fetchall()
         
         history = []
@@ -736,15 +776,47 @@ class Database:
         conn.close()
         return history
 
-    def get_run_history_count(self, case_id: int = None) -> int:
-        """获取运行历史记录总数（支持按测试用例ID过滤）"""
+    def get_run_history_count(self, case_id: int = None, search_text: str = None, project_id: int = None) -> int:
+        """获取运行历史记录总数（支持按测试用例ID过滤、按项目ID过滤和搜索）"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         if case_id:
-            cursor.execute("SELECT COUNT(*) FROM run_history WHERE case_id = ?", (case_id,))
+            if search_text:
+                cursor.execute("""
+                    SELECT COUNT(*) 
+                    FROM run_history rh 
+                    LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                    WHERE rh.case_id = ? AND tc.name LIKE ?
+                """, (case_id, f'%{search_text}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM run_history WHERE case_id = ?", (case_id,))
         else:
-            cursor.execute("SELECT COUNT(*) FROM run_history")
+            if project_id:
+                if search_text:
+                    cursor.execute("""
+                        SELECT COUNT(*) 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        WHERE tc.project_id = ? AND tc.name LIKE ?
+                    """, (project_id, f'%{search_text}%'))
+                else:
+                    cursor.execute("""
+                        SELECT COUNT(*) 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        WHERE tc.project_id = ?
+                    """, (project_id,))
+            else:
+                if search_text:
+                    cursor.execute("""
+                        SELECT COUNT(*) 
+                        FROM run_history rh 
+                        LEFT JOIN test_cases tc ON rh.case_id = tc.id 
+                        WHERE tc.name LIKE ?
+                    """, (f'%{search_text}%',))
+                else:
+                    cursor.execute("SELECT COUNT(*) FROM run_history")
         count = cursor.fetchone()[0]
         
         conn.close()
@@ -798,6 +870,20 @@ class Database:
         cursor = conn.cursor()
         
         cursor.execute("DELETE FROM run_history WHERE case_id = ?", (case_id,))
+        
+        success = cursor.rowcount > 0
+        
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def delete_all_run_history(self) -> bool:
+        """删除所有运行历史记录"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM run_history")
         
         success = cursor.rowcount > 0
         

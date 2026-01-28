@@ -101,6 +101,14 @@
             background-color: #40a9ff;
         }
         
+        .filter-bar .delete-all-btn {
+            background-color: #ff4d4f;
+        }
+        
+        .filter-bar .delete-all-btn:hover {
+            background-color: #ff7875;
+        }
+        
         .history-table {
             width: 100%;
             border-collapse: collapse;
@@ -368,13 +376,17 @@
             <h2>运行历史记录</h2>
             
             <div class="filter-bar">
+                <select id="projectFilter">
+                    <option value="">所有项目</option>
+                </select>
                 <input type="text" id="searchInput" placeholder="搜索测试用例名称...">
                 <select id="statusFilter">
                     <option value="">所有状态</option>
                     <option value="passed">通过</option>
                     <option value="failed">失败</option>
                 </select>
-                <button onclick="loadRunHistory()">查询</button>
+                <button onclick="searchHistory()">查询</button>
+                <button onclick="deleteAllHistory()" class="delete-all-btn">全部删除</button>
             </div>
             
             <div id="historyContainer">
@@ -401,13 +413,53 @@
         let totalPages = 1;
         const pageSize = 20;
         
-        // 页面加载时获取运行历史记录
+        // 页面加载时获取运行历史记录和项目列表
         document.addEventListener('DOMContentLoaded', function() {
             loadRunHistory();
+            // 延迟加载项目列表，确保页面已经完全加载
+            setTimeout(loadProjects, 100);
         });
+        
+        // 加载项目列表
+        function loadProjects() {
+            // 使用XMLHttpRequest代替fetch，提高兼容性
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/projects', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data && data.projects) {
+                            const projectFilter = document.getElementById('projectFilter');
+                            if (projectFilter) {
+                                // 清空现有选项，保留"所有项目"
+                                projectFilter.innerHTML = '<option value="">所有项目</option>';
+                                // 添加项目选项
+                                for (let i = 0; i < data.projects.length; i++) {
+                                    const project = data.projects[i];
+                                    if (project && project.id && project.name) {
+                                        const option = document.createElement('option');
+                                        option.value = project.id;
+                                        option.textContent = project.name;
+                                        projectFilter.appendChild(option);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('解析项目列表数据失败:', error);
+                    }
+                }
+            };
+            xhr.onerror = function() {
+                console.error('加载项目列表失败:', xhr.statusText);
+            };
+            xhr.send();
+        }
         
         // 加载运行历史记录
         function loadRunHistory() {
+            const projectId = document.getElementById('projectFilter').value;
             const searchText = document.getElementById('searchInput').value;
             const statusFilter = document.getElementById('statusFilter').value;
             
@@ -423,6 +475,12 @@
             if (caseId) {
                 apiUrl += `&case_id=${caseId}`;
             }
+            if (projectId && projectId !== '') {
+                apiUrl += `&project_id=${projectId}`;
+            }
+            if (searchText) {
+                apiUrl += `&search_text=${encodeURIComponent(searchText)}`;
+            }
             
             // 发送分页参数到后端
             fetch(apiUrl)
@@ -431,13 +489,7 @@
                     if (data.success) {
                         let history = data.history;
                         
-                        // 应用过滤器
-                        if (searchText) {
-                            history = history.filter(item => 
-                                item.case_name.toLowerCase().includes(searchText.toLowerCase())
-                            );
-                        }
-                        
+                        // 应用状态过滤器
                         if (statusFilter) {
                             if (statusFilter === 'passed') {
                                 // 当过滤"通过"状态时，同时显示 'passed' 和 'success' 状态的记录
@@ -549,6 +601,12 @@
             loadRunHistory();
         }
         
+        // 搜索历史记录
+        function searchHistory() {
+            currentPage = 1;
+            loadRunHistory();
+        }
+        
         // 删除运行历史记录
         function deleteRunHistory(recordId) {
             if (!confirm('确定要删除这条运行记录吗？')) {
@@ -569,6 +627,30 @@
                 })
                 .catch(error => {
                     console.error('Error deleting run history:', error);
+                    alert('删除失败，请重试');
+                });
+        }
+        
+        // 删除所有运行历史记录
+        function deleteAllHistory() {
+            if (!confirm('确定要删除所有运行记录吗？此操作不可恢复！')) {
+                return;
+            }
+            
+            fetch('/api/run-history', {
+                method: 'DELETE'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message || '删除成功');
+                        loadRunHistory();
+                    } else {
+                        alert('删除失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting all run history:', error);
                     alert('删除失败，请重试');
                 });
         }

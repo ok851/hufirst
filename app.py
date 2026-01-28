@@ -1271,16 +1271,18 @@ def run_history_page():
 
 @app.route('/api/run-history', methods=['GET'])
 def get_run_history():
-    """获取所有运行历史记录（支持分页和按测试用例ID过滤）"""
+    """获取所有运行历史记录（支持分页、按测试用例ID过滤、按项目ID过滤和搜索）"""
     try:
         # 获取分页参数
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 20, type=int)
         case_id = request.args.get('case_id', type=int)
+        project_id = request.args.get('project_id', type=int)
+        search_text = request.args.get('search_text', type=str)
         
         db = Database()
-        history = db.get_all_run_history(page, page_size, case_id)
-        total = db.get_run_history_count(case_id)
+        history = db.get_all_run_history(page, page_size, case_id, search_text, project_id)
+        total = db.get_run_history_count(case_id, search_text, project_id)
         
         return jsonify({
             'success': True,
@@ -1314,6 +1316,29 @@ def delete_run_history(record_id):
             }), 404
     except Exception as e:
         uat_logger.error(f"删除运行历史记录失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/run-history', methods=['DELETE'])
+def delete_all_run_history():
+    """删除所有运行历史记录"""
+    try:
+        db = Database()
+        success = db.delete_all_run_history()
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '所有运行历史记录删除成功'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'message': '没有运行历史记录可删除'
+            })
+    except Exception as e:
+        uat_logger.error(f"删除所有运行历史记录失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
