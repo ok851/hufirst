@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 from playwright.async_api import async_playwright
 from typing import List, Dict, Any, Optional
 import json
@@ -23,7 +23,7 @@ class PlaywrightAutomation:
         try:
             # 确保浏览器相关对象都已正确重置
             if self.browser is None or not self.browser.is_connected():
-                uat_logger.info(f"启动浏览器，headless={headless}")
+                uat_logger.info(f"启动浏览器,headless={headless}")
                 
                 # 1. 确保playwright实例已正确关闭和重置
                 if self.playwright:
@@ -33,7 +33,7 @@ class PlaywrightAutomation:
                         pass
                     self.playwright = None
                 
-                # 2. 使用Windows API直接获取真实的屏幕尺寸（不依赖浏览器）
+                # 2. 使用Windows API直接获取真实的屏幕尺寸(不依赖浏览器)
                 self.playwright = await async_playwright().start()
                 
                 # 调用Windows API获取真实屏幕尺寸
@@ -42,7 +42,7 @@ class PlaywrightAutomation:
                 screen_width = user32.GetSystemMetrics(0)  # SM_CXSCREEN
                 screen_height = user32.GetSystemMetrics(1)  # SM_CYSCREEN
                 
-                # 获取可用工作区尺寸（减去任务栏等）
+                # 获取可用工作区尺寸(减去任务栏等)
                 avail_width = user32.GetSystemMetrics(78)  # SM_CXAVAILABLE
                 avail_height = user32.GetSystemMetrics(79)  # SM_CYAVAILABLE
                 
@@ -65,7 +65,7 @@ class PlaywrightAutomation:
                     args=args
                 )
                 
-                # 创建上下文时不强制设置viewport大小，让浏览器自动适应窗口尺寸
+                # 创建上下文时不强制设置viewport大小,让浏览器自动适应窗口尺寸
                 # 这样可以确保页面渲染和滚动行为与普通浏览器一致
                 self.context = await self.browser.new_context(
                     ignore_https_errors=True,
@@ -95,14 +95,14 @@ class PlaywrightAutomation:
                 uat_logger.info(f"屏幕可用尺寸: {avail_screen_size['width']}x{avail_screen_size['height']}")
                 uat_logger.info(f"浏览器窗口内尺寸: {viewport_size['width']}x{viewport_size['height']}")
                 uat_logger.info(f"浏览器窗口外尺寸: {outer_size['width']}x{outer_size['height']}")
-                uat_logger.info(f"浏览器已设置为全屏模式，右上角最大化按钮应不可见")
+                uat_logger.info(f"浏览器已设置为全屏模式,右上角最大化按钮应不可见")
                 
-                uat_logger.info("浏览器已启动并最大化，设置事件监听器")
+                uat_logger.info("浏览器已启动并最大化,设置事件监听器")
                 
                 # 设置事件监听器用于录制用户操作
                 await self._setup_event_listeners()
                 
-                # 监听页面跳转事件，确保在新页面上也设置事件监听器
+                # 监听页面跳转事件,确保在新页面上也设置事件监听器
                 self.page.on('framenavigated', self._on_page_navigated)
             
             return self.page
@@ -115,7 +115,7 @@ class PlaywrightAutomation:
         if self.page:
             # 定义事件监听器JavaScript代码
             event_listeners_js = r"""
-                // 检查是否已经添加了事件监听器，避免重复添加
+                // 检查是否已经添加了事件监听器,避免重复添加
                 if (!window.eventListenersAdded) {
                     // 初始化事件数组
                     window.automationEvents = window.automationEvents || [];
@@ -128,7 +128,7 @@ class PlaywrightAutomation:
                     };
                 
                 // 生成更精确的CSS选择器
-                // 递归辅助函数：生成元素的完整路径选择器
+                // 递归辅助函数:生成元素的完整路径选择器
                 function generateFullPath(element, maxDepth = 4, currentDepth = 0) {
                     if (!element || element.tagName === 'HTML' || currentDepth >= maxDepth) {
                         return [];
@@ -156,7 +156,7 @@ class PlaywrightAutomation:
                         for (const attr of stableAttrs) {
                             const value = element.getAttribute(attr);
                             if (value && value.length > 0) {
-                                // 支持包含空格的值，使用转义双引号
+                                // 支持包含空格的值,使用转义双引号
                                 const safeValue = value.replace(/"/g, '&quot;');
                                 elementSelector = `${tagName}[${attr}="${safeValue}"]`;
                                 hasStableAttr = true;
@@ -166,7 +166,7 @@ class PlaywrightAutomation:
                     
                     if (!hasStableAttr) {
                         elementSelector = tagName;
-                        // 处理类名，过滤掉动态类名
+                        // 处理类名,过滤掉动态类名
                         if (element.className) {
                             const allClasses = element.className.split(' ').filter(c => c.length > 2); // 过滤掉太短的类名
                             const dynamicClassPatterns = [
@@ -198,7 +198,7 @@ class PlaywrightAutomation:
                                     const isDynamic = dynamicClassPatterns.some(p => p.test(c));
                                     // 过滤掉只有数字或特殊字符的类名
                                     const isInvalid = /^[0-9_\-\.\s]+$/.test(c);
-                                    // 过滤掉太短的类名（可能是动态生成的）
+                                    // 过滤掉太短的类名(可能是动态生成的)
                                     const isTooShort = c.length < 3;
                                     return !isDynamic && !isInvalid && !isTooShort;
                                 });
@@ -208,13 +208,13 @@ class PlaywrightAutomation:
                         }
                     }
                     
-                    // 元素类型特定属性处理，增强对动态表单元素的支持
+                    // 元素类型特定属性处理,增强对动态表单元素的支持
                         if (tagName === 'input') {
-                            // 对于表单输入元素，添加更多识别属性
+                            // 对于表单输入元素,添加更多识别属性
                             const type = element.type;
                             elementSelector += `[type="${type}"]`;
                             
-                            // 优化表单元素识别顺序，优先使用更多稳定属性
+                            // 优化表单元素识别顺序,优先使用更多稳定属性
                             if (element.name && element.name.length > 0) {
                                 elementSelector += `[name="${element.name}"]`;
                             } else if (element.placeholder && element.placeholder.length > 0) {
@@ -226,7 +226,7 @@ class PlaywrightAutomation:
                                 elementSelector += `[aria-label="${element.getAttribute('aria-label')}"]`;
                             }
                         } else if (tagName === 'textarea' || tagName === 'select') {
-                            // 对于其他表单元素，增强识别能力
+                            // 对于其他表单元素,增强识别能力
                             if (element.name && element.name.length > 0) {
                                 elementSelector += `[name="${element.name}"]`;
                             } else if (element.placeholder && element.placeholder.length > 0) {
@@ -237,7 +237,7 @@ class PlaywrightAutomation:
                                 elementSelector += `[aria-label="${element.getAttribute('aria-label')}"]`;
                             }
                         } else if (tagName === 'button') {
-                            // 增强按钮元素的识别，优化动态按钮处理
+                            // 增强按钮元素的识别,优化动态按钮处理
                             if (element.textContent && element.textContent.trim().length > 0) {
                                 const text = element.textContent.trim().substring(0, 25).replace(/"/g, '&quot;');
                                 elementSelector += `:contains("${text}")`;
@@ -247,17 +247,17 @@ class PlaywrightAutomation:
                                 elementSelector += `[type="${element.type}"]`;
                             }
                         } else if (tagName === 'img') {
-                            // 对于图片，使用更精确的定位
+                            // 对于图片,使用更精确的定位
                             if (element.alt && element.alt.length > 0) {
                                 elementSelector += `[alt="${element.alt}"]`;
                             } else if (element.src && element.src.length > 0) {
-                            // 对于图片，使用部分src路径
+                            // 对于图片,使用部分src路径
                             const srcParts = element.src.split('/');
                             const filename = srcParts[srcParts.length - 1];
                             elementSelector += `[src*="${filename}"]`;
                         }
                     } else if (tagName === 'a') {
-                        // 对于链接，使用href属性
+                        // 对于链接,使用href属性
                         if (element.href && element.href.length > 0) {
                             const url = element.href;
                             // 只使用相对路径或域名后的路径
@@ -267,7 +267,7 @@ class PlaywrightAutomation:
                             }
                         }
                     } else if (tagName === 'button') {
-                        // 对于按钮，添加更多识别属性
+                        // 对于按钮,添加更多识别属性
                         if (element.textContent && element.textContent.trim().length > 0) {
                             // 只在没有其他更好的属性时使用文本内容
                             const text = element.textContent.trim();
@@ -304,7 +304,7 @@ class PlaywrightAutomation:
                     // 生成完整路径
                     let path = generateFullPath(element);
                     
-                    // 如果路径为空，直接返回标签名
+                    // 如果路径为空,直接返回标签名
                     if (path.length === 0) {
                         return element.tagName.toLowerCase();
                     }
@@ -316,7 +316,7 @@ class PlaywrightAutomation:
                     try {
                         const matches = document.querySelectorAll(fullSelector);
                         if (matches.length > 1) {
-                            // 如果选择器不唯一，添加nth-of-type作为兜底
+                            // 如果选择器不唯一,添加nth-of-type作为兜底
                             let uniquePath = [...path];
                             let index = 1;
                             let parent = element.parentElement;
@@ -326,7 +326,7 @@ class PlaywrightAutomation:
                                 const siblings = Array.from(parent.children).filter(child => child.tagName === element.tagName);
                                 index = siblings.indexOf(element) + 1;
                                 
-                                // 如果有多个同类型的兄弟元素，添加nth-of-type
+                                // 如果有多个同类型的兄弟元素,添加nth-of-type
                                 if (siblings.length > 1) {
                                     const lastSelector = uniquePath.pop();
                                     const tagName = element.tagName.toLowerCase();
@@ -341,7 +341,7 @@ class PlaywrightAutomation:
                             }
                         }
                     } catch (e) {
-                        // 如果查询失败，使用原始选择器
+                        // 如果查询失败,使用原始选择器
                         console.error('选择器验证失败:', e);
                     }
                     
@@ -354,7 +354,7 @@ class PlaywrightAutomation:
                         const target = e.target;
                         let actualTarget = target;
                         
-                        // 处理复合组件（如复选框/单选框）：统一使用最外层可交互元素作为目标
+                        // 处理复合组件(如复选框/单选框):统一使用最外层可交互元素作为目标
                         function findCompositeComponentRoot(element, componentTypes) {
                             let current = element;
                             while (current && current.tagName !== 'BODY' && current.tagName !== 'HTML') {
@@ -397,7 +397,7 @@ class PlaywrightAutomation:
                             const radio = target.querySelector('input[type="radio"]');
                             
                             if (checkbox || radio) {
-                                // 当前元素包含input，使用当前元素作为目标
+                                // 当前元素包含input,使用当前元素作为目标
                                 actualTarget = target;
                             } else {
                                 // 检查父元素是否包含checkbox或radio
@@ -445,7 +445,7 @@ class PlaywrightAutomation:
                                 elementInfo: elementInfo
                             });
                             
-                            // 检查是否点击了提交按钮，如果是则记录submit事件
+                            // 检查是否点击了提交按钮,如果是则记录submit事件
                             const isSubmitButton = actualTarget.tagName === 'BUTTON' || 
                                                   (actualTarget.tagName === 'INPUT' && (actualTarget.type === 'submit' || actualTarget.type === 'button'));
                             const hasSubmitClass = actualTarget.className && 
@@ -458,7 +458,7 @@ class PlaywrightAutomation:
                                 const form = actualTarget.closest('form');
                                 if (form) {
                                     const formSelector = generateSelector(form);
-                                    // 记录submit事件，选择器是提交按钮的选择器，而不是表单的选择器
+                                    // 记录submit事件,选择器是提交按钮的选择器,而不是表单的选择器
                                     // 这样在回放时可以直接点击提交按钮来触发表单提交
                                     window.automationEvents.push({
                                         action: 'submit',
@@ -476,7 +476,7 @@ class PlaywrightAutomation:
                                 }
                             }
                         }
-                    }, false); // 使用冒泡阶段，避免重复捕获
+                    }, false); // 使用冒泡阶段,避免重复捕获
                 }
                 
                 // 输入事件监听 - 带防抖以避免过于频繁的事件
@@ -484,7 +484,7 @@ class PlaywrightAutomation:
                     document.addEventListener('input', function(e) {
                         const target = e.target;
                         
-                        // 精确检查元素类型，只处理真正可输入的文本元素
+                        // 精确检查元素类型,只处理真正可输入的文本元素
                         const isTextInput = (
                             (target.tagName === 'INPUT' && 
                              ['text', 'email', 'password', 'number', 'search', 'url', 'tel'].includes(target.type)) ||
@@ -539,23 +539,23 @@ class PlaywrightAutomation:
                     document.addEventListener('submit', function(e) {
                         const target = e.target;
                         if (target.tagName === 'FORM') {
-                            // 不要阻止默认的表单提交行为，让表单能够正常提交
-                            // e.preventDefault();  // 移除此行，避免阻止表单提交
+                            // 不要阻止默认的表单提交行为,让表单能够正常提交
+                            // e.preventDefault();  // 移除此行,避免阻止表单提交
                             
                             // 找到触发表单提交的提交按钮
                             let submitButton = null;
                             if (e.submitter) {
-                                // 如果浏览器支持e.submitter属性，直接使用
+                                // 如果浏览器支持e.submitter属性,直接使用
                                 submitButton = e.submitter;
                             } else {
-                                // 否则，查找表单内的第一个提交按钮
+                                // 否则,查找表单内的第一个提交按钮
                                 const buttons = target.querySelectorAll('button[type="submit"], input[type="submit"]');
                                 if (buttons.length > 0) {
                                     submitButton = buttons[0];
                                 }
                             }
                             
-                            // 如果找到提交按钮，使用提交按钮的选择器；否则使用表单的选择器
+                            // 如果找到提交按钮,使用提交按钮的选择器;否则使用表单的选择器
                             const selector = submitButton ? generateSelector(submitButton) : generateSelector(target);
                             
                             if (window && window.automationEvents) {
@@ -617,7 +617,7 @@ class PlaywrightAutomation:
                     });
                 }
                 
-                // 监听popstate事件（浏览器前进/后退）
+                // 监听popstate事件(浏览器前进/后退)
                 if (window && window.addEventListener) {
                     window.addEventListener('popstate', function(e) {
                         if (window && window.automationEvents) {
@@ -679,10 +679,10 @@ class PlaywrightAutomation:
                     });
                 }
                 
-                // 监听键盘事件（可选，用于特殊交互）
+                // 监听键盘事件(可选,用于特殊交互)
                 if (document && document.addEventListener) {
                     document.addEventListener('keydown', function(e) {
-                        // 只记录特殊按键，如回车、ESC等
+                        // 只记录特殊按键,如回车、ESC等
                         if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
                             const target = e.target;
                             const selector = generateSelector(target);
@@ -704,7 +704,7 @@ class PlaywrightAutomation:
                     }, true);
                 }
                 
-                // 监听悬停事件（可选）
+                // 监听悬停事件(可选)
                 if (document && document.addEventListener) {
                     document.addEventListener('mouseover', function(e) {
                         const target = e.target;
@@ -736,24 +736,24 @@ class PlaywrightAutomation:
                 
                 console.log('自动化事件监听器已设置完成');
                 
-                // 设置标志，表示已添加事件监听器
+                // 设置标志,表示已添加事件监听器
                 window.eventListenersAdded = true;
             }
             """;
             
-            # 1. 添加初始化脚本，确保新页面加载时自动设置监听器
+            # 1. 添加初始化脚本,确保新页面加载时自动设置监听器
             await self.page.add_init_script(event_listeners_js);
             
-            # 2. 直接在当前页面执行，确保已加载页面也能捕获事件
+            # 2. 直接在当前页面执行,确保已加载页面也能捕获事件
             await self.page.evaluate(event_listeners_js);
             
             uat_logger.info("事件监听器已成功设置")
         else:
-            uat_logger.warning("页面对象为None，无法设置事件监听器")
+            uat_logger.warning("页面对象为None,无法设置事件监听器")
 
     async def _on_page_navigated(self, frame):
         """页面导航事件处理函数"""
-        # 在页面导航后重新设置事件监听器，确保在新页面上也能记录用户操作
+        # 在页面导航后重新设置事件监听器,确保在新页面上也能记录用户操作
         try:
             # 多层检查确保页面对象有效且可用
             if (self.page is not None and 
@@ -765,25 +765,25 @@ class PlaywrightAutomation:
                     # _setup_event_listeners 方法内部会检查 window.eventListenersAdded 标志
                     # 避免重复添加事件监听器
                     await self._setup_event_listeners()
-                    uat_logger.info("页面导航完成，已重新设置事件监听器")
+                    uat_logger.info("页面导航完成,已重新设置事件监听器")
                 except Exception as inner_e:
                     # 捕获页面操作相关的异常
-                    uat_logger.error(f"页面操作失败，可能页面已关闭: {str(inner_e)}")
+                    uat_logger.error(f"页面操作失败,可能页面已关闭: {str(inner_e)}")
             else:
-                uat_logger.warning("页面对象无效或已关闭，无法设置事件监听器")
+                uat_logger.warning("页面对象无效或已关闭,无法设置事件监听器")
         except Exception as e:
             uat_logger.error(f"重新设置页面事件监听器时出错: {str(e)}")
 
     async def get_recorded_events(self):
         """从浏览器获取记录的事件"""
         if self.page is None:
-            uat_logger.warning("页面对象为None，无法获取事件")
+            uat_logger.warning("页面对象为None,无法获取事件")
             return []
         
         try:
             # 检查页面是否仍然可用
             if hasattr(self.page, 'is_closed') and self.page.is_closed():
-                uat_logger.warning("页面已关闭，无法获取事件")
+                uat_logger.warning("页面已关闭,无法获取事件")
                 return []
             
             # 尝试使用更简单的方式检查页面状态
@@ -791,12 +791,12 @@ class PlaywrightAutomation:
                 # 检查事件数组是否存在
                 has_events = await self.page.evaluate("typeof window.automationEvents !== 'undefined'")
                 if not has_events:
-                    uat_logger.warning("window.automationEvents 未定义，可能是事件监听器未设置")
+                    uat_logger.warning("window.automationEvents 未定义,可能是事件监听器未设置")
                     # 尝试重新设置事件监听器
                     await self._setup_event_listeners()
                     return []
                 
-                # 调试：检查事件数组中是否有内容
+                # 调试:检查事件数组中是否有内容
                 events_count = await self.page.evaluate("window.automationEvents ? window.automationEvents.length : 0")
                 
                 if events_count == 0:
@@ -810,7 +810,7 @@ class PlaywrightAutomation:
                 await self.page.evaluate("window.automationEvents = []")
                 return events
             except Exception as e:
-                # 页面可能正在导航中，这是正常情况
+                # 页面可能正在导航中,这是正常情况
                 uat_logger.debug(f"获取事件时遇到临时错误: {str(e)}")
                 return []
         except Exception as e:
@@ -828,7 +828,7 @@ class PlaywrightAutomation:
             # 检查页面是否仍然可用
             try:
                 if hasattr(self.page, 'is_closed') and self.page.is_closed():
-                    print("页面已关闭，无法同步事件")
+                    print("页面已关闭,无法同步事件")
                     return 0
                 
                 # 检查页面是否仍可访问
@@ -836,7 +836,7 @@ class PlaywrightAutomation:
                     # 先尝试访问一个简单的属性来检查页面状态
                     await self.page.title()
                 except:
-                    print("页面不可访问，无法同步事件")
+                    print("页面不可访问,无法同步事件")
                     return 0
                 
                 events = await self.get_recorded_events()
@@ -870,7 +870,7 @@ class PlaywrightAutomation:
                         step['selector'] = event.get('selector')
                         step['key'] = event.get('key')
                     
-                    # 去重逻辑：避免添加重复的步骤
+                    # 去重逻辑:避免添加重复的步骤
                     if self.recorded_steps:
                         last_step = self.recorded_steps[-1]
                         
@@ -878,37 +878,37 @@ class PlaywrightAutomation:
                         if self.recorded_steps:
                             last_step = self.recorded_steps[-1]
                         
-                        # 特殊处理：如果当前是navigate事件，且上一步是submit事件，则跳过这个navigate事件
-                        # 因为submit操作可能导致页面导航，我们不需要重复记录导航
+                        # 特殊处理:如果当前是navigate事件,且上一步是submit事件,则跳过这个navigate事件
+                        # 因为submit操作可能导致页面导航,我们不需要重复记录导航
                         if step['action'] == 'navigate' and last_step['action'] == 'submit':
                             uat_logger.info(f"跳过submit后的navigate事件: {step.get('url')}")
                             continue
                         
                         # 检查是否与上一步骤完全相同
                         if last_step['action'] == step['action']:
-                            # 计算时间差（毫秒）
+                            # 计算时间差(毫秒)
                             time_diff = step.get('timestamp', 0) - last_step.get('timestamp', 0)
                             
-                            # 对于导航步骤，检查URL是否相同且时间间隔小于2秒
+                            # 对于导航步骤,检查URL是否相同且时间间隔小于2秒
                             if step['action'] == 'navigate' and last_step.get('url') == step.get('url') and time_diff < 2000:
                                 continue  # 跳过短时间内重复的导航步骤
-                            # 对于点击步骤，检查选择器是否相同且时间间隔小于1秒
+                            # 对于点击步骤,检查选择器是否相同且时间间隔小于1秒
                             elif step['action'] == 'click' and last_step.get('selector') == step.get('selector') and time_diff < 1000:
                                 continue  # 跳过短时间内重复的点击步骤
-                            # 对于悬停步骤，检查选择器是否相同且时间间隔小于1秒
+                            # 对于悬停步骤,检查选择器是否相同且时间间隔小于1秒
                             elif step['action'] == 'hover' and last_step.get('selector') == step.get('selector') and time_diff < 1000:
                                 continue  # 跳过短时间内重复的悬停步骤
-                            # 对于填充步骤，检查选择器和文本是否相同且时间间隔小于2秒
-                            # 填充可能需要更长时间，但短时间内相同内容的填充应跳过
+                            # 对于填充步骤,检查选择器和文本是否相同且时间间隔小于2秒
+                            # 填充可能需要更长时间,但短时间内相同内容的填充应跳过
                             elif step['action'] == 'fill' and last_step.get('selector') == step.get('selector') and last_step.get('text') == step.get('text') and time_diff < 2000:
                                 continue  # 跳过短时间内重复的填充步骤
-                            # 对于按键步骤，检查选择器和按键是否相同且时间间隔小于1秒
+                            # 对于按键步骤,检查选择器和按键是否相同且时间间隔小于1秒
                             elif step['action'] == 'keypress' and last_step.get('selector') == step.get('selector') and last_step.get('key') == step.get('key') and time_diff < 1000:
                                 continue  # 跳过短时间内重复的按键步骤
-                            # 对于提交步骤，检查选择器是否相同且时间间隔小于1秒
+                            # 对于提交步骤,检查选择器是否相同且时间间隔小于1秒
                             elif step['action'] == 'submit' and last_step.get('selector') == step.get('selector') and time_diff < 1000:
                                 continue  # 跳过短时间内重复的提交步骤
-                            # 对于滚动步骤，检查滚动位置是否基本相同且时间间隔小于1秒
+                            # 对于滚动步骤,检查滚动位置是否基本相同且时间间隔小于1秒
                             elif step['action'] == 'scroll' and last_step.get('scrollPosition') == step.get('scrollPosition') and time_diff < 1000:
                                 continue  # 跳过短时间内重复的滚动步骤
                     
@@ -922,28 +922,28 @@ class PlaywrightAutomation:
         return 0
     
     async def navigate_to(self, url: str, iframe_selector: str = None):
-        """导航到指定URL，支持iframe导航"""
+        """导航到指定URL,支持iframe导航"""
         if self.page is None:
             await self.start_browser()
         
         # 再次检查确保page对象存在
         if self.page is not None:
-            # 导航到URL，对于录制时使用domcontentloaded以提高响应速度
-            # 但在回放时，我们需要确保页面完全加载
+            # 导航到URL,对于录制时使用domcontentloaded以提高响应速度
+            # 但在回放时,我们需要确保页面完全加载
             if self.recording:
                 await self.page.goto(url, wait_until='domcontentloaded')
             else:
                 # 回放时等待更完整的页面加载状态
                 await self.page.goto(url, wait_until='load')
-                # 额外等待网络请求完成（对于复杂的单页应用）
+                # 额外等待网络请求完成(对于复杂的单页应用)
                 try:
                     await self.page.wait_for_load_state('networkidle', timeout=25000)
                 except Exception as e:
                     uat_logger.debug(f"网络idle状态超时(可能是正常的长连接): {str(e)}")
-                # 增加JavaScript渲染等待时间，确保动态内容完全显示
+                # 增加JavaScript渲染等待时间,确保动态内容完全显示
                 await self.page.wait_for_timeout(1000)
                 
-                # 等待页面渲染稳定（无更多DOM变化）
+                # 等待页面渲染稳定(无更多DOM变化)
                 await self.page.evaluate("""
                     () => new Promise(resolve => {
                         let lastScrollHeight = document.body.scrollHeight;
@@ -971,24 +971,24 @@ class PlaywrightAutomation:
                     })
                     """)
         else:
-            uat_logger.error("页面对象为None，无法导航")
+            uat_logger.error("页面对象为None,无法导航")
             raise Exception("无法创建页面对象")
         self.current_url = url
         
-        # 如果正在录制，记录导航步骤，并应用去重逻辑
+        # 如果正在录制,记录导航步骤,并应用去重逻辑
         if self.recording:
             step = {
                 "action": "navigate",
                 "url": url,
                 "iframe_selector": iframe_selector,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             
             # 应用去重逻辑
             if self.recorded_steps:
                 last_step = self.recorded_steps[-1]
                 if last_step['action'] == 'navigate' and last_step.get('url') == step.get('url'):
-                    # 计算时间差（毫秒）
+                    # 计算时间差(毫秒)
                     time_diff = step.get('timestamp', 0) - last_step.get('timestamp', 0)
                     if time_diff < 2000:  # 使用与其他地方一致的2秒阈值
                         return  # 跳过短时间内重复的导航步骤
@@ -1003,7 +1003,7 @@ class PlaywrightAutomation:
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"🔍 [CLICK_DEBUG] 开始点击元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        uat_logger.info(f"🔍 [CLICK_DEBUG] 开始点击元素,选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
         
         # 构建完整的选择器
         full_selector = selector
@@ -1015,7 +1015,7 @@ class PlaywrightAutomation:
         if iframe_context:
             target_context = iframe_context
         elif iframe_selector:
-            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文,选择器: {iframe_selector}")
             target_context = self.page.frame_locator(iframe_selector)
         
         if target_context is not None:
@@ -1028,8 +1028,8 @@ class PlaywrightAutomation:
             except Exception as e:
                 uat_logger.warning(f"🔍 [CLICK_DEBUG] 获取当前URL失败: {str(e)}")
             
-            # 尝试多种点击方式，增加成功概率
-            # 方式1: 使用Playwright的click方法，等待元素可点击
+            # 尝试多种点击方式,增加成功概率
+            # 方式1: 使用Playwright的click方法,等待元素可点击
             try:
                 uat_logger.info(f"🔍 [CLICK_DEBUG] 尝试方式1: Playwright click方法")
                 # 根据上下文类型执行不同的操作
@@ -1043,7 +1043,7 @@ class PlaywrightAutomation:
                     uat_logger.info(f"✅ [CLICK_DEBUG] 方式1成功点击元素: {selector}, 选择器类型: {selector_type}")
                     element_clicked = True
                 else:
-                    # 如果是frame_locator对象，需要使用其locator方法
+                    # 如果是frame_locator对象,需要使用其locator方法
                     element = target_context.locator(full_selector)
                     await element.wait_for(state='visible', timeout=5000)
                     await element.wait_for(state='enabled', timeout=5000)
@@ -1060,7 +1060,7 @@ class PlaywrightAutomation:
                         uat_logger.info(f"✅ [CLICK_DEBUG] 方式2成功点击元素: {selector}, 选择器类型: {selector_type}")
                         element_clicked = True
                     else:
-                        # 如果是frame_locator对象，需要使用其locator方法
+                        # 如果是frame_locator对象,需要使用其locator方法
                         element = target_context.locator(full_selector)
                         await element.click(timeout=5000, force=True)
                         uat_logger.info(f"✅ [CLICK_DEBUG] 方式2成功点击元素: {selector}, 选择器类型: {selector_type}")
@@ -1076,20 +1076,20 @@ class PlaywrightAutomation:
                             if hasattr(target_context, 'evaluate'):
                                 element_exists = await target_context.evaluate("(selector) => document.querySelector(selector) !== null", selector)
                                 if element_exists:
-                                    # 使用JavaScript点击，正常触发所有事件
+                                    # 使用JavaScript点击,正常触发所有事件
                                     await target_context.evaluate("""(selector) => {
                                         const element = document.querySelector(selector);
                                         if (element) {
-                                            // 直接使用click()，触发所有相关事件
+                                            // 直接使用click(),触发所有相关事件
                                             element.click();
                                         }
                                     }""", selector)
                                     uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
                                     element_clicked = True
                                 else:
-                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在,无法使用JavaScript点击: {selector}")
                             else:
-                                # 如果是frame_locator对象，使用其locator方法
+                                # 如果是frame_locator对象,使用其locator方法
                                 element = target_context.locator(selector)
                                 count = await element.count()
                                 if count > 0:
@@ -1097,7 +1097,7 @@ class PlaywrightAutomation:
                                     uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
                                     element_clicked = True
                                 else:
-                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法点击: {selector}")
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在,无法点击: {selector}")
                         else:  # xpath
                             if hasattr(target_context, 'evaluate'):
                                 element_exists = await target_context.evaluate("""(xpath) => {
@@ -1105,21 +1105,21 @@ class PlaywrightAutomation:
                                     return result.singleNodeValue !== null;
                                 }""", selector)
                                 if element_exists:
-                                    # 使用JavaScript点击，正常触发所有事件
+                                    # 使用JavaScript点击,正常触发所有事件
                                     await target_context.evaluate("""(xpath) => {
                                         const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                                         const element = result.singleNodeValue;
                                         if (element) {
-                                            // 直接使用click()，触发所有相关事件
+                                            // 直接使用click(),触发所有相关事件
                                             element.click();
                                         }
                                     }""", selector)
                                     uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
                                     element_clicked = True
                                 else:
-                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法使用JavaScript点击: {selector}")
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在,无法使用JavaScript点击: {selector}")
                             else:
-                                # 如果是frame_locator对象，使用其locator方法
+                                # 如果是frame_locator对象,使用其locator方法
                                 element = target_context.locator(f"xpath={selector}")
                                 count = await element.count()
                                 if count > 0:
@@ -1127,12 +1127,12 @@ class PlaywrightAutomation:
                                     uat_logger.info(f"✅ [CLICK_DEBUG] 方式3成功点击元素: {selector}, 选择器类型: {selector_type}")
                                     element_clicked = True
                                 else:
-                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在，无法点击: {selector}")
+                                    uat_logger.error(f"❌ [CLICK_DEBUG] 元素不存在,无法点击: {selector}")
                     except Exception as e3:
                         uat_logger.error(f"❌ [CLICK_DEBUG] 方式3失败: {str(e3)}")
                         
             if not element_clicked:
-                # 如果所有点击方式都失败，抛出异常
+                # 如果所有点击方式都失败,抛出异常
                 raise Exception(f"无法点击元素: {selector}, 选择器类型: {selector_type}, 所有点击方式均失败")
             
             # 检查点击后的页面状态
@@ -1155,7 +1155,7 @@ class PlaywrightAutomation:
                 elif 'checkbox' in selector_lower or 'type="checkbox"' in selector_lower:
                     is_checkbox_selector = True
                 
-                # 如果是单选框或复选框选择器，验证点击后状态
+                # 如果是单选框或复选框选择器,验证点击后状态
                 if is_radio_selector or is_checkbox_selector:
                     # 等待元素状态更新
                     await self.page.wait_for_timeout(200)
@@ -1166,7 +1166,7 @@ class PlaywrightAutomation:
                         if (element && element.tagName === 'INPUT' && (element.type === 'radio' || element.type === 'checkbox')) {{
                             return element.checked;
                         }}
-                        // 处理复合组件，找到内部的input元素
+                        // 处理复合组件,找到内部的input元素
                         const inputElement = element?.querySelector('input[type="radio"], input[type="checkbox"]');
                         return inputElement ? inputElement.checked : false;
                     }}'''
@@ -1181,12 +1181,12 @@ class PlaywrightAutomation:
             except Exception as e:
                 uat_logger.warning(f"验证单选框/复选框状态时出错: {str(e)}")
         
-        # 如果正在录制，记录点击步骤
+        # 如果正在录制,记录点击步骤
         if self.recording:
             step = {
                 "action": "click",
                 "selector": selector,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
@@ -1205,10 +1205,10 @@ class PlaywrightAutomation:
         if iframe_context:
             target_context = iframe_context
         elif iframe_selector:
-            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文,选择器: {iframe_selector}")
             target_context = self.page.frame_locator(iframe_selector)
         
-        # 尝试多种填充方式，增加成功概率
+        # 尝试多种填充方式,增加成功概率
         fill_success = False
         
         # 方式1: 使用Playwright的fill方法
@@ -1221,7 +1221,7 @@ class PlaywrightAutomation:
                 uat_logger.info(f"成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
                 fill_success = True
             else:
-                # 如果是frame_locator对象，需要使用其locator方法
+                # 如果是frame_locator对象,需要使用其locator方法
                 element = target_context.locator(full_selector)
                 await element.wait_for(state='visible', timeout=5000)
                 await element.fill(text, timeout=5000)
@@ -1237,7 +1237,7 @@ class PlaywrightAutomation:
                     uat_logger.info(f"使用force fill方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
                     fill_success = True
                 else:
-                    # 如果是frame_locator对象，需要使用其locator方法
+                    # 如果是frame_locator对象,需要使用其locator方法
                     element = target_context.locator(full_selector)
                     await element.fill(text, timeout=5000, force=True)
                     uat_logger.info(f"使用force fill方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
@@ -1252,7 +1252,7 @@ class PlaywrightAutomation:
                         uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
                         fill_success = True
                     else:
-                        # 如果是frame_locator对象，需要使用其locator方法
+                        # 如果是frame_locator对象,需要使用其locator方法
                         element = target_context.locator(full_selector)
                         await element.type(text, timeout=5000)
                         uat_logger.info(f"使用type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
@@ -1267,7 +1267,7 @@ class PlaywrightAutomation:
                             uat_logger.info(f"使用force type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
                             fill_success = True
                         else:
-                            # 如果是frame_locator对象，需要使用其locator方法
+                            # 如果是frame_locator对象,需要使用其locator方法
                             element = target_context.locator(full_selector)
                             await element.type(text, timeout=5000, force=True)
                             uat_logger.info(f"使用force type方法成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
@@ -1298,9 +1298,9 @@ class PlaywrightAutomation:
                                         uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 文本: {text}")
                                         fill_success = True
                                     else:
-                                        uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                                        uat_logger.error(f"元素不存在,无法使用JavaScript填充: {selector}")
                                 else:
-                                    # 如果是frame_locator对象，使用其locator方法
+                                    # 如果是frame_locator对象,使用其locator方法
                                     element = target_context.locator(selector)
                                     count = await element.count()
                                     if count > 0:
@@ -1308,7 +1308,7 @@ class PlaywrightAutomation:
                                         uat_logger.info(f"使用frame_locator方法成功填充元素: {selector}, 文本: {text}")
                                         fill_success = True
                                     else:
-                                        uat_logger.error(f"元素不存在，无法使用frame_locator方法填充: {selector}")
+                                        uat_logger.error(f"元素不存在,无法使用frame_locator方法填充: {selector}")
                             else:  # xpath
                                 # 使用XPath查找元素
                                 if hasattr(target_context, 'evaluate'):
@@ -1334,21 +1334,21 @@ class PlaywrightAutomation:
                                     uat_logger.info(f"使用JavaScript成功填充元素: {selector}, 选择器类型: {selector_type}, 文本: {text}")
                                     fill_success = True
                                 else:
-                                    uat_logger.error(f"元素不存在，无法使用JavaScript填充: {selector}")
+                                    uat_logger.error(f"元素不存在,无法使用JavaScript填充: {selector}")
                         except Exception as e5:
                             uat_logger.error(f"JavaScript填充失败: {str(e5)}")
         
         if not fill_success:
             raise Exception(f"无法填充元素: {selector}, 选择器类型: {selector_type}, 所有填充方式均失败")
         
-        # 如果正在录制，记录填充步骤
+        # 如果正在录制,记录填充步骤
         if self.recording:
             step = {
                 "action": "fill",
                 "selector": selector,
                 "selector_type": selector_type,
                 "text": text,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
@@ -1357,14 +1357,14 @@ class PlaywrightAutomation:
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"🔍 [SCROLL_DEBUG] 开始滚动，方向: {direction}, 像素: {pixels}, iframe选择器: {iframe_selector}")
+        uat_logger.info(f"🔍 [SCROLL_DEBUG] 开始滚动,方向: {direction}, 像素: {pixels}, iframe选择器: {iframe_selector}")
         
         # 确定操作上下文
         target_context = self.page
         if iframe_context:
             target_context = iframe_context
         elif iframe_selector:
-            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文,选择器: {iframe_selector}")
             target_context = self.page.frame_locator(iframe_selector)
         
         # 执行滚动操作
@@ -1379,7 +1379,7 @@ class PlaywrightAutomation:
             elif direction == "to_bottom":
                 await target_context.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         else:
-            # 对于frame_locator对象，需要先获取iframe的contentFrame
+            # 对于frame_locator对象,需要先获取iframe的contentFrame
             try:
                 # 获取iframe的contentFrame
                 iframe = await target_context.first.content_frame()
@@ -1393,18 +1393,18 @@ class PlaywrightAutomation:
                     elif direction == "to_bottom":
                         await iframe.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 else:
-                    uat_logger.warning("无法获取iframe的contentFrame，无法执行滚动操作")
+                    uat_logger.warning("无法获取iframe的contentFrame,无法执行滚动操作")
             except Exception as e:
                 uat_logger.warning(f"执行iframe滚动时出错: {str(e)}")
         
-        # 如果正在录制，记录滚动步骤
+        # 如果正在录制,记录滚动步骤
         if self.recording:
             step = {
                 "action": "scroll",
                 "direction": direction,
                 "pixels": pixels,
                 "iframe_selector": iframe_selector,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
@@ -1415,7 +1415,7 @@ class PlaywrightAutomation:
         
         # 使用更高效的方法获取页面文本
         try:
-            # 首先尝试使用JavaScript直接获取所有文本，这是最快的方法
+            # 首先尝试使用JavaScript直接获取所有文本,这是最快的方法
             text_content = await self.page.evaluate(
                 "() => document.body.innerText || document.body.textContent || document.documentElement.innerText || document.documentElement.textContent || ''"
             )
@@ -1423,7 +1423,7 @@ class PlaywrightAutomation:
             if text_content and text_content.strip():
                 return text_content.strip()
             
-            # 如果JavaScript方法失败，使用Playwright的text_content方法
+            # 如果JavaScript方法失败,使用Playwright的text_content方法
             body_element = self.page.locator('body')
             text_content = await body_element.text_content(timeout=5000)
             
@@ -1434,159 +1434,182 @@ class PlaywrightAutomation:
     
     async def extract_element_text(self, selector: str, selector_type: str = "css", iframe_selector: str = None, iframe_context=None) -> str:
         """提取特定元素的文本，支持多种定位方式
-        参数:
-            selector: 定位器字符串
-            selector_type: 定位器类型，支持以下选项:
-                - css: CSS选择器
-                - xpath: XPath选择器
-                - text: 文本内容
-                - role: 语义角色 (直接使用角色名，如 "button", "heading")
-                - testid: 测试ID (data-testid属性值)
-            iframe_selector: iframe选择器（可选）
-            iframe_context: iframe上下文（可选）
+        Parameters:
+            selector: Locator string
+            selector_type: Locator type, supports:
+                - css: CSS selector
+                - xpath: XPath selector
+                - text: Text content
+                - role: Semantic role (use role name directly, e.g. "button", "heading")
+                - testid: Test ID (data-testid attribute value)
+            iframe_selector: iframe selector (optional)
+            iframe_context: iframe context (optional)
         """
         if self.page is None:
-            raise Exception("浏览器未启动")
+            raise Exception("Browser not started")
         
-        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 开始提取文本，选择器: {selector}, 选择器类型: {selector_type}")
+        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Start extracting text, selector: {selector}, selector_type: {selector_type}")
         
         try:
             element = None
             
-            # 确定目标上下文
+            # Determine target context
             target_context = self.page
             if iframe_selector:
                 target_context = self.page.frame_locator(iframe_selector)
             elif iframe_context:
                 target_context = iframe_context
             
-            # 根据上下文类型和定位方式获取元素
+            # Get element based on context type and locator method
             if hasattr(target_context, 'locator'):
-                # 对于page或frame_locator对象，使用locator方法
+                # For page or frame_locator objects, use locator method
                 if selector_type == "css":
-                    # CSS选择器
-                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用CSS选择器: {selector}")
+                    # CSS selector
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Using CSS selector: {selector}")
                     element = target_context.locator(selector)
                     element = element.first
                 elif selector_type == "xpath":
-                    # XPath选择器
-                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用XPath选择器: {selector}")
+                    # XPath selector
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Using XPath selector: {selector}")
                     element = target_context.locator(f"xpath={selector}")
                     element = element.first
                 elif selector_type == "text":
-                    # 文本内容选择器
-                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用文本选择器: {selector}")
+                    # Text content selector
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Using text selector: {selector}")
                     element = target_context.locator(f"text={selector}")
                     element = element.first
             elif selector_type == "role":
-                # 语义角色选择器
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用角色选择器: {selector}")
-                # 使用Playwright的专用role定位器
+                # Semantic role selector
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Using role selector: {selector}")
+                # Use Playwright's dedicated role locator
                 if "," in selector:
-                    # 处理带参数的角色，只使用角色名部分
+                    # Handle role with parameters, only use role name part
                     role_name = selector.split(",")[0]
-                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 角色选择器包含参数，只使用角色名: {role_name}")
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Role selector contains parameters, only use role name: {role_name}")
                     element = self.page.get_by_role(role_name)
                 else:
                     element = self.page.get_by_role(selector)
                 element = element.first
             elif selector_type == "testid":
-                # 测试ID选择器，使用Playwright的专用testid定位器
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 使用testid选择器: {selector}")
+                # Test ID selector, use Playwright's dedicated testid locator
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Using testid selector: {selector}")
                 element = self.page.get_by_test_id(selector)
                 element = element.first
             elif selector.startswith("//") or selector.startswith("/"):
-                # 自动识别XPath
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 自动识别为XPath选择器: {selector}")
+                # Auto-detect XPath
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Auto-detected as XPath selector: {selector}")
                 element = self.page.locator(f"xpath={selector}")
                 element = element.first
             else:
-                # 默认使用CSS选择器
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 默认使用CSS选择器: {selector}")
+                # Default to CSS selector
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Default to CSS selector: {selector}")
                 element = self.page.locator(selector)
                 element = element.first
             
-            # 确保元素已正确获取
+            # Ensure element is correctly obtained
             if element is None:
-                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 未成功获取元素")
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] Element not successfully obtained")
                 return ""
             
-            # 添加宽松的等待机制
+            # Add relaxed waiting mechanism
             try:
-                # 尝试等待元素存在（不要求可见）
+                # Try to wait for element to exist (not required to be visible)
                 await element.wait_for(state="attached", timeout=5000)
             except Exception:
-                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 等待元素存在超时，尝试继续提取")
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] Waiting for element existence timed out, trying to continue extraction")
             
-            # 检查元素是否存在
+            # Check if element exists
             try:
                 count = await element.count()
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 找到元素数量: {count}")
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Found {count} elements")
                 if count == 0:
-                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 未找到元素")
+                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] Element not found")
                     return ""
             except Exception as e:
-                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] 检查元素数量失败: {e}")
-                # 继续尝试提取，不强制要求元素存在
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] Failed to check element count: {e}")
+                # Continue trying to extract, not forcing element existence
             
-            # 获取元素的标签名，判断元素类型
-            tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
-            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 元素标签名: {tag_name}")
-            
-            # 针对不同元素类型使用合适的提取方法
+            # Use appropriate extraction method based on element type
             extracted_text = ""
-            if tag_name in ["input", "textarea"]:
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 输入框元素，使用input_value()提取")
-                try:
-                    extracted_text = await element.input_value()
-                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] input_value()提取结果: '{extracted_text}'")
-                except Exception as e:
-                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] input_value()失败: {e}")
+            try:
+                # Try to get element's tag name to determine element type
+                tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Element tag name: {tag_name}")
+                
+                if tag_name in ["input", "textarea"]:
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Input element, using input_value() extraction")
                     try:
-                        extracted_text = await element.get_attribute("value")
-                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value')提取结果: '{extracted_text}'")
-                    except Exception as e2:
-                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value')失败: {e2}")
-            else:
-                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 普通元素，使用inner_text()提取")
+                        extracted_text = await element.input_value()
+                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] input_value() extraction result: '{extracted_text}'")
+                    except Exception as e:
+                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] input_value() failed: {e}")
+                        try:
+                            extracted_text = await element.get_attribute("value")
+                            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value') extraction result: '{extracted_text}'")
+                        except Exception as e2:
+                            uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value') failed: {e2}")
+                else:
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Normal element, using inner_text() extraction")
+                    try:
+                        extracted_text = await element.inner_text()
+                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] inner_text() extraction result: '{extracted_text}'")
+                    except Exception as e:
+                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] inner_text() failed: {e}")
+                        try:
+                            extracted_text = await element.text_content()
+                            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] text_content() extraction result: '{extracted_text}'")
+                        except Exception as e2:
+                            uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] text_content() failed: {e2}")
+            except Exception as e:
+                # If getting tag name fails, try using general methods to extract text
+                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] Failed to get tag name: {e}, trying general methods to extract text")
                 try:
                     extracted_text = await element.inner_text()
-                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] inner_text()提取结果: '{extracted_text}'")
+                    uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] General method inner_text() extraction result: '{extracted_text}'")
                 except Exception as e:
-                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] inner_text()失败: {e}")
+                    uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] inner_text() failed: {e}")
                     try:
                         extracted_text = await element.text_content()
-                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] text_content()提取结果: '{extracted_text}'")
+                        uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] General method text_content() extraction result: '{extracted_text}'")
                     except Exception as e2:
-                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] text_content()失败: {e2}")
+                        uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] text_content() failed: {e2}")
+                        try:
+                            extracted_text = await element.input_value()
+                            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] General method input_value() extraction result: '{extracted_text}'")
+                        except Exception as e3:
+                            uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] input_value() failed: {e3}")
+                            try:
+                                extracted_text = await element.get_attribute("value")
+                                uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] General method get_attribute('value') extraction result: '{extracted_text}'")
+                            except Exception as e4:
+                                uat_logger.warning(f"📝 [TEXT_EXTRACT_DEBUG] get_attribute('value') failed: {e4}")
             
-            # 确保返回的文本不为None
+            # Ensure returned text is not None
             result = extracted_text if extracted_text is not None else ""
-            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] 最终提取结果: '{result}'")
+            uat_logger.info(f"📝 [TEXT_EXTRACT_DEBUG] Final extraction result: '{result}'")
             return result
         except Exception as e:
-            # 详细记录异常信息
-            uat_logger.error(f"📝 [TEXT_EXTRACT_DEBUG] 提取文本时出错: {str(e)}")
-            print(f"提取元素文本时出错: {str(e)}")
+            # Record detailed exception information
+            uat_logger.error(f"📝 [TEXT_EXTRACT_DEBUG] Error extracting text: {str(e)}")
+            print(f"Error extracting element text: {str(e)}")
             return ""
-    
     async def extract_element_json(self, selector: str, selector_type: str = "css") -> dict:
-        """从特定元素中提取JSON数据，支持多种定位方式
+        """从特定元素中提取JSON数据,支持多种定位方式
         参数:
             selector: 定位器字符串
-            selector_type: 定位器类型，支持以下选项:
+            selector_type: 定位器类型,支持以下选项:
                 - css: CSS选择器
                 - xpath: XPath选择器
                 - text: 文本内容
-                - role: 语义角色 (直接使用角色名，如 "button", "heading")
+                - role: 语义角色 (直接使用角色名,如 "button", "heading")
                 - testid: 测试ID (data-testid属性值)
         返回:
-            提取到的JSON数据，解析失败则返回空字典
+            提取到的JSON数据,解析失败则返回空字典
         """
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 开始提取JSON，选择器: {selector}, 选择器类型: {selector_type}")
+        uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 开始提取JSON,选择器: {selector}, 选择器类型: {selector_type}")
         
         try:
             element = None
@@ -1612,15 +1635,15 @@ class PlaywrightAutomation:
                 uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用角色选择器: {selector}")
                 # 使用Playwright的专用role定位器
                 if "," in selector:
-                    # 处理带参数的角色，只使用角色名部分
+                    # 处理带参数的角色,只使用角色名部分
                     role_name = selector.split(",")[0]
-                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 角色选择器包含参数，只使用角色名: {role_name}")
+                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 角色选择器包含参数,只使用角色名: {role_name}")
                     element = self.page.get_by_role(role_name)
                 else:
                     element = self.page.get_by_role(selector)
                 await element.wait_for(state="visible", timeout=8000)
             elif selector_type == "testid":
-                # 测试ID选择器，使用Playwright的专用testid定位器
+                # 测试ID选择器,使用Playwright的专用testid定位器
                 uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 使用testid选择器: {selector}")
                 element = self.page.get_by_test_id(selector)
                 await element.wait_for(state="visible", timeout=8000)
@@ -1650,7 +1673,7 @@ class PlaywrightAutomation:
             # 获取第一个匹配元素
             element = element.first
             
-            # 获取元素的标签名，判断元素类型
+            # 获取元素的标签名,判断元素类型
             tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
             uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 元素标签名: {tag_name}")
             
@@ -1685,7 +1708,7 @@ class PlaywrightAutomation:
                 except Exception as e:
                     uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 从input_value提取失败: {e}")
             
-            # 4. 从innerHTML提取（寻找JSON结构）
+            # 4. 从innerHTML提取(寻找JSON结构)
             try:
                 inner_html = await element.innerHTML()
                 if inner_html and inner_html.strip():
@@ -1717,16 +1740,16 @@ class PlaywrightAutomation:
             for json_source in json_sources:
                 try:
                     import json
-                    # 清理JSON字符串（移除可能的换行符、多余空格等）
+                    # 清理JSON字符串(移除可能的换行符、多余空格等)
                     cleaned_json = json_source.replace("\n", "").replace("\r", "").strip()
                     # 尝试解析JSON
                     json_data = json.loads(cleaned_json)
-                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 成功解析JSON，包含{len(json_data) if isinstance(json_data, dict) else len(json_data)}个元素")
+                    uat_logger.info(f"📝 [JSON_EXTRACT_DEBUG] 成功解析JSON,包含{len(json_data) if isinstance(json_data, dict) else len(json_data)}个元素")
                     return json_data
                 except json.JSONDecodeError as e:
-                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] JSON解析失败: {e}，尝试下一个源")
+                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] JSON解析失败: {e},尝试下一个源")
                 except Exception as e:
-                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 处理JSON源时出错: {e}，尝试下一个源")
+                    uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 处理JSON源时出错: {e},尝试下一个源")
             
             uat_logger.warning(f"📝 [JSON_EXTRACT_DEBUG] 所有JSON源解析失败")
             return {}
@@ -1776,7 +1799,7 @@ class PlaywrightAutomation:
                 }}
             ''', timeout=timeout)
         except Exception:
-            # 超时后继续执行，不抛出异常
+            # 超时后继续执行,不抛出异常
             pass
     
     async def _extract_from_shadow_dom(self, selector: str) -> str:
@@ -1785,7 +1808,7 @@ class PlaywrightAutomation:
             # 尝试使用JavaScript穿透Shadow DOM
             text = await self.page.evaluate(f'''
                 (selector) => {{
-                    // 递归查找元素，支持Shadow DOM
+                    // 递归查找元素,支持Shadow DOM
                     function findElement(root, selector) {{
                         // 先在当前根节点查找
                         let el = root.querySelector(selector);
@@ -1823,7 +1846,7 @@ class PlaywrightAutomation:
                 text = await self.page.evaluate(f'''
                     (selector) => {{
                         // 直接尝试使用querySelector穿透Shadow DOM
-                        // 注意：这在某些浏览器中可能不支持
+                        // 注意:这在某些浏览器中可能不支持
                         const el = document.querySelector(selector);
                         if (!el) return '';
                         
@@ -1842,7 +1865,7 @@ class PlaywrightAutomation:
     async def _extract_from_iframe(self, selector: str) -> str:
         """从iframe中提取文本"""
         try:
-            # 递归函数：从frame及其子frame中提取文本
+            # 递归函数:从frame及其子frame中提取文本
             async def extract_from_frame(frame):
                 try:
                     # 尝试在当前frame中查找元素
@@ -1929,7 +1952,7 @@ class PlaywrightAutomation:
             if main_frame_text:
                 return main_frame_text
             
-            # 额外尝试：使用frame_locator方法
+            # 额外尝试:使用frame_locator方法
             try:
                 # 尝试通过CSS选择器定位iframe
                 iframe_selector = "iframe"
@@ -1981,7 +2004,7 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
-            # 使用locator()定位多个元素，内置自动等待
+            # 使用locator()定位多个元素,内置自动等待
             elements = self.page.locator(selector)
             # 等待至少一个元素可见
             await elements.first.wait_for(state='visible', timeout=10000)
@@ -1998,7 +2021,7 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
-            # 1. 增强等待机制：等待iframe加载完成
+            # 1. 增强等待机制:等待iframe加载完成
             await self.page.wait_for_selector(iframe_selector, timeout=15000)
             
             # 2. 使用frame_locator()定位iframe
@@ -2010,11 +2033,11 @@ class PlaywrightAutomation:
             # 4. 在iframe中定位元素
             element = iframe.locator(element_selector)
             
-            # 5. 尝试获取元素标签名，判断元素类型
+            # 5. 尝试获取元素标签名,判断元素类型
             try:
                 tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
                 
-                # 对于输入框类型，使用多种方法获取值
+                # 对于输入框类型,使用多种方法获取值
                 if tag_name in ["input", "textarea"]:
                     # 首先尝试input_value()
                     try:
@@ -2035,7 +2058,7 @@ class PlaywrightAutomation:
             except:
                 pass
             
-            # 6. 对于非输入框元素，根据可见性选择提取方法
+            # 6. 对于非输入框元素,根据可见性选择提取方法
             try:
                 # 尝试使用inner_text()提取可见文本
                 text = await element.inner_text()
@@ -2045,7 +2068,7 @@ class PlaywrightAutomation:
                 pass
             
             try:
-                # 尝试使用text_content()提取所有文本（包括隐藏文本）
+                # 尝试使用text_content()提取所有文本(包括隐藏文本)
                 text = await element.text_content()
                 return text if text else ""
             except:
@@ -2055,7 +2078,7 @@ class PlaywrightAutomation:
         except Exception as e:
             print(f"从iframe提取文本时出错: {e}")
             try:
-                # 7. 降级方案：再次尝试
+                # 7. 降级方案:再次尝试
                 await self.page.wait_for_selector(iframe_selector, timeout=10000)
                 iframe = self.page.frame_locator(iframe_selector)
                 await iframe.locator(element_selector).wait_for(timeout=8000)
@@ -2099,7 +2122,7 @@ class PlaywrightAutomation:
                 return ""
     
     async def extract_text_from_image(self, selector: str) -> str:
-        """从图片中提取文本（OCR）"""
+        """从图片中提取文本(OCR)"""
         if self.page is None:
             raise Exception("浏览器未启动")
         
@@ -2113,8 +2136,8 @@ class PlaywrightAutomation:
             screenshot_path = f"temp_image_{int(time.time())}.png"
             await element.screenshot(path=screenshot_path)
             
-            # 这里可以集成OCR库，如Tesseract或第三方API
-            # 暂时返回占位符，实际项目中需要实现OCR逻辑
+            # 这里可以集成OCR库,如Tesseract或第三方API
+            # 暂时返回占位符,实际项目中需要实现OCR逻辑
             print(f"图片已保存到: {screenshot_path}")
             print("OCR功能需要安装Tesseract或集成第三方OCR API")
             
@@ -2123,7 +2146,7 @@ class PlaywrightAutomation:
             if os.path.exists(screenshot_path):
                 os.remove(screenshot_path)
             
-            return "OCR功能已触发（需要安装Tesseract或集成第三方API）"
+            return "OCR功能已触发(需要安装Tesseract或集成第三方API)"
         except Exception as e:
             print(f"从图片提取文本时出错: {e}")
             return ""
@@ -2176,7 +2199,7 @@ class PlaywrightAutomation:
             raise Exception("浏览器未启动")
         
         try:
-            # 使用 locator() 定位元素，内置自动等待
+            # 使用 locator() 定位元素,内置自动等待
             element = self.page.locator(selector)
             
             # 等待元素可见
@@ -2334,7 +2357,7 @@ class PlaywrightAutomation:
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"🔍 [HOVER_DEBUG] 开始悬停元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        uat_logger.info(f"🔍 [HOVER_DEBUG] 开始悬停元素,选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
         
         # 构建完整的选择器
         full_selector = selector
@@ -2346,12 +2369,12 @@ class PlaywrightAutomation:
         if iframe_context:
             target_context = iframe_context
         elif iframe_selector:
-            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文,选择器: {iframe_selector}")
             target_context = self.page.frame_locator(iframe_selector)
         
-        # 悬停步骤通常不是必要的，设置较短的超时时间
+        # 悬停步骤通常不是必要的,设置较短的超时时间
         try:
-            # 等待元素可见（减少超时时间到2秒）
+            # 等待元素可见(减少超时时间到2秒)
             if hasattr(target_context, 'wait_for_selector'):
                 # 对于page对象
                 await target_context.wait_for_selector(full_selector, state='visible', timeout=2000)
@@ -2365,17 +2388,17 @@ class PlaywrightAutomation:
                 await element.hover(timeout=2000)
             uat_logger.info(f"成功悬停元素: {selector}")
         except Exception as e:
-            uat_logger.warning(f"悬停失败，这通常不影响执行: {str(e)}")
-            # 悬停失败不影响后续操作，不尝试JavaScript模拟
+            uat_logger.warning(f"悬停失败,这通常不影响执行: {str(e)}")
+            # 悬停失败不影响后续操作,不尝试JavaScript模拟
         
-        # 如果正在录制，记录悬停步骤
+        # 如果正在录制,记录悬停步骤
         if self.recording:
             step = {
                 "action": "hover",
                 "selector": selector,
                 "selector_type": selector_type,
                 "iframe_selector": iframe_selector,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
@@ -2384,7 +2407,7 @@ class PlaywrightAutomation:
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"🔍 [DOUBLE_CLICK_DEBUG] 开始双击元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        uat_logger.info(f"🔍 [DOUBLE_CLICK_DEBUG] 开始双击元素,选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
         
         # 构建完整的选择器
         full_selector = selector
@@ -2396,7 +2419,7 @@ class PlaywrightAutomation:
         if iframe_context:
             target_context = iframe_context
         elif iframe_selector:
-            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文,选择器: {iframe_selector}")
             target_context = self.page.frame_locator(iframe_selector)
         
         # 等待元素可见且可交互
@@ -2410,14 +2433,14 @@ class PlaywrightAutomation:
             await element.wait_for(state='visible', timeout=10000)
             await element.dblclick(timeout=10000)
         
-        # 如果正在录制，记录双击步骤
+        # 如果正在录制,记录双击步骤
         if self.recording:
             step = {
                 "action": "double_click",
                 "selector": selector,
                 "selector_type": selector_type,
                 "iframe_selector": iframe_selector,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
@@ -2426,7 +2449,7 @@ class PlaywrightAutomation:
         if self.page is None:
             raise Exception("浏览器未启动")
         
-        uat_logger.info(f"🔍 [RIGHT_CLICK_DEBUG] 开始右键点击元素，选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
+        uat_logger.info(f"🔍 [RIGHT_CLICK_DEBUG] 开始右键点击元素,选择器: {selector}, 选择器类型: {selector_type}, iframe选择器: {iframe_selector}")
         
         # 构建完整的选择器
         full_selector = selector
@@ -2438,7 +2461,7 @@ class PlaywrightAutomation:
         if iframe_context:
             target_context = iframe_context
         elif iframe_selector:
-            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文，选择器: {iframe_selector}")
+            uat_logger.info(f"🔄 [IFRAME_DEBUG] 使用iframe上下文,选择器: {iframe_selector}")
             target_context = self.page.frame_locator(iframe_selector)
         
         # 等待元素可见且可交互
@@ -2452,14 +2475,14 @@ class PlaywrightAutomation:
             await element.wait_for(state='visible', timeout=10000)
             await element.click(button="right", timeout=10000)
         
-        # 如果正在录制，记录右键步骤
+        # 如果正在录制,记录右键步骤
         if self.recording:
             step = {
                 "action": "right_click",
                 "selector": selector,
                 "selector_type": selector_type,
                 "iframe_selector": iframe_selector,
-                "timestamp": int(time.time() * 1000)  # 转换为毫秒，与浏览器事件保持一致
+                "timestamp": int(time.time() * 1000)  # 转换为毫秒,与浏览器事件保持一致
             }
             self.recorded_steps.append(step)
     
@@ -2620,12 +2643,12 @@ class PlaywrightAutomation:
         if not steps:
             return []
             
-        # 第一阶段：合并所有相同选择器的填充步骤（无论是否连续）
+        # 第一阶段:合并所有相同选择器的填充步骤(无论是否连续)
         # 创建一个字典存储每个选择器的最新填充值
         fill_values = {}
         all_steps = []
         
-        # 遍历所有步骤，收集填充值和非填充步骤
+        # 遍历所有步骤,收集填充值和非填充步骤
         for step in steps:
             if step['action'] in ['fill', 'input']:
                 selector = step.get('selector')
@@ -2636,23 +2659,23 @@ class PlaywrightAutomation:
             else:
                 all_steps.append(step)
         
-        # 第二阶段：合并连续的重复步骤和处理填充步骤
+        # 第二阶段:合并连续的重复步骤和处理填充步骤
         deduplicated_steps = []
         last_step = None
         
         # 跟踪已处理的填充选择器
         processed_fills = set()
         
-        # 跟踪所有已处理的点击步骤（用于处理非连续的重复点击）
+        # 跟踪所有已处理的点击步骤(用于处理非连续的重复点击)
         processed_clicks = {}
         
-        uat_logger.info(f"开始步骤去重，原始步骤数: {len(all_steps)}")
+        uat_logger.info(f"开始步骤去重,原始步骤数: {len(all_steps)}")
         
         for step in all_steps:
             action = step.get('action')
             uat_logger.info(f"处理步骤: {action}, 详情: {step}")
             
-            # 过滤悬停动作，不记录和执行
+            # 过滤悬停动作,不记录和执行
             if step['action'] == 'hover':
                 uat_logger.info(f"跳过悬停步骤: {step.get('selector')}")
                 continue
@@ -2660,7 +2683,7 @@ class PlaywrightAutomation:
             if step['action'] in ['fill', 'input']:
                 selector = step.get('selector')
                 if selector:
-                    # 如果该选择器已经处理过，跳过
+                    # 如果该选择器已经处理过,跳过
                     if selector in processed_fills:
                         continue
                     
@@ -2677,7 +2700,7 @@ class PlaywrightAutomation:
                 selector = step.get('selector')
                 if selector:
                     # 检测是否为单选框或复选框相关选择器
-                    # 更准确的检测方式：基于选择器和元素信息
+                    # 更准确的检测方式:基于选择器和元素信息
                     is_radio = False
                     is_checkbox = False
                     
@@ -2686,18 +2709,18 @@ class PlaywrightAutomation:
                     if 'radio' in selector_lower:
                         is_radio = True
                     elif 'checkbox' in selector_lower:
-                        # 注意：有些单选框可能使用checkbox的样式或类名
-                        # 对于这种情况，我们也将其视为单选框处理
+                        # 注意:有些单选框可能使用checkbox的样式或类名
+                        # 对于这种情况,我们也将其视为单选框处理
                         # 因为用户通常不希望单选框被取消选择
                         is_radio = True
                         # is_checkbox = True
                     
-                    # 移除动态类名，生成稳定的选择器用于比较
+                    # 移除动态类名,生成稳定的选择器用于比较
                     import re
                     stable_selector = selector
-                    # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                    # 移除所有以is-开头的动态类(如is-loading、is-focus、is-active等)
                     stable_selector = re.sub(r'\.(is-\w+)', '', stable_selector)
-                    # 移除所有以el-开头的动态类（Element UI临时类名）
+                    # 移除所有以el-开头的动态类(Element UI临时类名)
                     stable_selector = re.sub(r'\.(el-\w+-\w+)', '', stable_selector)
                     # 移除所有以has-开头的动态类
                     stable_selector = re.sub(r'\.(has-\w+)', '', stable_selector)
@@ -2706,7 +2729,7 @@ class PlaywrightAutomation:
                     stable_selector = re.sub(r'\s*>\s*', ' > ', stable_selector)
                     stable_selector = stable_selector.strip()
                     
-                    # 特殊处理：如果选择器只剩下基础元素类型（如span、div），则保留原始选择器的前两个类名
+                    # 特殊处理:如果选择器只剩下基础元素类型(如span、div),则保留原始选择器的前两个类名
                     if '.' not in stable_selector and selector.count('.') >= 2:
                         # 保留原始选择器的基础元素和前两个类名
                         parts = selector.split(' ')
@@ -2723,19 +2746,19 @@ class PlaywrightAutomation:
                                 new_parts.append(part)
                         stable_selector = ' '.join(new_parts)
                     
-                    # 对于单选框：同一选择器的非连续重复点击应该被过滤
-                    # 因为单选框点击一次就足够，重复点击会导致状态切换
+                    # 对于单选框:同一选择器的非连续重复点击应该被过滤
+                    # 因为单选框点击一次就足够,重复点击会导致状态切换
                     if is_radio:
                         if stable_selector in processed_clicks:
-                            uat_logger.info(f"跳过非连续的重复点击步骤（单选框）: {selector}")
+                            uat_logger.info(f"跳过非连续的重复点击步骤(单选框): {selector}")
                             continue
                         # 记录已处理的单选框点击
                         processed_clicks[stable_selector] = True
                     
-                    # 对于复选框：可以多次点击切换状态，所以不应该过滤重复点击
-                    # 对于普通元素：也不应该过滤重复点击，因为用户可能需要多次点击
+                    # 对于复选框:可以多次点击切换状态,所以不应该过滤重复点击
+                    # 对于普通元素:也不应该过滤重复点击,因为用户可能需要多次点击
                     elif not is_checkbox:
-                        # 记录已处理的点击，但不用于过滤，仅作参考
+                        # 记录已处理的点击,但不用于过滤,仅作参考
                         processed_clicks[stable_selector] = True
             
             # 处理其他类型的步骤
@@ -2745,7 +2768,7 @@ class PlaywrightAutomation:
                 uat_logger.info(f"添加第一个步骤: {action}")
                 continue
             
-            # 移除跳过submit后navigate事件的逻辑，确保所有步骤都按顺序执行
+            # 移除跳过submit后navigate事件的逻辑,确保所有步骤都按顺序执行
             
             uat_logger.info(f"上一步骤: {last_step['action']}, 当前步骤: {action}")
             
@@ -2756,8 +2779,8 @@ class PlaywrightAutomation:
                         uat_logger.info(f"跳过重复导航步骤: {step.get('url')}")
                         continue
                 elif step['action'] == 'click' or step['action'] == 'hover':
-                    # 特殊处理：如果当前步骤是click，且下一个步骤是submit，则不跳过这个click
-                    # 因为这个click可能是提交按钮的点击，需要保留
+                    # 特殊处理:如果当前步骤是click,且下一个步骤是submit,则不跳过这个click
+                    # 因为这个click可能是提交按钮的点击,需要保留
                     next_step_index = all_steps.index(step) + 1
                     next_step = all_steps[next_step_index] if next_step_index < len(all_steps) else None
                     if next_step and next_step['action'] == 'submit':
@@ -2774,12 +2797,12 @@ class PlaywrightAutomation:
             last_step = step
             uat_logger.info(f"添加步骤到去重列表: {action}, 当前去重列表长度: {len(deduplicated_steps)}")
         
-        uat_logger.info(f"步骤去重完成，去重后步骤数: {len(deduplicated_steps)}")
+        uat_logger.info(f"步骤去重完成,去重后步骤数: {len(deduplicated_steps)}")
         
         results = []
         step_index = 0
         
-        # 跟踪操作状态，强制执行顺序
+        # 跟踪操作状态,强制执行顺序
         has_clicked = False
         has_submitted = False
         
@@ -2798,27 +2821,27 @@ class PlaywrightAutomation:
                 uat_logger.warning(f"🎯 [STEP_DEBUG] 获取当前URL失败: {str(e)}")
             
             try:
-                # 强制检查：submit操作前必须先click
+                # 强制检查:submit操作前必须先click
                 if action == "submit":
                     if not has_clicked:
-                        uat_logger.warning(f"⚠️ [FORCE_CHECK] submit操作前未检测到click，但继续执行（多案例执行模式）")
-                        # 不再强制抛出异常，允许继续执行
-                        # raise Exception(f"违反强制规则：submit操作前必须先click，但当前未检测到click操作")
+                        uat_logger.warning(f"⚠️ [FORCE_CHECK] submit操作前未检测到click,但继续执行(多案例执行模式)")
+                        # 不再强制抛出异常,允许继续执行
+                        # raise Exception(f"违反强制规则:submit操作前必须先click,但当前未检测到click操作")
                     else:
-                        uat_logger.info(f"✅ [FORCE_CHECK] submit操作检查通过：已检测到click操作")
+                        uat_logger.info(f"✅ [FORCE_CHECK] submit操作检查通过:已检测到click操作")
                 
-                # 强制检查：navigate操作前必须先submit（除非是第一个navigate操作）
+                # 强制检查:navigate操作前必须先submit(除非是第一个navigate操作)
                 if action == "navigate" and step_index > 1:
                     if not has_submitted:
-                        uat_logger.warning(f"⚠️ [FORCE_CHECK] navigate操作前未检测到submit，但继续执行（多案例执行模式）")
-                        # 不再强制抛出异常，允许继续执行
-                        # raise Exception(f"违反强制规则：navigate操作前必须先submit，但当前未检测到submit操作")
+                        uat_logger.warning(f"⚠️ [FORCE_CHECK] navigate操作前未检测到submit,但继续执行(多案例执行模式)")
+                        # 不再强制抛出异常,允许继续执行
+                        # raise Exception(f"违反强制规则:navigate操作前必须先submit,但当前未检测到submit操作")
                     else:
-                        uat_logger.info(f"✅ [FORCE_CHECK] navigate操作检查通过：已检测到submit操作")
+                        uat_logger.info(f"✅ [FORCE_CHECK] navigate操作检查通过:已检测到submit操作")
                 
                 if action == "navigate":
                     url = step.get("url")
-                    # 检查当前页面是否已经在目标URL上，避免重复导航
+                    # 检查当前页面是否已经在目标URL上,避免重复导航
                     if self.page and self.page.url != url:
                         await self.navigate_to(url)
                         # 确保页面完全加载完成
@@ -2827,11 +2850,11 @@ class PlaywrightAutomation:
                             await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
                             await self.page.wait_for_load_state('load', timeout=30000)
                     else:
-                        uat_logger.info(f"页面已在目标URL上，跳过导航: {url}")
+                        uat_logger.info(f"页面已在目标URL上,跳过导航: {url}")
                 elif action == "click":
                     selector = step.get("selector")
                     
-                    # 尝试点击元素，如果失败则尝试处理动态选择器
+                    # 尝试点击元素,如果失败则尝试处理动态选择器
                     click_success = False
                     
                     # 首先尝试原始选择器
@@ -2841,14 +2864,14 @@ class PlaywrightAutomation:
                     except Exception as e:
                         uat_logger.warning(f"原始选择器点击失败: {str(e)}")
                         
-                        # 尝试使用更宽松的选择器（移除动态class）
+                        # 尝试使用更宽松的选择器(移除动态class)
                         if '.' in selector:
-                            # 对于CSS选择器，尝试移除动态类名（如is-loading、is-focus等）
+                            # 对于CSS选择器,尝试移除动态类名(如is-loading、is-focus等)
                             import re
                             # 保留基础元素类型和非动态类
-                            # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                            # 移除所有以is-开头的动态类(如is-loading、is-focus、is-active等)
                             base_selector = re.sub(r'\.(is-\w+)', '', selector)
-                            # 移除所有以el-开头的动态类（Element UI临时类名）
+                            # 移除所有以el-开头的动态类(Element UI临时类名)
                             base_selector = re.sub(r'\.(el-\w+-\w+)', '', base_selector)
                             # 移除所有以has-开头的动态类
                             base_selector = re.sub(r'\.(has-\w+)', '', base_selector)
@@ -2868,7 +2891,7 @@ class PlaywrightAutomation:
                                 except Exception as e2:
                                     uat_logger.warning(f"宽松选择器点击失败: {str(e2)}")
                                     
-                        # 如果前面的尝试都失败，尝试更基础的选择器
+                        # 如果前面的尝试都失败,尝试更基础的选择器
                         if not click_success:
                             # 尝试仅使用标签名和ID
                             try:
@@ -2889,23 +2912,23 @@ class PlaywrightAutomation:
                                 pass
                         
                         if not click_success:
-                            # 如果所有尝试都失败，抛出异常
-                            raise Exception(f"无法点击元素，所有选择器尝试均失败: {selector}")
+                            # 如果所有尝试都失败,抛出异常
+                            raise Exception(f"无法点击元素,所有选择器尝试均失败: {selector}")
                     
-                    # 对于点击操作，根据元素类型执行适当的等待策略
+                    # 对于点击操作,根据元素类型执行适当的等待策略
                     if self.page:
                         try:
-                            # 根据选择器判断元素类型，执行不同的等待策略
+                            # 根据选择器判断元素类型,执行不同的等待策略
                             if 'input' in selector or 'textarea' in selector or 'select' in selector:
-                                # 对于表单元素，等待一段时间让数据保存，但不等待页面加载
-                                uat_logger.info("表单元素点击，等待数据保存完成")
+                                # 对于表单元素,等待一段时间让数据保存,但不等待页面加载
+                                uat_logger.info("表单元素点击,等待数据保存完成")
                                 await self.page.wait_for_timeout(300)
                             elif 'button' in selector or 'submit' in selector.lower():
-                                # 对于按钮，先不进行导航检测，因为可能只是UI变化
-                                uat_logger.info("按钮点击，等待UI响应")
+                                # 对于按钮,先不进行导航检测,因为可能只是UI变化
+                                uat_logger.info("按钮点击,等待UI响应")
                                 await self.page.wait_for_timeout(300)
                             else:
-                                # 对于其他元素，使用较短的等待时间
+                                # 对于其他元素,使用较短的等待时间
                                 await self.page.wait_for_timeout(200)
                         except Exception as e:
                             uat_logger.warning(f"点击后等待时出错: {str(e)}")
@@ -2914,7 +2937,7 @@ class PlaywrightAutomation:
                     selector = step.get("selector")
                     text = step.get("text")
                     
-                    # 尝试填充元素，如果失败则尝试处理动态选择器
+                    # 尝试填充元素,如果失败则尝试处理动态选择器
                     fill_success = False
                     
                     # 首先尝试原始选择器
@@ -2924,13 +2947,13 @@ class PlaywrightAutomation:
                     except Exception as e:
                         uat_logger.warning(f"原始选择器填充失败: {str(e)}")
                         
-                        # 尝试使用更宽松的选择器（移除动态class）
+                        # 尝试使用更宽松的选择器(移除动态class)
                         if '.' in selector:
                             import re
                             # 保留基础元素类型和非动态类
-                            # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                            # 移除所有以is-开头的动态类(如is-loading、is-focus、is-active等)
                             base_selector = re.sub(r'\.(is-\w+)', '', selector)
-                            # 移除所有以el-开头的动态类（Element UI临时类名）
+                            # 移除所有以el-开头的动态类(Element UI临时类名)
                             base_selector = re.sub(r'\.(el-\w+-\w+)', '', base_selector)
                             # 移除所有以has-开头的动态类
                             base_selector = re.sub(r'\.(has-\w+)', '', base_selector)
@@ -2947,7 +2970,7 @@ class PlaywrightAutomation:
                                 except Exception as e2:
                                     uat_logger.warning(f"宽松选择器填充失败: {str(e2)}")
                                     
-                        # 如果前面的尝试都失败，尝试更基础的选择器
+                        # 如果前面的尝试都失败,尝试更基础的选择器
                         if not fill_success:
                             # 尝试仅使用标签名和ID
                             try:
@@ -2966,13 +2989,13 @@ class PlaywrightAutomation:
                                 pass
                         
                         if not fill_success:
-                            # 如果所有尝试都失败，抛出异常
-                            raise Exception(f"无法填充元素，所有选择器尝试均失败: {selector}")
+                            # 如果所有尝试都失败,抛出异常
+                            raise Exception(f"无法填充元素,所有选择器尝试均失败: {selector}")
                     
-                    # 填充后等待一小段时间以确保值已设置，但不等待页面加载
+                    # 填充后等待一小段时间以确保值已设置,但不等待页面加载
                     if self.page:
                         await self.page.wait_for_timeout(300)
-                        uat_logger.info(f"填充操作完成，等待值生效: {selector}")
+                        uat_logger.info(f"填充操作完成,等待值生效: {selector}")
                 elif action == "scroll":
                     # 处理新的滚动格式
                     if "scrollPosition" in step:
@@ -2987,7 +3010,7 @@ class PlaywrightAutomation:
                                 })
                             """)
                         else:
-                            uat_logger.warning("页面对象为None，无法获取滚动位置")
+                            uat_logger.warning("页面对象为None,无法获取滚动位置")
                         
                         delta_x = scroll_pos.get("x", 0) - current_scroll["x"]
                         delta_y = scroll_pos.get("y", 0) - current_scroll["y"]
@@ -3003,7 +3026,7 @@ class PlaywrightAutomation:
                     
                     # 移除滚动后的固定等待
                 elif action == "hover":
-                    # 悬停步骤通常不是必要的，跳过以提高执行速度
+                    # 悬停步骤通常不是必要的,跳过以提高执行速度
                     uat_logger.info(f"跳过悬停步骤: {step.get('selector')}")
                     # selector = step.get("selector")
                     # await self.hover_element(selector)
@@ -3018,7 +3041,7 @@ class PlaywrightAutomation:
                     # 移除右键点击后的固定等待
                 elif action == "submit":
                     selector = step.get("selector")
-                    uat_logger.info(f"🔍 [SUBMIT_DEBUG] 开始执行submit操作，选择器: {selector}")
+                    uat_logger.info(f"🔍 [SUBMIT_DEBUG] 开始执行submit操作,选择器: {selector}")
                     
                     # 获取当前页面URL和状态
                     try:
@@ -3027,21 +3050,21 @@ class PlaywrightAutomation:
                     except Exception as e:
                         uat_logger.warning(f"🔍 [SUBMIT_DEBUG] 获取当前URL失败: {str(e)}")
                     
-                    # 尝试提交表单，如果失败则尝试处理动态选择器
+                    # 尝试提交表单,如果失败则尝试处理动态选择器
                     submit_success = False
                     
-                    # 首先尝试原始选择器，直接点击提交按钮来触发表单提交
+                    # 首先尝试原始选择器,直接点击提交按钮来触发表单提交
                     try:
                         uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试方式1: 原始选择器提交")
                         # 检查元素是否存在
                         element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", selector)
                         if element_exists:
-                            uat_logger.info(f"🔍 [SUBMIT_DEBUG] 提交按钮存在，准备点击")
-                            # 使用JavaScript点击提交按钮，触发表单提交
+                            uat_logger.info(f"🔍 [SUBMIT_DEBUG] 提交按钮存在,准备点击")
+                            # 使用JavaScript点击提交按钮,触发表单提交
                             await self.page.evaluate("""(selector) => {
                                 const element = document.querySelector(selector);
                                 if (element) {
-                                    // 直接点击提交按钮，触发表单提交
+                                    // 直接点击提交按钮,触发表单提交
                                     element.click();
                                 }
                             }""", selector)
@@ -3052,14 +3075,14 @@ class PlaywrightAutomation:
                     except Exception as e:
                         uat_logger.error(f"❌ [SUBMIT_DEBUG] 原始选择器提交失败: {str(e)}")
                         
-                        # 尝试使用更宽松的选择器（移除动态class）
+                        # 尝试使用更宽松的选择器(移除动态class)
                         if '.' in selector:
                             uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试方式2: 更宽松的选择器")
                             import re
                             # 保留基础元素类型和非动态类
-                            # 移除所有以is-开头的动态类（如is-loading、is-focus、is-active等）
+                            # 移除所有以is-开头的动态类(如is-loading、is-focus、is-active等)
                             base_selector = re.sub(r'\.(is-\w+)', '', selector)
-                            # 移除所有以el-开头的动态类（Element UI临时类名）
+                            # 移除所有以el-开头的动态类(Element UI临时类名)
                             base_selector = re.sub(r'\.(el-\w+-\w+)', '', base_selector)
                             # 移除所有以has-开头的动态类
                             base_selector = re.sub(r'\.(has-\w+)', '', base_selector)
@@ -3074,11 +3097,11 @@ class PlaywrightAutomation:
                                     # 使用JavaScript点击提交按钮
                                     element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", base_selector)
                                     if element_exists:
-                                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 宽松选择器元素存在，准备点击")
+                                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 宽松选择器元素存在,准备点击")
                                         await self.page.evaluate("""(selector) => {
                                             const element = document.querySelector(selector);
                                             if (element) {
-                                                // 直接点击提交按钮，触发表单提交
+                                                // 直接点击提交按钮,触发表单提交
                                                 element.click();
                                             }
                                         }""", base_selector)
@@ -3089,7 +3112,7 @@ class PlaywrightAutomation:
                                 except Exception as e2:
                                     uat_logger.warning(f"❌ [SUBMIT_DEBUG] 宽松选择器提交失败: {str(e2)}")
                                     
-                        # 如果前面的尝试都失败，尝试更基础的选择器
+                        # 如果前面的尝试都失败,尝试更基础的选择器
                         if not submit_success:
                             uat_logger.info(f"🔍 [SUBMIT_DEBUG] 尝试方式3: 基础选择器")
                             # 尝试仅使用标签名和ID
@@ -3106,11 +3129,11 @@ class PlaywrightAutomation:
                                     # 使用JavaScript点击提交按钮
                                     element_exists = await self.page.evaluate("(selector) => document.querySelector(selector) !== null", basic_selector)
                                     if element_exists:
-                                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] ID选择器元素存在，准备点击")
+                                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] ID选择器元素存在,准备点击")
                                         await self.page.evaluate("""(selector) => {
                                             const element = document.querySelector(selector);
                                             if (element) {
-                                                // 直接点击提交按钮，触发表单提交
+                                                // 直接点击提交按钮,触发表单提交
                                                 element.click();
                                             }
                                         }""", basic_selector)
@@ -3122,15 +3145,15 @@ class PlaywrightAutomation:
                                 uat_logger.warning(f"❌ [SUBMIT_DEBUG] 基础选择器提交失败: {str(e3)}")
                         
                         if not submit_success:
-                            # 如果所有尝试都失败，抛出异常
+                            # 如果所有尝试都失败,抛出异常
                             uat_logger.error(f"❌ [SUBMIT_DEBUG] 所有提交方式均失败: {selector}")
-                            raise Exception(f"无法提交表单，所有选择器尝试均失败: {selector}")
+                            raise Exception(f"无法提交表单,所有选择器尝试均失败: {selector}")
                         
                         uat_logger.info(f"✅ [SUBMIT_DEBUG] submit操作执行成功: {selector}")
                     
-                    # 提交后等待一小段时间，确保表单提交事件被触发
+                    # 提交后等待一小段时间,确保表单提交事件被触发
                     if self.page:
-                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 表单提交，等待一小段时间确保提交事件触发")
+                        uat_logger.info(f"🔍 [SUBMIT_DEBUG] 表单提交,等待一小段时间确保提交事件触发")
                         await self.page.wait_for_timeout(300)
                         
                         # 检查提交后的页面状态
@@ -3148,7 +3171,7 @@ class PlaywrightAutomation:
                     key = step.get("key")
                     if selector:
                         await self.page.click(selector)  # 先点击确保焦点
-                    # 如果没有selector，直接发送按键
+                    # 如果没有selector,直接发送按键
                     await self.page.keyboard.press(key)
                     # 移除按键后的固定等待
                 elif action == "wait":
@@ -3169,7 +3192,7 @@ class PlaywrightAutomation:
                     await self.take_screenshot()
                 elif action == "extract_text":
                     selector = step.get("selector")
-                    uat_logger.info(f"🔍 [EXTRACT_TEXT_DEBUG] 开始执行提取文本操作，选择器: {selector}")
+                    uat_logger.info(f"🔍 [EXTRACT_TEXT_DEBUG] 开始执行提取文本操作,选择器: {selector}")
                     
                     try:
                         if selector:
@@ -3195,22 +3218,22 @@ class PlaywrightAutomation:
                     # 等待页面状态稳定
                     if self.page:
                         try:
-                            # 等待页面稳定，确保上一步操作完成
+                            # 等待页面稳定,确保上一步操作完成
                             uat_logger.info(f"等待步骤完成: {action}")
                             
                             # 检查页面是否正在加载
                             try:
-                                # 等待页面加载状态稳定（最多等待2秒）
+                                # 等待页面加载状态稳定(最多等待2秒)
                                 await self.page.wait_for_load_state('domcontentloaded', timeout=2000)
                             except:
                                 pass  # 页面可能已经加载完成
                             
-                            # 等待一小段时间，让页面状态稳定
+                            # 等待一小段时间,让页面状态稳定
                             await self.page.wait_for_timeout(500)
                             
                             # 检查是否有正在进行的网络请求
                             try:
-                                # 等待网络空闲（最多等待3秒）
+                                # 等待网络空闲(最多等待3秒)
                                 await self.page.wait_for_load_state('networkidle', timeout=3000)
                             except:
                                 pass  # 网络可能一直有活动
@@ -3218,7 +3241,7 @@ class PlaywrightAutomation:
                             uat_logger.info(f"步骤完成: {action}")
                         except Exception as e:
                             uat_logger.warning(f"等待页面稳定时出错: {str(e)}")
-                            # 即使等待失败，也继续执行后续步骤
+                            # 即使等待失败,也继续执行后续步骤
                     
                     # 检查步骤执行后的页面状态
                     try:
@@ -3244,22 +3267,22 @@ class PlaywrightAutomation:
                     continue
                 if self.page:
                     try:
-                        # 等待页面稳定，确保上一步操作完成
+                        # 等待页面稳定,确保上一步操作完成
                         uat_logger.info(f"等待步骤完成: {action}")
                         
                         # 检查页面是否正在加载
                         try:
-                            # 等待页面加载状态稳定（最多等待2秒）
+                            # 等待页面加载状态稳定(最多等待2秒)
                             await self.page.wait_for_load_state('domcontentloaded', timeout=2000)
                         except:
                             pass  # 页面可能已经加载完成
                         
-                        # 等待一小段时间，让页面状态稳定
+                        # 等待一小段时间,让页面状态稳定
                         await self.page.wait_for_timeout(500)
                         
                         # 检查是否有正在进行的网络请求
                         try:
-                            # 等待网络空闲（最多等待3秒）
+                            # 等待网络空闲(最多等待3秒)
                             await self.page.wait_for_load_state('networkidle', timeout=3000)
                         except:
                             pass  # 网络可能一直有活动
@@ -3267,7 +3290,7 @@ class PlaywrightAutomation:
                         uat_logger.info(f"步骤完成: {action}")
                     except Exception as e:
                         uat_logger.warning(f"等待页面稳定时出错: {str(e)}")
-                        # 即使等待失败，也继续执行后续步骤
+                        # 即使等待失败,也继续执行后续步骤
                 
                 # 检查步骤执行后的页面状态
                 try:
@@ -3284,16 +3307,16 @@ class PlaywrightAutomation:
                 # 更新操作状态
                 if action == "click":
                     has_clicked = True
-                    uat_logger.info(f"🔄 [STATE_UPDATE] 已执行click操作，更新状态: has_clicked=True")
+                    uat_logger.info(f"🔄 [STATE_UPDATE] 已执行click操作,更新状态: has_clicked=True")
                 elif action == "submit":
                     has_submitted = True
-                    uat_logger.info(f"🔄 [STATE_UPDATE] 已执行submit操作，更新状态: has_submitted=True")
+                    uat_logger.info(f"🔄 [STATE_UPDATE] 已执行submit操作,更新状态: has_submitted=True")
             except Exception as e:
                 uat_logger.error(f"❌ [STEP_DEBUG] ========== 步骤 {step_index}/{len(deduplicated_steps)} 执行失败 ==========")
                 uat_logger.error(f"❌ [STEP_DEBUG] 错误详情: {str(e)}")
                 results.append({"status": "error", "step": step, "error": str(e)})
         
-        uat_logger.info(f"🎯 [STEP_DEBUG] ========== 所有步骤执行完成，共 {len(results)} 个步骤 ==========")
+        uat_logger.info(f"🎯 [STEP_DEBUG] ========== 所有步骤执行完成,共 {len(results)} 个步骤 ==========")
         return results
     
     async def execute_multiple_test_cases(self, case_ids: List[int], db) -> Dict[str, Any]:
@@ -3301,12 +3324,12 @@ class PlaywrightAutomation:
         
         Args:
             case_ids: 测试用例ID列表
-            db: 数据库实例，用于获取测试用例步骤
+            db: 数据库实例,用于获取测试用例步骤
             
         Returns:
             包含所有测试用例执行结果的字典
         """
-        uat_logger.info(f"🚀 [MULTI_CASE] ========== 开始执行多个测试用例，共 {len(case_ids)} 个用例 ==========")
+        uat_logger.info(f"🚀 [MULTI_CASE] ========== 开始执行多个测试用例,共 {len(case_ids)} 个用例 ==========")
         
         all_results = {
             "total_cases": len(case_ids),
@@ -3321,18 +3344,18 @@ class PlaywrightAutomation:
         
         for case_index, case_id in enumerate(case_ids):
             case_number = case_index + 1
-            uat_logger.info(f"🎯 [MULTI_CASE] ========== 开始执行第 {case_number}/{len(case_ids)} 个测试用例，ID: {case_id} ==========")
+            uat_logger.info(f"🎯 [MULTI_CASE] ========== 开始执行第 {case_number}/{len(case_ids)} 个测试用例,ID: {case_id} ==========")
             
             try:
                 # 从数据库获取测试用例信息
                 case_info = db.get_test_case_v2(case_id)
                 if not case_info:
-                    uat_logger.error(f"❌ [MULTI_CASE] 测试用例不存在，ID: {case_id}")
+                    uat_logger.error(f"❌ [MULTI_CASE] 测试用例不存在,ID: {case_id}")
                     all_results["case_results"].append({
                         "case_id": case_id,
                         "case_name": "未知",
                         "status": "error",
-                        "error": f"测试用例不存在，ID: {case_id}"
+                        "error": f"测试用例不存在,ID: {case_id}"
                     })
                     all_results["failed_cases"] += 1
                     continue
@@ -3345,7 +3368,7 @@ class PlaywrightAutomation:
                 uat_logger.info(f"📋 [MULTI_CASE] 获取到 {len(steps)} 个测试步骤")
                 
                 if not steps:
-                    uat_logger.warning(f"⚠️ [MULTI_CASE] 测试用例没有步骤，ID: {case_id}")
+                    uat_logger.warning(f"⚠️ [MULTI_CASE] 测试用例没有步骤,ID: {case_id}")
                     all_results["case_results"].append({
                         "case_id": case_id,
                         "case_name": case_name,
@@ -3412,12 +3435,12 @@ class PlaywrightAutomation:
                 success_count = sum(1 for r in case_results if r.get("status") == "success")
                 error_count = sum(1 for r in case_results if r.get("status") == "error")
                 
-                # 提取文本（从所有步骤中收集，使用最后一个提取的文本）
+                # 提取文本(从所有步骤中收集,使用最后一个提取的文本)
                 extracted_text = ""
                 for r in case_results:
                     if r.get("extracted_text"):
                         extracted_text = r.get("extracted_text")
-                # 移除了 break，现在会使用最后一个提取的文本
+                # 移除了 break,现在会使用最后一个提取的文本
                 
                 case_status = "success" if error_count == 0 else "error"
                 
@@ -3431,7 +3454,7 @@ class PlaywrightAutomation:
                     db.create_run_history(
                         case_id,
                         case_status,
-                        0,  # 暂时设置为0，后续可以计算实际执行时间
+                        0,  # 暂时设置为0,后续可以计算实际执行时间
                         "" if case_status == "success" else str(case_results),
                         extracted_text
                     )
@@ -3456,13 +3479,13 @@ class PlaywrightAutomation:
                 else:
                     all_results["failed_cases"] += 1
                 
-                # 在测试用例之间添加短暂的等待，确保页面状态稳定
+                # 在测试用例之间添加短暂的等待,确保页面状态稳定
                 if case_index < len(case_ids) - 1:
                     uat_logger.info(f"⏳ [MULTI_CASE] 等待 2 秒后执行下一个测试用例")
                     await asyncio.sleep(2)
                 
             except Exception as e:
-                uat_logger.error(f"❌ [MULTI_CASE] 测试用例执行异常，ID: {case_id}, 错误: {str(e)}")
+                uat_logger.error(f"❌ [MULTI_CASE] 测试用例执行异常,ID: {case_id}, 错误: {str(e)}")
                 all_results["case_results"].append({
                     "case_id": case_id,
                     "case_name": case_info.get("name", "未命名用例") if 'case_info' in locals() else "未知",
@@ -3484,13 +3507,13 @@ class PlaywrightAutomation:
         # 确保页面上有事件监听器来捕获用户操作
         if self.page:
             await self._setup_event_listeners()
-            uat_logger.info("录制已开始，事件监听器已设置")
+            uat_logger.info("录制已开始,事件监听器已设置")
         else:
-            uat_logger.warning("页面对象为None，无法设置事件监听器")
+            uat_logger.warning("页面对象为None,无法设置事件监听器")
         
-        # 不启动后台任务，因为这会导致事件循环冲突
+        # 不启动后台任务,因为这会导致事件循环冲突
         # 我们将在stop_recording时一次性获取所有事件
-        uat_logger.info("录制已开始，事件将在停止录制时获取")
+        uat_logger.info("录制已开始,事件将在停止录制时获取")
     
     def _get_and_process_events(self):
         """获取并处理浏览器中的事件"""
@@ -3569,7 +3592,7 @@ class PlaywrightAutomation:
             try:
                 # 检查页面是否仍然可用
                 if not self.page or (hasattr(self.page, 'is_closed') and self.page.is_closed()):
-                    print("页面已关闭，停止同步事件")
+                    print("页面已关闭,停止同步事件")
                     break
                 await self.sync_recorded_events()
                 # 每秒同步一次
@@ -3583,7 +3606,7 @@ class PlaywrightAutomation:
         """停止录制并返回录制的步骤"""
         self.recording = False
         
-        # 在关闭浏览器前，先获取浏览器中记录的所有事件
+        # 在关闭浏览器前,先获取浏览器中记录的所有事件
         if self.page:
             try:
                 # 检查页面是否仍然可用
@@ -3624,45 +3647,45 @@ class PlaywrightAutomation:
                         if self.recorded_steps:
                             last_step = self.recorded_steps[-1]
                             
-                            # 特殊处理：click和submit事件都需要保留，不要跳过
-                            # 因为回放时需要先点击按钮，再提交表单
+                            # 特殊处理:click和submit事件都需要保留,不要跳过
+                            # 因为回放时需要先点击按钮,再提交表单
                             
                             # 重新获取上一步骤
                             if self.recorded_steps:
                                 last_step = self.recorded_steps[-1]
                             
-                            # 关键修复：过滤掉submit事件后的navigate事件
-                            # 因为submit操作本身就会导致页面导航，不需要额外的navigate步骤
+                            # 关键修复:过滤掉submit事件后的navigate事件
+                            # 因为submit操作本身就会导致页面导航,不需要额外的navigate步骤
                             if step['action'] == 'navigate' and last_step['action'] == 'submit':
                                 time_diff = step.get('timestamp', 0) - last_step.get('timestamp', 0)
                                 if time_diff < 3000:  # 3秒内的navigate事件都认为是submit导致的
-                                    uat_logger.info(f"🚫 [NAV_FILTER] 过滤掉submit后的navigate事件，时间差: {time_diff}ms")
+                                    uat_logger.info(f"🚫 [NAV_FILTER] 过滤掉submit后的navigate事件,时间差: {time_diff}ms")
                                     continue
                             
                             # 检查是否与上一步骤完全相同
                             if last_step['action'] == step['action']:
-                                # 计算时间差（毫秒）
+                                # 计算时间差(毫秒)
                                 time_diff = step.get('timestamp', 0) - last_step.get('timestamp', 0)
                                 
-                                # 对于导航步骤，检查URL是否相同且时间间隔小于2秒
+                                # 对于导航步骤,检查URL是否相同且时间间隔小于2秒
                                 if step['action'] == 'navigate' and last_step.get('url') == step.get('url') and time_diff < 2000:
                                     continue  # 跳过短时间内重复的导航步骤
-                                # 对于点击步骤，检查选择器是否相同且时间间隔小于1秒
+                                # 对于点击步骤,检查选择器是否相同且时间间隔小于1秒
                                 elif step['action'] == 'click' and last_step.get('selector') == step.get('selector') and time_diff < 1000:
                                     continue  # 跳过短时间内重复的点击步骤
-                                # 对于悬停步骤，检查选择器是否相同且时间间隔小于1秒
+                                # 对于悬停步骤,检查选择器是否相同且时间间隔小于1秒
                                 elif step['action'] == 'hover' and last_step.get('selector') == step.get('selector') and time_diff < 1000:
                                     continue  # 跳过短时间内重复的悬停步骤
-                                # 对于填充步骤，检查选择器和文本是否相同且时间间隔小于2秒
+                                # 对于填充步骤,检查选择器和文本是否相同且时间间隔小于2秒
                                 elif step['action'] == 'fill' and last_step.get('selector') == step.get('selector') and last_step.get('text') == step.get('text') and time_diff < 2000:
                                     continue  # 跳过短时间内重复的填充步骤
-                                # 对于按键步骤，检查选择器和按键是否相同且时间间隔小于1秒
+                                # 对于按键步骤,检查选择器和按键是否相同且时间间隔小于1秒
                                 elif step['action'] == 'keypress' and last_step.get('selector') == step.get('selector') and last_step.get('key') == step.get('key') and time_diff < 1000:
                                     continue  # 跳过短时间内重复的按键步骤
-                                # 对于提交步骤，检查选择器是否相同且时间间隔小于1秒
+                                # 对于提交步骤,检查选择器是否相同且时间间隔小于1秒
                                 elif step['action'] == 'submit' and last_step.get('selector') == step.get('selector') and time_diff < 1000:
                                     continue  # 跳过短时间内重复的提交步骤
-                                # 对于滚动步骤，检查滚动位置是否基本相同且时间间隔小于1秒
+                                # 对于滚动步骤,检查滚动位置是否基本相同且时间间隔小于1秒
                                 elif step['action'] == 'scroll' and last_step.get('scrollPosition') == step.get('scrollPosition') and time_diff < 1000:
                                     continue  # 跳过短时间内重复的滚动步骤
                         
@@ -3675,7 +3698,7 @@ class PlaywrightAutomation:
     
     def _get_recorded_events_sync(self):
         """同步获取录制的事件"""
-        # 为了避免事件循环冲突，直接返回空列表
+        # 为了避免事件循环冲突,直接返回空列表
         # 实际的事件同步已经在后台任务中完成
         return []
     
@@ -3709,7 +3732,7 @@ class PlaywrightAutomation:
             self.playwright = None
     
     async def enable_element_selection(self, url=''):
-        """启用元素选择模式，显示悬浮窗让用户选择页面元素"""
+        """启用元素选择模式,显示悬浮窗让用户选择页面元素"""
         try:
             # 检查浏览器实例是否有效
             browser_valid = False
@@ -3722,7 +3745,7 @@ class PlaywrightAutomation:
                 except:
                     browser_connected = False
             
-            # 2. 如果浏览器已连接，检查page对象是否有效
+            # 2. 如果浏览器已连接,检查page对象是否有效
             if browser_connected and self.page:
                 try:
                     # 尝试执行一个简单的操作来检查页面是否仍然有效
@@ -3734,9 +3757,9 @@ class PlaywrightAutomation:
                     self.page = None
                     self.context = None
             
-            # 3. 如果浏览器未连接或页面无效，重置所有浏览器相关状态
+            # 3. 如果浏览器未连接或页面无效,重置所有浏览器相关状态
             if not browser_valid:
-                uat_logger.warning(f"浏览器实例无效，重置所有相关状态")
+                uat_logger.warning(f"浏览器实例无效,重置所有相关状态")
                 # 尝试优雅关闭playwright
                 if self.playwright:
                     try:
@@ -3751,1053 +3774,26 @@ class PlaywrightAutomation:
             
             # 4. 启动或复用浏览器实例
             if not browser_valid:
-                # 如果浏览器实例不存在或已失效，则启动新实例
+                # 如果浏览器实例不存在或已失效,则启动新实例
                 uat_logger.info("启动新的浏览器实例")
                 await self.start_browser()
             else:
-                # 复用已存在的浏览器实例，切换到当前页面
+                # 复用已存在的浏览器实例,切换到当前页面
                 uat_logger.info("复用已存在的浏览器实例")
                 # 确保页面已加载
                 await self.page.wait_for_load_state('networkidle')
             
-            # 如果提供了URL，则导航到该URL
+            # 如果提供了URL,则导航到该URL
             if url:
                 await self.page.goto(url)
                 await self.page.wait_for_load_state('networkidle')
-            
-            # 注入元素选择悬浮窗
-            await self.page.evaluate(r"""
-                (() => {
-                    // 检查是否已经存在选择器悬浮窗
-                    if (document.getElementById('automation-selector-overlay')) {
-                        return; // 已经存在，直接返回
-                    }
-                    
-                    // 创建悬浮窗样式
-                    const style = document.createElement('style');
-                    style.textContent = `
-                        #automation-selector-overlay {
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            z-index: 999999;
-                            pointer-events: none;
-                        }
-                        
-                        #automation-selector-highlight {
-                            position: absolute;
-                            border: 2px solid #00ff00;
-                            background-color: rgba(0, 255, 0, 0.15);
-                            pointer-events: none;
-                            z-index: 999998;
-                            transition: all 0.05s ease-in-out;
-                            box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5);
-                            animation: pulse 1.5s infinite;
-                        }
-                        
-                        /* 高亮动画效果 */
-                        @keyframes pulse {
-                            0% {
-                                box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5);
-                            }
-                            50% {
-                                box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.3);
-                            }
-                            100% {
-                                box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5);
-                            }
-                        }
-                        
-                        #automation-selector-float {
-                            position: fixed;
-                            top: 20px;
-                            right: 20px;
-                            background: white;
-                            border: 2px solid #007bff;
-                            border-radius: 10px;
-                            padding: 15px;
-                            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-                            z-index: 1000000;
-                            pointer-events: auto;
-                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                            max-width: 350px;
-                            min-width: 300px;
-                            transition: all 0.3s ease;
-                        }
-                        
-                        #automation-selector-float:hover {
-                            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.2);
-                            transform: translateY(-2px);
-                        }
-                        
-                        #automation-selector-float h3 {
-                            margin-top: 0;
-                            font-size: 18px;
-                            color: #2c3e50;
-                            font-weight: 600;
-                            margin-bottom: 10px;
-                        }
-                        
-                        #automation-selector-float p {
-                            margin: 8px 0;
-                            font-size: 14px;
-                            color: #555;
-                            line-height: 1.4;
-                        }
-                        
-                        #automation-selector-float .selector-preview {
-                            background: #f8f9fa;
-                            padding: 10px;
-                            border-radius: 6px;
-                            font-family: 'Courier New', monospace;
-                            font-size: 13px;
-                            margin: 12px 0;
-                            word-break: break-all;
-                            border-left: 4px solid #007bff;
-                            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-                        }
-                        
-                        #automation-selector-float .element-info {
-                            background: #e3f2fd;
-                            padding: 8px;
-                            border-radius: 6px;
-                            margin: 8px 0;
-                            font-size: 12px;
-                            color: #1565c0;
-                            font-family: 'Courier New', monospace;
-                        }
-                        
-                        #automation-selector-float .btn {
-                            padding: 10px 16px;
-                            margin: 5px 5px 0 0;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 500;
-                            transition: all 0.2s ease;
-                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-                        }
-                        
-                        #automation-selector-float .btn:hover {
-                            transform: translateY(-1px);
-                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-                        }
-                        
-                        #automation-selector-float .btn:active {
-                            transform: translateY(0);
-                        }
-                        
-                        #automation-selector-float .btn-primary {
-                            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-                            color: white;
-                        }
-                        
-                        #automation-selector-float .btn-primary:hover {
-                            background: linear-gradient(135deg, #0056b3 0%, #003d82 100%);
-                        }
-                        
-                        #automation-selector-float .btn-secondary {
-                            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-                            color: white;
-                        }
-                        
-                        #automation-selector-float .btn-secondary:hover {
-                            background: linear-gradient(135deg, #495057 0%, #343a40 100%);
-                        }
-                        
-                        #automation-selector-float .btn-success {
-                            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
-                            color: white;
-                        }
-                        
-                        #automation-selector-float .btn-success:hover {
-                            background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
-                        }
-                        
-                        #automation-selector-float .btn-group {
-                            display: flex;
-                            gap: 8px;
-                            margin-top: 12px;
-                            flex-wrap: wrap;
-                        }
-                        
-                        #automation-selector-float .info-section {
-                            background: #f0f8ff;
-                            padding: 10px;
-                            border-radius: 6px;
-                            margin-top: 12px;
-                            font-size: 13px;
-                            color: #0066cc;
-                        }
-                        
-                        #automation-selector-float .info-section strong {
-                            font-weight: 600;
-                        }
-                    `;
-                    document.head.appendChild(style);
-                    
-                    // 创建高亮元素
-                    const highlight = document.createElement('div');
-                    highlight.id = 'automation-selector-highlight';
-                    document.body.appendChild(highlight);
-                    
-                    // 创建悬浮窗，添加开始选择按钮
-                    const floatWindow = document.createElement('div');
-                    floatWindow.id = 'automation-selector-float';
-                    floatWindow.innerHTML = `
-                        <h3>元素选择工具</h3>
-                        <p>点击"开始选择"按钮后，将鼠标悬停在页面元素上，点击即可选择该元素</p>
-                        <div class="selector-preview">选择器将显示在这里</div>
-                        <div class="json-preview" style="display: none; margin: 10px 0; padding: 8px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; font-size: 12px; color: #155724;"></div>
-                        <div class="element-info" id="element-info" style="display: none;"></div>
-                        <div class="btn-group">
-                            <button class="btn btn-primary" id="start-selection-btn">开始选择</button>
-                            <button class="btn btn-primary" id="select-element-btn" style="display: none;">选择该元素</button>
-                            <button class="btn btn-secondary" id="cancel-selection-btn">取消选择</button>
-                        </div>
-                        <div class="info-section" style="margin-top: 12px;">
-                            <strong>操作提示：</strong><br>
-                            • 悬停元素查看选择器<br>
-                            • 点击元素确认选择<br>
-                            • Shift+上箭头选择父元素<br>
-                            • 点击"选择该元素"完成选择
-                        </div>
-                    `;
-                    document.body.appendChild(floatWindow);
-                    
-                    // 全局变量 - 初始状态isSelecting为false，等待用户点击开始选择
-                    window.automationSelection = {
-                        selectedElement: null,
-                        highlight: highlight,
-                        floatWindow: floatWindow,
-                        isSelecting: false,
-                        isSelectionSaved: false, // 新增：标记是否已保存选择内容
-                        savedElement: null, // 新增：保存的元素
-                        savedSelector: '' // 新增：保存的选择器
-                    };
-                    
-                    // 生成更精确的CSS选择器函数
-                    function generateSelector(element, maxDepth = 5, currentDepth = 0) {
-                        if (!element || element.tagName === 'HTML' || currentDepth >= maxDepth) {
-                            return '';
-                        }
-                        
-                        let elementSelector = '';
-                        const tagName = element.tagName.toLowerCase();
-                        
-                        // 优先使用ID
-                        if (element.id) {
-                            return `#${element.id}`;
-                        }
-                        
-                        // 优先使用稳定属性，增加更多稳定属性类型
-                        const stableAttrs = [
-                            'data-testid', 'data-cy', 'data-test', 'data-qa', 'data-automation', 
-                            'data-selector', 'data-key', 'data-id', 'data-name', 'data-component', 
-                            'data-role', 'data-feature', 'data-behavior', 'data-action', 
-                            'data-control', 'name', 'title', 'role', 'aria-label', 
-                            'aria-labelledby', 'for', 'rel', 'data-rel', 'data-link',
-                            'data-v-*', 'data-bind', 'data-i18n', 'data-content'
-                        ];
-                        let hasStableAttr = false;
-                        for (const attr of stableAttrs) {
-                            const value = element.getAttribute(attr);
-                            if (value && value.length > 0 && !value.includes(' ')) {
-                                elementSelector = `${tagName}[${attr}="${value}"]`;
-                                hasStableAttr = true;
-                                break;
-                            }
-                        }
-                        
-                        if (!hasStableAttr) {
-                            elementSelector = tagName;
-                            // 处理类名，过滤掉动态类名
-                            if (element.className) {
-                                const allClasses = element.className.split(' ').filter(c => c.length > 0);
-                                // 增强动态类名过滤模式
-                                const dynamicClassPatterns = [
-                                    /^is-\w+$/, /^has-\w+$/, /^\w+-\w+-(leave|enter|active)$/, 
-                                    /^el-\w+(-\w+)*$/, /^ant-\w+(-\w+)*$/, /^t-[a-zA-Z0-9]{8}$/, 
-                                    /^weui-\w+(-\w+)*$/, /^layui-\w+(-\w+)*$/, /^\w+-[a-f0-9]{6,16}$/, 
-                                    /^ng-\w+$/, /^vue-\w+$/, /^react-\w+$/, /^svelte-\w+$/, 
-                                    /^css-\w+$/, /^scss-\w+$/, /^style-\w+$/, /^component-\w+$/, 
-                                    /^theme-\w+$/, /^mode-\w+$/, /^state-\w+$/, /^variant-\w+$/, 
-                                    /^hover-\w+$/, /^focus-\w+$/, /^active-\w+$/, /^disabled-\w+$/, 
-                                    /^selected-\w+$/, /^checked-\w+$/, /^expanded-\w+$/, /^collapsed-\w+$/,
-                                    /^\d+-\w+$/, /^\w+-\d+$/,
-                                    /^[a-f0-9]{6,}$/
-                                ];
-                                
-                                const stableClasses = allClasses.filter(c => {
-                                    // 过滤掉动态类名
-                                    const isDynamic = dynamicClassPatterns.some(p => p.test(c));
-                                    // 过滤掉只有数字或特殊字符的类名
-                                    const isInvalid = /^[0-9_\-]+$/.test(c);
-                                    // 过滤掉太短的类名（可能是动态生成的）
-                                    const isTooShort = c.length < 3;
-                                    return !isDynamic && !isInvalid && !isTooShort;
-                                });
-                                
-                                // 按类名长度排序，优先使用更长的类名（更可能是稳定的）
-                                const sortedClasses = stableClasses.sort((a, b) => b.length - a.length);
-                                
-                                if (sortedClasses.length) {
-                                    // 使用前3个最长的稳定类名
-                                    elementSelector += '.' + sortedClasses.slice(0, 3).join('.');
-                                }
-                            }
-                        }
-                        
-                        // 元素类型特定属性处理
-                        if (tagName === 'input') {
-                            // 对于表单输入元素，添加更多识别属性
-                            const type = element.type;
-                            if (!elementSelector.includes('[type=')) {
-                                elementSelector += `[type="${type}"]`;
-                            }
-                            
-                            // 添加多个表单属性，提高识别准确性
-                            const formAttrs = ['name', 'placeholder', 'aria-label', 'title', 'id'];
-                            for (const attr of formAttrs) {
-                                const value = element[attr] || element.getAttribute(attr);
-                                if (value && value.length > 0 && !elementSelector.includes(`[${attr}=`)) {
-                                    elementSelector += `[${attr}="${value.replace(/"/g, '&quot;')}"]`;
-                                    break;
-                                }
-                            }
-                        } else if (tagName === 'textarea' || tagName === 'select') {
-                            // 对于其他表单元素
-                            const formAttrs = ['name', 'placeholder', 'aria-label', 'title', 'id'];
-                            for (const attr of formAttrs) {
-                                const value = element[attr] || element.getAttribute(attr);
-                                if (value && value.length > 0 && !elementSelector.includes(`[${attr}=`)) {
-                                    elementSelector += `[${attr}="${value.replace(/"/g, '&quot;')}"]`;
-                                    break;
-                                }
-                            }
-                        } else if (tagName === 'img') {
-                            // 对于图片，使用更精确的定位
-                            if (element.alt && element.alt.length > 0 && !elementSelector.includes('[alt=')) {
-                                elementSelector += `[alt="${element.alt.replace(/"/g, '&quot;')}"]`;
-                            } else if (element.src && element.src.length > 0) {
-                                // 优化src处理，使用完整路径或文件名，避免动态参数
-                                const src = element.src.split('?')[0]; // 去掉查询参数
-                                const filename = src.split('/').pop();
-                                elementSelector += `[src*="${filename}"]`;
-                            }
-                        } else if (tagName === 'a') {
-                            // 增强链接元素的识别，优化动态链接处理
-                            if (element.href && element.href.length > 0 && !elementSelector.includes('[href=')) {
-                                // 优化href处理，去掉查询参数和hash
-                                const cleanHref = element.href.split('?')[0].split('#')[0];
-                                const url = new URL(cleanHref);
-                                if (url.pathname.length > 1) {
-                                    elementSelector += `[href*="${url.pathname}"]`;
-                                } else {
-                                    // 对于根路径，使用完整href
-                                    elementSelector += `[href="${cleanHref}"]`;
-                                }
-                            } else if (element.textContent && element.textContent.trim().length > 0) {
-                                // 使用文本内容作为备选
-                                const text = element.textContent.trim().substring(0, 25).replace(/"/g, '&quot;');
-                                // 使用更兼容的文本选择器
-                                elementSelector += `[data-text="${text}"]`;
-                            } else if (element.getAttribute('aria-label')) {
-                                elementSelector += `[aria-label="${element.getAttribute('aria-label').replace(/"/g, '&quot;')}"]`;
-                            }
-                        } else if (tagName === 'button') {
-                            // 增强按钮元素的识别
-                            if (element.textContent && element.textContent.trim().length > 0) {
-                                const text = element.textContent.trim().substring(0, 20).replace(/"/g, '&quot;');
-                                elementSelector += `[data-text="${text}"]`;
-                            } else if (element.getAttribute('aria-label')) {
-                                elementSelector += `[aria-label="${element.getAttribute('aria-label').replace(/"/g, '&quot;')}"]`;
-                            } else if (element.innerHTML && element.innerHTML.includes('svg')) {
-                                // 对于图标按钮，使用父元素或其他属性
-                                elementSelector += '[has-svg="true"]';
-                            }
-                        }
-                        
-                        // 增强选择器，添加位置信息
-                        const siblings = Array.from(element.parentElement.children).filter(child => 
-                            child.tagName === element.tagName
-                        );
-                        
-                        if (siblings.length > 1) {
-                            const index = siblings.indexOf(element) + 1;
-                            // 使用nth-of-type选择器，提高准确性
-                            elementSelector += `:nth-of-type(${index})`;
-                        }
-                        
-                        // 如果选择器还是太简单，添加父元素选择器，增强动态元素的定位
-                        const hasComplexSelector = elementSelector.includes('[') || elementSelector.includes(':') || elementSelector.split('.').length > 2;
-                        if (!hasComplexSelector && currentDepth < maxDepth - 1) {
-                            const parentSelector = generateSelector(element.parentElement, maxDepth, currentDepth + 1);
-                            if (parentSelector) {
-                                // 对于动态生成的元素，使用更精确的父元素路径
-                                return `${parentSelector} > ${elementSelector}`;
-                            }
-                        }
-                        
-                        return elementSelector;
-                    }
-
-                    // 元素选择逻辑 - 改进版本，支持选择更精确的元素
-                    // 新增：当鼠标移动到悬浮窗上时，保持原有元素的选中状态
-                    document.addEventListener('mouseover', function(e) {
-                        if (!window.automationSelection.isSelecting) return;
-                        
-                        // 如果选择内容已保存，则不再更新选中元素和高亮框
-                        if (window.automationSelection.isSelectionSaved) {
-                            // 显示选择已保存的提示
-                            floatWindow.querySelector('p').textContent = '选择内容已保存，点击"选择该元素"按钮确认或"取消选择"重新选择';
-                            return;
-                        }
-                        
-                        // 获取鼠标位置，使用elementFromPoint获取最顶层可见元素
-                        const x = e.clientX;
-                        const y = e.clientY;
-                        const target = document.elementFromPoint(x, y);
-                        
-                        // 检查目标元素是否是悬浮窗或悬浮窗内的元素
-                        const isHoveringFloatWindow = target === floatWindow || floatWindow.contains(target);
-                        
-                        // 如果是悬浮窗，则保持原有选中元素，不更新
-                        if (isHoveringFloatWindow) {
-                            // 只更新提示文本，不改变选中元素和高亮框
-                            floatWindow.querySelector('p').textContent = '点击"选择该元素"按钮确认选择，或继续悬停选择其他元素';
-                            return;
-                        }
-                        
-                        // 如果不是悬浮窗，则更新选中元素和高亮框
-                        if (target) {
-                            const rect = target.getBoundingClientRect();
-                            
-                            // 更新高亮框位置和大小
-                            window.automationSelection.highlight.style.left = `${rect.left}px`;
-                            window.automationSelection.highlight.style.top = `${rect.top}px`;
-                            window.automationSelection.highlight.style.width = `${rect.width}px`;
-                            window.automationSelection.highlight.style.height = `${rect.height}px`;
-                            
-                            // 更新选中元素
-                            window.automationSelection.selectedElement = target;
-                            
-                            // 生成选择器并显示
-                            const selector = generateSelector(target);
-                            const selectorPreview = floatWindow.querySelector('.selector-preview');
-                            selectorPreview.textContent = selector;
-                            
-                            // 检测元素是否包含JSON数据并显示预览
-                            const jsonPreview = floatWindow.querySelector('.json-preview');
-                            
-                            // 从多种来源检测JSON
-                            function detectJSON(element) {
-                                const sources = [];
-                                
-                                // 1. 从元素文本内容检测
-                                if (element.textContent && element.textContent.trim()) {
-                                    sources.push(element.textContent.trim());
-                                }
-                                
-                                // 2. 从innerText检测
-                                if (element.innerText && element.innerText.trim() && element.innerText.trim() !== element.textContent) {
-                                    sources.push(element.innerText.trim());
-                                }
-                                
-                                // 3. 从input/textarea的value属性检测
-                                if (element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea') {
-                                    if (element.value && element.value.trim()) {
-                                        sources.push(element.value.trim());
-                                    }
-                                }
-                                
-                                // 4. 从特定属性检测
-                                const jsonAttrs = ['data-json', 'data-content', 'data-value', 'value'];
-                                for (const attr of jsonAttrs) {
-                                    const value = element.getAttribute(attr);
-                                    if (value && value.trim()) {
-                                        sources.push(value.trim());
-                                    }
-                                }
-                                
-                                // 5. 从innerHTML中检测JSON结构
-                                if (element.innerHTML && element.innerHTML.trim()) {
-                                    const jsonPattern = /\{\s*["\w].*?\}\s*|\[\s*["\w].*?\]\s*/;
-                                    const match = element.innerHTML.match(jsonPattern);
-                                    if (match) {
-                                        sources.push(match[0].trim());
-                                    }
-                                }
-                                
-                                // 尝试解析每个潜在的JSON源
-                                for (const source of sources) {
-                                    try {
-                                        const cleaned = source.replace(/\n/g, '').replace(/\r/g, '').trim();
-                                        const parsed = JSON.parse(cleaned);
-                                        return {
-                                            success: true,
-                                            data: parsed,
-                                            source: source
-                                        };
-                                    } catch (e) {
-                                        // 继续尝试下一个源
-                                    }
-                                }
-                                
-                                return { success: false };
-                            }
-                            
-                            // 检测JSON
-                            const jsonResult = detectJSON(target);
-                            
-                            if (jsonResult.success) {
-                                // 显示JSON预览
-                                jsonPreview.style.display = 'block';
-                                const dataType = Array.isArray(jsonResult.data) ? '数组' : '对象';
-                                const itemCount = Array.isArray(jsonResult.data) ? jsonResult.data.length : Object.keys(jsonResult.data).length;
-                                jsonPreview.innerHTML = `📋 检测到JSON ${dataType}，包含 <strong>${itemCount}</strong> 个元素`;
-                            } else {
-                                // 隐藏JSON预览
-                                jsonPreview.style.display = 'none';
-                            }
-                            
-                            // 显示提示信息，告知用户可以使用Shift+向上箭头选择父元素
-                            floatWindow.querySelector('p').textContent = '将鼠标悬停在页面元素上，点击即可选择该元素（Shift+向上箭头选择父元素）';
-                        }
-                    });
-                    
-                    // 支持Shift+向上箭头选择父元素
-                    document.addEventListener('keydown', function(e) {
-                        if (e.shiftKey && e.key === 'ArrowUp' && window.automationSelection.isSelecting && window.automationSelection.selectedElement) {
-                            const currentElement = window.automationSelection.selectedElement;
-                            const parent = currentElement.parentElement;
-                            if (parent && parent.tagName !== 'HTML') {
-                                window.automationSelection.selectedElement = parent;
-                                const rect = parent.getBoundingClientRect();
-                                
-                                // 更新高亮框位置和大小
-                        window.automationSelection.highlight.style.left = `${rect.left}px`;
-                        window.automationSelection.highlight.style.top = `${rect.top}px`;
-                        window.automationSelection.highlight.style.width = `${rect.width}px`;
-                        window.automationSelection.highlight.style.height = `${rect.height}px`;
-                        
-                        // 生成选择器并显示
-                        const selector = generateSelector(parent);
-                        const selectorPreview = floatWindow.querySelector('.selector-preview');
-                        selectorPreview.textContent = selector;
-                        
-                        // 检测父元素是否包含JSON数据并显示预览
-                        const jsonPreview = floatWindow.querySelector('.json-preview');
-                        
-                        // 复用之前定义的detectJSON函数
-                        function detectJSON(element) {
-                            const sources = [];
-                            
-                            // 1. 从元素文本内容检测
-                            if (element.textContent && element.textContent.trim()) {
-                                sources.push(element.textContent.trim());
-                            }
-                            
-                            // 2. 从innerText检测
-                            if (element.innerText && element.innerText.trim() && element.innerText.trim() !== element.textContent) {
-                                sources.push(element.innerText.trim());
-                            }
-                            
-                            // 3. 从input/textarea的value属性检测
-                            if (element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea') {
-                                if (element.value && element.value.trim()) {
-                                    sources.push(element.value.trim());
-                                }
-                            }
-                            
-                            // 4. 从特定属性检测
-                            const jsonAttrs = ['data-json', 'data-content', 'data-value', 'value'];
-                            for (const attr of jsonAttrs) {
-                                const value = element.getAttribute(attr);
-                                if (value && value.trim()) {
-                                    sources.push(value.trim());
-                                }
-                            }
-                            
-                            // 5. 从innerHTML中检测JSON结构
-                            if (element.innerHTML && element.innerHTML.trim()) {
-                                const jsonPattern = /\{\s*["\w].*?\}\s*|\[\s*["\w].*?\]\s*/;
-                                const match = element.innerHTML.match(jsonPattern);
-                                if (match) {
-                                    sources.push(match[0].trim());
-                                }
-                            }
-                            
-                            // 尝试解析每个潜在的JSON源
-                            for (const source of sources) {
-                                try {
-                                    const cleaned = source.replace(/\n/g, '').replace(/\r/g, '').trim();
-                                    const parsed = JSON.parse(cleaned);
-                                    return {
-                                        success: true,
-                                        data: parsed,
-                                        source: source
-                                    };
-                                } catch (e) {
-                                    // 继续尝试下一个源
-                                }
-                            }
-                            
-                            return { success: false };
-                        }
-                        
-                        // 检测JSON
-                        const jsonResult = detectJSON(parent);
-                        
-                        if (jsonResult.success) {
-                            // 显示JSON预览
-                            jsonPreview.style.display = 'block';
-                            const dataType = Array.isArray(jsonResult.data) ? '数组' : '对象';
-                            const itemCount = Array.isArray(jsonResult.data) ? jsonResult.data.length : Object.keys(jsonResult.data).length;
-                            jsonPreview.innerHTML = `📋 检测到JSON ${dataType}，包含 <strong>${itemCount}</strong> 个元素`;
-                        } else {
-                            // 隐藏JSON预览
-                            jsonPreview.style.display = 'none';
-                        }
-                            }
-                            e.preventDefault();
-                            e.stopPropagation();
-                        }
-                    });
-                    
-                    // 点击元素选择
-                    document.addEventListener('click', function(e) {
-                        if (!window.automationSelection.isSelecting) return;
-                        
-                        const target = e.target;
-                        if (target === floatWindow || floatWindow.contains(target)) {
-                            return; // 点击的是悬浮窗内部，不处理
-                        }
-                        
-                        // 阻止默认事件和冒泡，防止页面跳转等行为
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        // 如果选择内容尚未保存，则保存选择内容
-                        if (!window.automationSelection.isSelectionSaved) {
-                            // 更新选中元素
-                            window.automationSelection.selectedElement = target;
-                            
-                            // 生成选择器
-                            const selector = generateSelector(target);
-                            
-                            // 保存选择内容
-                            window.automationSelection.isSelectionSaved = true;
-                            window.automationSelection.savedElement = target;
-                            window.automationSelection.savedSelector = selector;
-                            
-                            // 更新选择器预览
-                            const selectorPreview = floatWindow.querySelector('.selector-preview');
-                            selectorPreview.textContent = selector;
-                            selectorPreview.style.backgroundColor = '#d4edda'; // 绿色背景，表示已保存
-                            selectorPreview.style.borderColor = '#c3e6cb';
-                            selectorPreview.style.border = '1px solid #c3e6cb';
-                            
-                            // 更新高亮框样式，显示已保存
-                            window.automationSelection.highlight.style.borderColor = '#28a745'; // 绿色边框，表示已保存
-                            window.automationSelection.highlight.style.backgroundColor = 'rgba(40, 167, 69, 0.2)'; // 绿色背景，表示已保存
-                        }
-                        
-                        // 如果选择内容尚未保存，则检测JSON数据
-                        if (!window.automationSelection.isSelectionSaved) {
-                            // 检测点击的元素是否包含JSON数据并显示预览
-                            const jsonPreview = floatWindow.querySelector('.json-preview');
-                            
-                            // 复用之前定义的detectJSON函数
-                            function detectJSON(element) {
-                            const sources = [];
-                            
-                            // 1. 从元素文本内容检测
-                            if (element.textContent && element.textContent.trim()) {
-                                sources.push(element.textContent.trim());
-                            }
-                            
-                            // 2. 从innerText检测
-                            if (element.innerText && element.innerText.trim() && element.innerText.trim() !== element.textContent) {
-                                sources.push(element.innerText.trim());
-                            }
-                            
-                            // 3. 从input/textarea的value属性检测
-                            if (element.tagName.toLowerCase() === 'input' || element.tagName.toLowerCase() === 'textarea') {
-                                if (element.value && element.value.trim()) {
-                                    sources.push(element.value.trim());
-                                }
-                            }
-                            
-                            // 4. 从特定属性检测
-                            const jsonAttrs = ['data-json', 'data-content', 'data-value', 'value'];
-                            for (const attr of jsonAttrs) {
-                                const value = element.getAttribute(attr);
-                                if (value && value.trim()) {
-                                    sources.push(value.trim());
-                                }
-                            }
-                            
-                            // 5. 从innerHTML中检测JSON结构
-                            if (element.innerHTML && element.innerHTML.trim()) {
-                                const jsonPattern = /\{\s*["\w].*?\}\s*|\[\s*["\w].*?\]\s*/;
-                                const match = element.innerHTML.match(jsonPattern);
-                                if (match) {
-                                    sources.push(match[0].trim());
-                                }
-                            }
-                            
-                            // 尝试解析每个潜在的JSON源
-                            for (const source of sources) {
-                                try {
-                                    const cleaned = source.replace(/\n/g, '').replace(/\r/g, '').trim();
-                                    const parsed = JSON.parse(cleaned);
-                                    return {
-                                        success: true,
-                                        data: parsed,
-                                        source: source
-                                    };
-                                } catch (e) {
-                                    // 继续尝试下一个源
-                                }
-                            }
-                            
-                            return { success: false };
-                        }
-                        
-                        // 检测JSON
-                        const jsonResult = detectJSON(target);
-                        
-                        if (jsonResult.success) {
-                            // 显示JSON预览
-                            jsonPreview.style.display = 'block';
-                            const dataType = Array.isArray(jsonResult.data) ? '数组' : '对象';
-                            const itemCount = Array.isArray(jsonResult.data) ? jsonResult.data.length : Object.keys(jsonResult.data).length;
-                            jsonPreview.innerHTML = `📋 检测到JSON ${dataType}，包含 <strong>${itemCount}</strong> 个元素`;
-                        } else {
-                            // 隐藏JSON预览
-                            jsonPreview.style.display = 'none';
-                        }
-                        
-                        // 更新提示文本，显示选择已保存
-                        floatWindow.querySelector('p').textContent = '选择内容已保存，点击"选择该元素"按钮确认或"取消选择"重新选择';
-                    }
-                    });
-                    
-                    // 开始选择按钮事件
-                    document.getElementById('start-selection-btn').addEventListener('click', function() {
-                        // 启动选择模式
-                        window.automationSelection.isSelecting = true;
-                        
-                        // 显示选择该元素按钮，隐藏开始选择按钮
-                        document.getElementById('start-selection-btn').style.display = 'none';
-                        document.getElementById('select-element-btn').style.display = 'inline-block';
-                        
-                        // 更新提示文本
-                        floatWindow.querySelector('p').textContent = '将鼠标悬停在页面元素上，点击即可选择该元素';
-                    });
-                    
-                    // 选择按钮事件
-                    document.getElementById('select-element-btn').addEventListener('click', function() {
-                        if (window.automationSelection.selectedElement) {
-                            const element = window.automationSelection.selectedElement;
-                            const selector = generateSelector(element);
-                            
-                            // 触发自定义事件，通知外部代码
-                            const event = new CustomEvent('elementSelected', {
-                                detail: {
-                                    selector: selector,
-                                    elementInfo: {
-                                        tagName: element.tagName,
-                                        id: element.id || '',
-                                        className: element.className || '',
-                                        textContent: element.textContent ? element.textContent.substring(0, 100) : '',
-                                        attributes: {
-                                            type: element.type || '',
-                                            name: element.name || '',
-                                            value: element.value || '',
-                                            href: element.href || '',
-                                            src: element.src || '',
-                                            alt: element.alt || '',
-                                            title: element.title || ''
-                                        }
-                                    }
-                                }
-                            });
-                            window.dispatchEvent(event);
-                            
-                            // 选择完成后禁用选择模式
-                            window.automationSelection.isSelecting = false;
-                            window.automationSelection.highlight.style.display = 'none';
-                            window.automationSelection.floatWindow.style.display = 'none';
-                        }
-                    });
-                    
-                    // 确保generateSelector函数在全局可用，用于get_selected_element方法
-                    window.generateSelector = generateSelector;
-                    
-                    // 取消按钮事件
-                    document.getElementById('cancel-selection-btn').addEventListener('click', function() {
-                        disableElementSelection();
-                    });
-                    
-                    // 禁用元素选择的函数
-                    window.disableElementSelection = function() {
-                        // 移除事件监听器（简化处理，实际生产环境中应保存监听器引用以便移除）
-                        window.automationSelection.isSelecting = false;
-                        
-                        // 隐藏高亮和悬浮窗
-                        window.automationSelection.highlight.style.display = 'none';
-                        window.automationSelection.floatWindow.style.display = 'none';
-                    };
-                })
-            """)
-            
-            # 添加页面加载事件监听器，确保页面导航后重新注入悬浮窗
-            async def handle_page_load():
-                """页面加载时重新注入悬浮窗"""
-                try:
-                    await self.page.evaluate(r"""
-                        (() => {
-                            // 检查是否已经存在选择器悬浮窗
-                            if (document.getElementById('automation-selector-float')) {
-                                return; // 已经存在，直接返回
-                            }
-                            
-                            // 重新注入悬浮窗和相关逻辑
-                            // 检查sessionStorage中是否保存了选择状态
-                            const savedState = window.sessionStorage.getItem('automationSelectionState');
-                            const selectionState = savedState ? JSON.parse(savedState) : null;
-                            const shouldRestoreSelection = selectionState && selectionState.isSelecting;
-                            
-                            // 创建高亮元素
-                            const highlight = document.createElement('div');
-                            highlight.id = 'automation-selector-highlight';
-                            // 如果需要恢复选择状态，保持高亮显示
-                            if (shouldRestoreSelection) {
-                                highlight.style.display = 'block';
-                            }
-                            document.body.appendChild(highlight);
-                            
-                            // 创建悬浮窗
-                            const floatWindow = document.createElement('div');
-                            floatWindow.id = 'automation-selector-float';
-                            floatWindow.innerHTML = `
-                                <h3>元素选择工具</h3>
-                                <p>将鼠标悬停在页面元素上，点击即可选择该元素</p>
-                                <div class="selector-preview">${shouldRestoreSelection && selectionState.savedSelector ? selectionState.savedSelector : '选择器将显示在这里'}</div>
-                                <div class="json-preview" style="display: none; margin: 10px 0; padding: 8px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; font-size: 12px; color: #155724;"></div>
-                                <button class="btn btn-primary" id="select-element-btn">选择该元素</button>
-                                <button class="btn btn-secondary" id="cancel-selection-btn">取消选择</button>
-                            `;
-                            // 如果需要恢复选择状态，保持悬浮窗显示
-                            if (shouldRestoreSelection) {
-                                floatWindow.style.display = 'block';
-                            }
-                            document.body.appendChild(floatWindow);
-                            
-                            // 重新初始化选择逻辑
-                            window.automationSelection = {
-                                selectedElement: null,
-                                highlight: highlight,
-                                floatWindow: floatWindow,
-                                isSelecting: shouldRestoreSelection, // 如果有保存的状态，保持选择模式
-                                isSelectionSaved: shouldRestoreSelection,
-                                savedElement: null,
-                                savedSelector: shouldRestoreSelection ? selectionState.savedSelector : ''
-                            };
-                            
-                            // 重新添加事件监听器
-                            document.addEventListener('mouseover', function(e) {
-                                if (!window.automationSelection.isSelecting) return;
-                                
-                                const target = e.target;
-                                // 检查是否悬停在悬浮窗上
-                                if (target === floatWindow || floatWindow.contains(target)) {
-                                    return;
-                                }
-                                
-                                const rect = target.getBoundingClientRect();
-                                
-                                // 更新高亮框位置和大小
-                                window.automationSelection.highlight.style.left = `${rect.left}px`;
-                                window.automationSelection.highlight.style.top = `${rect.top}px`;
-                                window.automationSelection.highlight.style.width = `${rect.width}px`;
-                                window.automationSelection.highlight.style.height = `${rect.height}px`;
-                                
-                                // 更新选中元素
-                                window.automationSelection.selectedElement = target;
-                                
-                                // 生成选择器并显示
-                                if (window.generateSelector) {
-                                    const selector = window.generateSelector(target);
-                                    const selectorPreview = floatWindow.querySelector('.selector-preview');
-                                    selectorPreview.textContent = selector;
-                                    
-                                    // 更新保存的选择器
-                                    window.automationSelection.savedSelector = selector;
-                                    
-                                    // 保存选择状态到sessionStorage
-                                    window.sessionStorage.setItem('automationSelectionState', JSON.stringify({
-                                        isSelecting: true,
-                                        savedSelector: selector,
-                                        timestamp: Date.now()
-                                    }));
-                                }
-                            });
-                            
-                            // 点击元素选择
-                            document.addEventListener('click', function(e) {
-                                if (!window.automationSelection.isSelecting) return;
-                                
-                                const target = e.target;
-                                if (target === floatWindow || floatWindow.contains(target)) {
-                                    return; // 点击的是悬浮窗内部，不处理
-                                }
-                                
-                                // 阻止默认事件和冒泡，防止页面跳转等行为
-                                e.preventDefault();
-                                e.stopPropagation();
-                                
-                                window.automationSelection.selectedElement = target;
-                                if (window.generateSelector) {
-                                    const selector = window.generateSelector(target);
-                                    const selectorPreview = floatWindow.querySelector('.selector-preview');
-                                    selectorPreview.textContent = selector;
-                                    
-                                    // 更新保存的选择器
-                                    window.automationSelection.savedSelector = selector;
-                                    
-                                    // 保存选择状态到sessionStorage
-                                    window.sessionStorage.setItem('automationSelectionState', JSON.stringify({
-                                        isSelecting: true,
-                                        savedSelector: selector,
-                                        timestamp: Date.now()
-                                    }));
-                                }
-                            });
-                            
-                            // 选择按钮事件
-                            document.getElementById('select-element-btn').addEventListener('click', function() {
-                                if (window.automationSelection.selectedElement) {
-                                    const element = window.automationSelection.selectedElement;
-                                    const selector = window.generateSelector(element);
-                                    
-                                    // 触发自定义事件，通知外部代码
-                                    const event = new CustomEvent('elementSelected', {
-                                        detail: {
-                                            selector: selector,
-                                            elementInfo: {
-                                                tagName: element.tagName,
-                                                id: element.id || '',
-                                                className: element.className || '',
-                                                textContent: element.textContent ? element.textContent.substring(0, 100) : '',
-                                                attributes: {
-                                                    type: element.type || '',
-                                                    name: element.name || '',
-                                                    value: element.value || '',
-                                                    href: element.href || '',
-                                                    src: element.src || '',
-                                                    alt: element.alt || '',
-                                                    title: element.title || '',
-                                                    role: element.getAttribute('role') || '',
-                                                    'data-testid': element.getAttribute('data-testid') || '',
-                                                    'data-cy': element.getAttribute('data-cy') || '',
-                                                    'data-test': element.getAttribute('data-test') || ''
-                                                }
-                                            }
-                                        }
-                                    });
-                                    window.dispatchEvent(event);
-                                    
-                                    // 清除保存的选择状态
-                                    window.sessionStorage.removeItem('automationSelectionState');
-                                    
-                                    // 标记为已选择
-                                    window.automationSelection.isSelecting = false;
-                                }
-                            });
-                            
-                            // 取消选择按钮事件
-                            document.getElementById('cancel-selection-btn').addEventListener('click', function() {
-                                if (window.automationSelection) {
-                                    window.automationSelection.isSelecting = false;
-                                    
-                                    // 清除保存的选择状态
-                                    window.sessionStorage.removeItem('automationSelectionState');
-                                    
-                                    // 移除高亮和悬浮窗
-                                    if (window.automationSelection.highlight && window.automationSelection.highlight.parentNode) {
-                                        window.automationSelection.highlight.parentNode.removeChild(window.automationSelection.highlight);
-                                    }
-                                    if (window.automationSelection.floatWindow && window.automationSelection.floatWindow.parentNode) {
-                                        window.automationSelection.floatWindow.parentNode.removeChild(window.automationSelection.floatWindow);
-                                    }
-                                    
-                                    // 重置全局变量
-                                    window.automationSelection = null;
-                                }
-                            });
-                        })
-                    """)
-                except Exception as e:
-                    uat_logger.error(f"页面加载时重新注入悬浮窗出错: {str(e)}")
-            
-            # 添加页面加载事件监听器
-            self.page.on('load', handle_page_load)
-            self.page.on('domcontentloaded', handle_page_load)
-            self.page.on('framenavigated', handle_page_load)
-            
-            # 添加beforeunload事件监听器，保存选择状态
-            await self.page.evaluate(r"""
-                (() => {
-                    window.addEventListener('beforeunload', function() {
-                        if (window.automationSelection && window.automationSelection.isSelecting) {
-                            // 保存选择状态到sessionStorage
-                            window.sessionStorage.setItem('automationSelectionState', JSON.stringify({
-                                isSelecting: true,
-                                savedSelector: window.automationSelection.savedSelector || '',
-                                timestamp: Date.now()
-                            }));
-                        }
-                    });
-                    
-                    // 添加popstate事件监听器（浏览器前进/后退）
-                    window.addEventListener('popstate', function() {
-                        // 延迟执行，确保页面已加载完成
-                        setTimeout(() => {
-                            const savedState = window.sessionStorage.getItem('automationSelectionState');
-                            if (savedState && JSON.parse(savedState).isSelecting) {
-                                // 页面导航后，重新检查并注入悬浮窗
-                                const event = new CustomEvent('checkSelectionState');
-                                window.dispatchEvent(event);
-                            }
-                        }, 200);
-                    });
-                    
-                    // 添加hashchange事件监听器
-                    window.addEventListener('hashchange', function() {
-                        const savedState = window.sessionStorage.getItem('automationSelectionState');
-                        if (savedState && JSON.parse(savedState).isSelecting) {
-                            // 延迟执行，确保页面已加载完成
-                            setTimeout(() => {
-                                const event = new CustomEvent('checkSelectionState');
-                                window.dispatchEvent(event);
-                            }, 200);
-                        }
-                    });
-                })
-            """)
             
             uat_logger.info("元素选择模式已启用")
             return True
         except Exception as e:
             uat_logger.error(f"启用元素选择模式时出错: {str(e)}")
             raise Exception(f"启用元素选择模式失败: {str(e)}")
-    
+
     async def disable_element_selection(self):
         """禁用元素选择模式"""
         if self.page is None:
@@ -4817,14 +3813,14 @@ class PlaywrightAutomation:
         except Exception as e:
             uat_logger.error(f"禁用元素选择模式时出错: {str(e)}")
             return False
-    
+
     async def get_selected_element(self):
         """获取用户选择的元素信息"""
         if self.page is None:
             return None
         
         try:
-            # 获取页面标题，用于填充页面名称
+            # 获取页面标题,用于填充页面名称
             page_name = await self.page.title()
             
             # 等待元素选择事件
@@ -4865,7 +3861,7 @@ class PlaywrightAutomation:
             """)
             
             if raw_element_info:
-                # 处理原始元素信息，转换为前端期望的格式
+                # 处理原始元素信息,转换为前端期望的格式
                 element = raw_element_info.get('elementInfo', {})
                 css_selector = raw_element_info.get('selector', '')
                 text_content = element.get('textContent', '').strip()
@@ -4874,16 +3870,16 @@ class PlaywrightAutomation:
                 selector_type = 'css'
                 selector_value = css_selector
                 
-                # 如果有ID，优先使用ID选择器
+                # 如果有ID,优先使用ID选择器
                 element_id = element.get('id', '')
                 if element_id:
                     selector_type = 'id'
                     selector_value = element_id
-                # 如果有data-testid属性，优先使用testid
+                # 如果有data-testid属性,优先使用testid
                 elif element.get('attributes', {}).get('data-testid'):
                     selector_type = 'testid'
                     selector_value = element.get('attributes', {}).get('data-testid')
-                # 如果是文本内容比较独特，使用文本选择器
+                # 如果是文本内容比较独特,使用文本选择器
                 elif text_content and len(text_content) > 5:
                     selector_type = 'text'
                     selector_value = text_content
@@ -4906,7 +3902,7 @@ class PlaywrightAutomation:
         except Exception as e:
             uat_logger.error(f"获取选中元素信息时出错: {str(e)}")
             raise Exception(f"获取选中元素信息失败: {str(e)}")
-    
+
     async def extract_json_from_selected_element(self):
         """从用户选定的区域提取JSON数据"""
         if self.page is None:
@@ -4944,10 +3940,11 @@ class PlaywrightAutomation:
 # 全局实例
 automation = PlaywrightAutomation()
 
-# 添加一个函数来重置自动化实例，确保每次录制都是干净的开始
+# 添加一个函数来重置自动化实例,确保每次录制都是干净的开始
 def reset_automation_instance():
-    """重置自动化实例，确保干净的状态"""
+    """重置自动化实例,确保干净的状态"""
     global automation
+    global worker
     # 关闭当前实例的浏览器
     try:
         if automation.browser:
@@ -4955,7 +3952,17 @@ def reset_automation_instance():
     except:
         pass  # 忽略错误
     
-    # 创建新的实例
+    # 停止并重新创建工作线程
+    try:
+        if worker:
+            worker.stop()
+    except:
+        pass  # 忽略错误
+    
+    # 创建新的工作线程实例
+    worker = PlaywrightWorker()
+    
+    # 创建新的自动化实例
     automation = PlaywrightAutomation()
     return automation
 
@@ -4989,7 +3996,7 @@ class PlaywrightWorker:
         
         while self.running:
             try:
-                # 获取任务，超时1秒
+                # 获取任务,超时1秒
                 task = self.task_queue.get(timeout=1)
                 task_id, func, args, kwargs = task
                 
@@ -5029,7 +4036,7 @@ class PlaywrightWorker:
         # 等待结果
         while True:
             try:
-                # 增加超时时间到10分钟（600秒），以支持长脚本执行
+                # 增加超时时间到10分钟(600秒),以支持长脚本执行
                 tid, status, result = self.result_queue.get(timeout=600)
                 if tid == task_id:
                     if status == "success":
@@ -5241,7 +4248,7 @@ try:
         
         Args:
             url: 目标URL
-            selector: CSS选择器，可选
+            selector: CSS选择器,可选
             
         Returns:
             提取到的文本内容
@@ -5272,7 +4279,7 @@ try:
         PlaywrightAutomation.crawl_extract_text = crawl_extract_text
         PlaywrightAutomation.crawl_extract_multiple_elements = crawl_extract_multiple_elements
     else:
-        # 如果类未定义，稍后绑定
+        # 如果类未定义,稍后绑定
         def bind_crawler_methods():
             if hasattr(sys.modules[__name__], 'PlaywrightAutomation'):
                 cls = getattr(sys.modules[__name__], 'PlaywrightAutomation')
@@ -5281,8 +4288,8 @@ try:
         bind_crawler_methods()
     
 except ImportError:
-    uat_logger.warning("未能导入网络爬虫文本提取模块，将使用原版方法")
-    # 如果无法导入爬虫模块，保持原有功能不变
+    uat_logger.warning("未能导入网络爬虫文本提取模块,将使用原版方法")
+    # 如果无法导入爬虫模块,保持原有功能不变
     pass
 
 
@@ -5316,7 +4323,7 @@ try:
         
         Args:
             selector: CSS选择器
-            timeout: 超时时间（毫秒）
+            timeout: 超时时间(毫秒)
             
         Returns:
             提取到的文本内容
@@ -5359,6 +4366,6 @@ try:
     PlaywrightAutomation.extract_text_by_priority = extract_text_by_priority
     
 except ImportError:
-    uat_logger.warning("未能导入高性能文本提取模块，将使用优化后的基础方法")
-    # 如果无法导入高性能提取模块，保持优化后的基础功能
+    uat_logger.warning("未能导入高性能文本提取模块,将使用优化后的基础方法")
+    # 如果无法导入高性能提取模块,保持优化后的基础功能
     pass

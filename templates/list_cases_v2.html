@@ -710,14 +710,21 @@
                 return;
             }
             
-            // 如果只选择了一个测试用例，使用单个测试用例的API端点
-            if (selectedCaseIds.size === 1) {
-                const caseId = Array.from(selectedCaseIds)[0];
-                await runTestCase(caseId);
-                return;
+            // 显示加载状态，防止重复点击
+            const runButton = document.querySelector('button.btn-success[onclick="executeSelectedCases()"]');
+            if (runButton) {
+                runButton.disabled = true;
+                runButton.textContent = '执行中...';
             }
             
             try {
+                // 如果只选择了一个测试用例，使用单个测试用例的API端点
+                if (selectedCaseIds.size === 1) {
+                    const caseId = Array.from(selectedCaseIds)[0];
+                    await runTestCase(caseId);
+                    return;
+                }
+                
                 const response = await fetch('/api/execute_multiple_cases', {
                     method: 'POST',
                     headers: {
@@ -727,6 +734,10 @@
                         case_ids: Array.from(selectedCaseIds)
                     })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`服务器返回错误: ${response.status} ${response.statusText}`);
+                }
                 
                 const data = await response.json();
                 
@@ -770,50 +781,79 @@
                     `);
                 }
             } catch (error) {
+                console.error('执行测试用例时发生错误:', error);
                 showRunResultModal(`
                     <div style="padding: 20px; color: red;">
                         <h4>执行失败</h4>
                         <p>发生错误: ${error.message}</p>
                     </div>
                 `);
+            } finally {
+                // 恢复按钮状态
+                if (runButton) {
+                    runButton.disabled = false;
+                    runButton.textContent = '▶ 执行选中的用例';
+                }
             }
         }
         
         // 运行单个测试用例
         async function runTestCase(caseId) {
-    try {
-        const response = await fetch(`/api/cases/${caseId}/run`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showRunResultModal(`
-                <div style="padding: 20px;">
-                    <h4>执行结果</h4>
-                    <p><strong>状态:</strong> 成功</p>
-                    ${data.extracted_text ? `<p><strong>提取的文本:</strong> ${escapeHtml(data.extracted_text)}</p>` : ''}
-                    <p><strong>执行时间:</strong> ${data.duration || '未知'}秒</p>
-                </div>
-            `);
-        } else {
-            showRunResultModal(`
-                <div style="padding: 20px; color: red;">
-                    <h4>执行失败</h4>
-                    <p>${escapeHtml(data.error || '未知错误')}</p>
-                </div>
-            `);
+            // 显示加载状态，防止重复点击
+            const runButtons = document.querySelectorAll('button.btn-success.btn-sm');
+            runButtons.forEach(btn => {
+                if (btn.onclick && btn.onclick.toString().includes(`runTestCase(${caseId})`)) {
+                    btn.disabled = true;
+                    btn.textContent = '执行中...';
+                }
+            });
+            
+            try {
+                const response = await fetch(`/api/cases/${caseId}/run`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`服务器返回错误: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showRunResultModal(`
+                        <div style="padding: 20px;">
+                            <h4>执行结果</h4>
+                            <p><strong>状态:</strong> 成功</p>
+                            ${data.extracted_text ? `<p><strong>提取的文本:</strong> ${escapeHtml(data.extracted_text)}</p>` : ''}
+                            <p><strong>执行时间:</strong> ${data.duration || '未知'}秒</p>
+                        </div>
+                    `);
+                } else {
+                    showRunResultModal(`
+                        <div style="padding: 20px; color: red;">
+                            <h4>执行失败</h4>
+                            <p>${escapeHtml(data.error || '未知错误')}</p>
+                        </div>
+                    `);
+                }
+            } catch (error) {
+                console.error('执行测试用例时发生错误:', error);
+                showRunResultModal(`
+                    <div style="padding: 20px; color: red;">
+                        <h4>执行失败</h4>
+                        <p>发生错误: ${error.message}</p>
+                    </div>
+                `);
+            } finally {
+                // 恢复按钮状态
+                runButtons.forEach(btn => {
+                    if (btn.onclick && btn.onclick.toString().includes(`runTestCase(${caseId})`)) {
+                        btn.disabled = false;
+                        btn.textContent = '运行';
+                    }
+                });
+            }
         }
-    } catch (error) {
-        showRunResultModal(`
-            <div style="padding: 20px; color: red;">
-                <h4>执行失败</h4>
-                <p>发生错误: ${error.message}</p>
-            </div>
-        `);
-    }
-}
         
         function backToProjects() {
             window.location.href = '/list_projects';

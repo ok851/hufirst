@@ -415,9 +415,10 @@
         
         // 页面加载时获取运行历史记录和项目列表
         document.addEventListener('DOMContentLoaded', function() {
-            loadRunHistory();
             // 延迟加载项目列表，确保页面已经完全加载
             setTimeout(loadProjects, 100);
+            // 延迟加载运行历史记录，确保项目列表已经加载完成
+            setTimeout(loadRunHistory, 200);
         });
         
         // 加载项目列表
@@ -458,14 +459,14 @@
         }
         
         // 加载运行历史记录
-        function loadRunHistory() {
+        function loadRunHistory(ignoreCaseId = false) {
             const projectId = document.getElementById('projectFilter').value;
             const searchText = document.getElementById('searchInput').value;
             const statusFilter = document.getElementById('statusFilter').value;
             
             // 获取URL中的case_id参数
             const urlParams = new URLSearchParams(window.location.search);
-            const caseId = urlParams.get('case_id');
+            const caseId = ignoreCaseId ? null : urlParams.get('case_id');
             
             const container = document.getElementById('historyContainer');
             container.innerHTML = '<div class="loading">加载中...</div>';
@@ -604,7 +605,7 @@
         // 搜索历史记录
         function searchHistory() {
             currentPage = 1;
-            loadRunHistory();
+            loadRunHistory(true);
         }
         
         // 删除运行历史记录
